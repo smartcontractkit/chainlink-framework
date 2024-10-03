@@ -1,0 +1,17 @@
+# bin
+tools/bin/*
+
+# generated content
+**/*.abi
+**/*.bin
+generated/
+
+# misc
+.DS_Store
+.envrc
+.env*
+.dbenv
+.direnv
+.idea
+.vscode/
+*.iml
