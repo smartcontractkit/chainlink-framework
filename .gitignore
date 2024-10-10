@@ -1,0 +1,58 @@
+# dependencies
+node_modules/
+tmp/
+.pnp
+.pnp.js
+tools/bin/abigen
+
+# Tooling caches
+*.tsbuildinfo
+.eslintcache
+
+# Log files
+*.log
+
+# misc
+.DS_Store
+.envrc
+.env*
+.dbenv
+!crib/.env.example
+!.github/actions/setup-postgres/.env
+.direnv
+.idea
+.vscode/
+*.iml
+debug.env
+*.txt
+operator_ui/install
+
+# codeship
+*.aes
+dockercfg
+env
+credentials.env
+gcr_creds.env
+
+# Test artifacts
+core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
+output.txt
+race.*
+golangci-lint-output.txt
+/golangci-lint/
+.covdata
+
+# goreleaser builds
+cosign.*
+dist/
+MacOSX*
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out
+dot_graphs/
+
+# Ignore DevSpace cache and log folder
+.devspace/
+go.work*
