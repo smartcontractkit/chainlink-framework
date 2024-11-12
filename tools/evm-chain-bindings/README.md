@@ -40,7 +40,7 @@ make install
 
 ### Example project
 
-There a example project located in examples/basic showing how to setup a project to add in the build process the tool execution using go:generate and Makefile
+There's an example project located in the folder examples/basic with a project that leverages the evm-chain-bindings cli using go:generate and a Makefile
 
 ### Command line tool
 
