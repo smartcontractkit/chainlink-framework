@@ -22,7 +22,7 @@ Solidity primitive types to Go primitive types are not fully mapped. If you enco
 
 ## Troubleshooting and issue reporting
 
-This is a POC so only used this tool at your own risk and do not use it yet for anything targeting production soon. We are still evaluating the POC and defining if we will productize this tool or not.
+This is a POC so only use this tool at your own risk and do not use it yet for anything targeting production soon. We are still evaluating the POC and defining if we will productize this tool or not.
 The easiest way to get help would be to push a branch with your projects and explain the issue with DM through slack to Pablo La Greca to get a fix. 
 
 ## installation
