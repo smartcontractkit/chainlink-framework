@@ -24,10 +24,10 @@ var (
 type ExitStatus int
 
 const (
-	Success                    ExitStatus = iota // 0 	// 1
-	ContractOrOutputEmpty                        // 2
-	FailedToListContractFolder                   // 3
-	FailedLoadingAbiFile
+	Success                    ExitStatus = iota // 0
+	ContractOrOutputEmpty                        // 1
+	FailedToListContractFolder                   // 2
+	FailedLoadingAbiFile                         // 3
 	FailedCleaningOrCreatingOutputDir
 	FailedGeneratingCRConfig
 	FailedGeneratingContractBindingCode
