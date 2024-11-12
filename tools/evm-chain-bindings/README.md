@@ -30,9 +30,8 @@ The easiest way to get help would be to push a branch with your projects and exp
 To install the command line tool:
 
 ```sh
-git clone https://github.com/smartcontractkit/chainlink.git
-cd chainlink
-git checkout -b go-bindings-poc origin/go-bindings-poc
+git clone https://github.com/smartcontractkit/chainlink-framework.git
+cd chainlink-framework
 cd evm-chain-bindings
 make install
 ```
