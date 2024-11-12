@@ -17,7 +17,7 @@ var (
 	contracts           = flag.String("contracts", "contracts", "comma-separated list of directories containing EVM smart contracts source and ABI files; must be set")
 	output              = flag.String("output", "generated/evm/bindings", "output folder for the generated code")
 	clean               = flag.Bool("clean", false, "output folder for the generated code")
-	silentIfNoContracts = flag.Bool("silent-if-no-contracts", false, "do not fails if there are not contracts to be processed")
+	silentIfNoContracts = flag.Bool("silent-if-no-contracts", false, "do not fail if there are not contracts to be processed")
 	verbose             = flag.Bool("verbose", false, "generates debugging output")
 )
 
