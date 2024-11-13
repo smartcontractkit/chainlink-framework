@@ -172,11 +172,11 @@ func ConvertABIToCodeDetails(contractName string, abiJSON string) (CodeDetails, 
 		return CodeDetails{}, err
 	}
 
-	//TODO BCFR-968 - Add support for reading data generated from events
-	//details, err2, done := generateEventFunctions(contractName, parsedABI, structs, &codeDetails)
-	//if done {
-	//	return details, err2
-	//}
+	// TODO BCFR-968 - Add support for reading data generated from events
+	details, err2, done := generateEventFunctions(contractName, parsedABI, structs, &codeDetails)
+	if done {
+		return details, err2
+	}
 
 	codeDetails.Structs = structs
 	return codeDetails, nil

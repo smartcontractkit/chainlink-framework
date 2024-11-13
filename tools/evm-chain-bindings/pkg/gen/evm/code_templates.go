@@ -8,6 +8,7 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"math/big"
 )
@@ -34,7 +35,7 @@ func (b {{$.CodeDetails.ContractStructName}}) {{.Name}}(ctx context.Context, {{ 
 }
 {{- else if .IsQueryKey }}
 func (b {{$.CodeDetails.ContractStructName}}) {{.Name}}(ctx context.Context, filter query.KeyFilter, limitAndSort query.LimitAndSort) ([]types.Sequence, error) {
-	return b.ContractReader.QueryKey(ctx, "{{$.CodeDetails.ContractName}}", filter, limitAndSort, {{ .Output.Print }}{})
+	return b.ContractReader.QueryKey(ctx, b.BoundContract, filter, limitAndSort, {{ .Output.Print }}{})
 }
 {{- else }}
 func (b {{$.CodeDetails.ContractStructName}}) {{.Name}}(ctx context.Context, {{ if .Input }}input {{.Input.Name}},{{ end }} confidence primitives.ConfidenceLevel) {{ if .Output }}({{ .Output.Print }}, error){{ else }}error {{ end }}{
