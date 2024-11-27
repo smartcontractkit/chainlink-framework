@@ -1,10 +1,3 @@
-# dependencies
-node_modules/
-
-# Tooling caches
-*.tsbuildinfo
-.eslintcache
-
 # Log files
 *.log
 
@@ -21,8 +14,6 @@ generated/
 .envrc
 .env*
 .dbenv
-!crib/.env.example
-!.github/actions/setup-postgres/.env
 .direnv
 .idea
 .vscode/
@@ -40,57 +31,12 @@ env
 credentials.env
 gcr_creds.env
 
-# DB backups
-
-cl_backup_*.tar.gz
-
-# Test artifacts
-core/cmd/TestClient_ImportExportP2PKeyBundle_test_key.json
-output.txt
-race.*
-golangci-lint-output.txt
-/golangci-lint/
-.covdata
-core/services/job/testdata/wasm/testmodule.wasm
-core/services/job/testdata/wasm/testmodule.br
-
-# DB state
-./db/
-.s.PGSQL.5432.lock
-
-# can be left behind by tests
-core/cmd/vrfkey1
-
-# Integration Tests
-integration-tests/**/logs/
-tests-*.xml
-*.test
-tmp-manifest-*.yaml
-ztarrepo.tar.gz
-**/test-ledger/*
-__debug_bin*
-.test_summary/
-db_dumps/
-.run.id
-integration-tests/**/traces/
-integration-tests/**/integration-tests
-benchmark_report.csv
-benchmark_summary.json
-secrets.toml
-tmp_laneconfig/
-
-# goreleaser builds
-cosign.*
-dist/
-MacOSX*
-
 # Test & linter reports
 *report.xml
 *report.json
 *.out
 dot_graphs/
 
-contracts/yarn.lock
 
 # Ignore DevSpace cache and log folder
 .devspace/
