@@ -1,4 +1,4 @@
-package client
+package multinode
 
 import (
 	"context"
@@ -24,15 +24,15 @@ var errInvalidChainID = errors.New("invalid chain id")
 var (
 	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies",
-		Help: "The total number of chain types.ID verifications for the given RPC node",
+		Help: "The total number of chain ID verifications for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeVerifiesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies_failed",
-		Help: "The total number of failed chain types.ID verifications for the given RPC node",
+		Help: "The total number of failed chain ID verifications for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeVerifiesSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies_success",
-		Help: "The total number of successful chain types.ID verifications for the given RPC node",
+		Help: "The total number of successful chain ID verifications for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
 )
 
@@ -225,7 +225,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Start(startCtx context.Context) error {
 	})
 }
 
-// start initially dials the node and verifies chain types.ID
+// start initially dials the node and verifies chain ID
 // This spins off lifecycle goroutines.
 // Not thread-safe.
 // Node lifecycle is synchronous: only one goroutine should be running at a
@@ -246,7 +246,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
 	n.declareState(state)
 }
 
-// verifyChainID checks that connection to the node matches the given chain types.ID
+// verifyChainID checks that connection to the node matches the given chain ID
 // Not thread-safe
 // Pure verifyChainID: does not mutate node "state" field.
 func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lggr logger.Logger) nodeState {
@@ -270,18 +270,18 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 	var err error
 	if chainID, err = n.rpc.ChainID(callerCtx); err != nil {
 		promFailed()
-		lggr.Errorw("Failed to verify chain types.ID for node", "err", err, "nodeState", n.getCachedState())
+		lggr.Errorw("Failed to verify chain ID for node", "err", err, "nodeState", n.getCachedState())
 		return nodeStateUnreachable
 	} else if chainID.String() != n.chainID.String() {
 		promFailed()
 		err = fmt.Errorf(
-			"rpc ChainID doesn't match local chain types.ID: RPC types.ID=%s, local types.ID=%s, node name=%s: %w",
+			"rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s: %w",
 			chainID.String(),
 			n.chainID.String(),
 			n.name,
 			errInvalidChainID,
 		)
-		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain types.ID", "err", err, "nodeState", n.getCachedState())
+		lggr.Errorw("Failed to verify RPC node; remote endpoint returned the wrong chain ID", "err", err, "nodeState", n.getCachedState())
 		return nodeStateInvalidChainID
 	}
 

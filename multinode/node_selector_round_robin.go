@@ -1,4 +1,4 @@
-package client
+package multinode
 
 import (
 	"sync/atomic"
