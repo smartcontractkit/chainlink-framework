@@ -2,17 +2,15 @@ package multinode
 
 import (
 	"math/big"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 type totalDifficultyNodeSelector[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ] []Node[CHAIN_ID, RPC]
 
 func NewTotalDifficultyNodeSelector[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	return totalDifficultyNodeSelector[CHAIN_ID, RPC](nodes)

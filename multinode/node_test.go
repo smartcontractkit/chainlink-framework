@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 type testNodeConfig struct {
@@ -60,7 +59,7 @@ func (n testNodeConfig) DeathDeclarationDelay() time.Duration {
 }
 
 type testNode struct {
-	*node[types.ID, Head, RPCClient[types.ID, Head]]
+	*node[ID, Head, RPCClient[ID, Head]]
 }
 
 type testNodeOpts struct {
@@ -71,9 +70,9 @@ type testNodeOpts struct {
 	httpuri     *url.URL
 	name        string
 	id          int
-	chainID     types.ID
+	chainID     ID
 	nodeOrder   int32
-	rpc         *mockRPCClient[types.ID, Head]
+	rpc         *mockRPCClient[ID, Head]
 	chainFamily string
 }
 
@@ -91,17 +90,17 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 	}
 
 	if opts.chainID == nil {
-		opts.chainID = types.RandomID()
+		opts.chainID = RandomID()
 	}
 
 	if opts.id == 0 {
 		opts.id = 42
 	}
 
-	nodeI := NewNode[types.ID, Head, RPCClient[types.ID, Head]](opts.config, opts.chainConfig, opts.lggr,
+	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr,
 		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily)
 
 	return testNode{
-		nodeI.(*node[types.ID, Head, RPCClient[types.ID, Head]]),
+		nodeI.(*node[ID, Head, RPCClient[ID, Head]]),
 	}
 }

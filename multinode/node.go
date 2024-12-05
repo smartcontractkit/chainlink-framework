@@ -13,8 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 const QueryTimeout = 10 * time.Second
@@ -57,7 +55,7 @@ type ChainConfig interface {
 }
 
 type Node[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ] interface {
 	// State returns most accurate state of the Node on the moment of call.
@@ -85,7 +83,7 @@ type Node[
 }
 
 type node[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
 ] struct {
@@ -113,11 +111,11 @@ type node[
 	// wg waits for subsidiary goroutines
 	wg sync.WaitGroup
 
-	healthCheckSubs []types.Subscription
+	healthCheckSubs []Subscription
 }
 
 func NewNode[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	HEAD Head,
 	RPC RPCClient[CHAIN_ID, HEAD],
 ](

@@ -13,9 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
-	iutils "github.com/smartcontractkit/chainlink-framework/utils"
 )
 
 var (
@@ -245,7 +242,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unsubscribeHealthChecks() {
 	for _, sub := range n.healthCheckSubs {
 		sub.Unsubscribe()
 	}
-	n.healthCheckSubs = []types.Subscription{}
+	n.healthCheckSubs = []Subscription{}
 	n.stateMu.Unlock()
 }
 
@@ -255,7 +252,7 @@ type headSubscription[HEAD any] struct {
 	NoNewHeads <-chan time.Time
 
 	noNewHeadsTicker *time.Ticker
-	sub              types.Subscription
+	sub              Subscription
 	cleanUpTasks     []func()
 }
 
@@ -270,10 +267,10 @@ func (sub *headSubscription[HEAD]) Unsubscribe() {
 }
 
 func (n *node[CHAIN_ID, HEAD, PRC]) registerNewSubscription(ctx context.Context, lggr logger.SugaredLogger,
-	noNewDataThreshold time.Duration, newSub func(ctx context.Context) (<-chan HEAD, types.Subscription, error)) (headSubscription[HEAD], error) {
+	noNewDataThreshold time.Duration, newSub func(ctx context.Context) (<-chan HEAD, Subscription, error)) (headSubscription[HEAD], error) {
 	result := headSubscription[HEAD]{}
 	var err error
-	var sub types.Subscription
+	var sub Subscription
 	result.Heads, sub, err = newSub(ctx)
 	if err != nil {
 		return result, err
@@ -559,7 +556,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	lggr := logger.Sugared(logger.Named(n.lfcLog, "Unreachable"))
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.getCachedState())
 
-	dialRetryBackoff := iutils.NewRedialBackoff()
+	dialRetryBackoff := NewRedialBackoff()
 
 	for {
 		select {
@@ -622,7 +619,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 
 	lggr.Debugw(fmt.Sprintf("Periodically re-checking RPC node %s with invalid chain ID", n.String()), "nodeState", n.getCachedState())
 
-	chainIDRecheckBackoff := iutils.NewRedialBackoff()
+	chainIDRecheckBackoff := NewRedialBackoff()
 
 	for {
 		select {
@@ -672,7 +669,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 		return
 	}
 
-	recheckBackoff := iutils.NewRedialBackoff()
+	recheckBackoff := NewRedialBackoff()
 
 	for {
 		select {

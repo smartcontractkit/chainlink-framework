@@ -14,13 +14,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 type TestSendTxRPCClient SendTxRPCClient[any, *sendTxResult]
 
 type sendTxMultiNode struct {
-	*MultiNode[types.ID, TestSendTxRPCClient]
+	*MultiNode[ID, TestSendTxRPCClient]
 }
 
 type sendTxRPC struct {
@@ -65,14 +64,14 @@ func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) *sendTxResult 
 
 // newTestTransactionSender returns a sendTxMultiNode and TransactionSender.
 // Only the TransactionSender is run via Start/Close.
-func newTestTransactionSender(t *testing.T, chainID types.ID, lggr logger.Logger,
-	nodes []Node[types.ID, TestSendTxRPCClient],
-	sendOnlyNodes []SendOnlyNode[types.ID, TestSendTxRPCClient],
-) (*sendTxMultiNode, *TransactionSender[any, *sendTxResult, types.ID, TestSendTxRPCClient]) {
-	mn := sendTxMultiNode{NewMultiNode[types.ID, TestSendTxRPCClient](
+func newTestTransactionSender(t *testing.T, chainID ID, lggr logger.Logger,
+	nodes []Node[ID, TestSendTxRPCClient],
+	sendOnlyNodes []SendOnlyNode[ID, TestSendTxRPCClient],
+) (*sendTxMultiNode, *TransactionSender[any, *sendTxResult, ID, TestSendTxRPCClient]) {
+	mn := sendTxMultiNode{NewMultiNode[ID, TestSendTxRPCClient](
 		lggr, NodeSelectionModeRoundRobin, 0, nodes, sendOnlyNodes, chainID, "chainFamily", 0)}
 
-	txSender := NewTransactionSender[any, *sendTxResult, types.ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, NewSendTxResult, tests.TestInterval)
+	txSender := NewTransactionSender[any, *sendTxResult, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, NewSendTxResult, tests.TestInterval)
 	servicetest.Run(t, txSender)
 	return &mn, txSender
 }
@@ -87,9 +86,9 @@ func classifySendTxError(_ any, err error) SendTxReturnCode {
 func TestTransactionSender_SendTransaction(t *testing.T) {
 	t.Parallel()
 
-	newNodeWithState := func(t *testing.T, state nodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, TestSendTxRPCClient] {
+	newNodeWithState := func(t *testing.T, state nodeState, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[ID, TestSendTxRPCClient] {
 		rpc := newSendTxRPC(txErr, sendTxRun)
-		node := newMockNode[types.ID, TestSendTxRPCClient](t)
+		node := newMockNode[ID, TestSendTxRPCClient](t)
 		node.On("String").Return("node name").Maybe()
 		node.On("RPC").Return(rpc).Maybe()
 		node.On("State").Return(state).Maybe()
@@ -99,13 +98,13 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		return node
 	}
 
-	newNode := func(t *testing.T, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[types.ID, TestSendTxRPCClient] {
+	newNode := func(t *testing.T, txErr error, sendTxRun func(args mock.Arguments)) *mockNode[ID, TestSendTxRPCClient] {
 		return newNodeWithState(t, nodeStateAlive, txErr, sendTxRun)
 	}
 
 	t.Run("Fails if there is no nodes available", func(t *testing.T) {
 		lggr := logger.Test(t)
-		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr, nil, nil)
+		_, txSender := newTestTransactionSender(t, RandomID(), lggr, nil, nil)
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		assert.EqualError(t, result.Error(), ErroringNodeError.Error())
 	})
@@ -115,9 +114,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		mainNode := newNode(t, expectedError, nil)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 
-		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{mainNode},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
+		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
+			[]Node[ID, TestSendTxRPCClient]{mainNode},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.ErrorIs(t, result.Error(), expectedError)
@@ -130,9 +129,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		mainNode := newNode(t, nil, nil)
 
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
-		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{mainNode},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
+		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
+			[]Node[ID, TestSendTxRPCClient]{mainNode},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())
@@ -152,8 +151,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		lggr := logger.Test(t)
 
-		_, txSender := newTestTransactionSender(t, types.RandomID(), lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{mainNode}, nil)
+		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
+			[]Node[ID, TestSendTxRPCClient]{mainNode}, nil)
 
 		requestContext, cancel := context.WithCancel(tests.Context(t))
 		cancel()
@@ -162,7 +161,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 	})
 
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
-		chainID := types.RandomID()
+		chainID := RandomID()
 		expectedError := errors.New("transaction failed")
 		fastNode := newNode(t, expectedError, nil)
 
@@ -176,12 +175,12 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		lggr := logger.Test(t)
 
-		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
+		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.EqualError(t, result.Error(), expectedError.Error())
 	})
 	t.Run("Returns success without waiting for the rest of the nodes", func(t *testing.T) {
-		chainID := types.RandomID()
+		chainID := RandomID()
 		fastNode := newNode(t, nil, nil)
 		// hold reply from the node till end of the test
 		testContext, testCancel := context.WithCancel(tests.Context(t))
@@ -196,15 +195,15 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		})
 		lggr, _ := logger.TestObserved(t, zap.WarnLevel)
 		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{slowSendOnly})
+			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())
 		require.Equal(t, Successful, result.Code())
 	})
 	t.Run("Fails when multinode is closed", func(t *testing.T) {
-		chainID := types.RandomID()
+		chainID := RandomID()
 		fastNode := newNode(t, nil, nil)
 		fastNode.On("ConfiguredChainID").Return(chainID).Maybe()
 		// hold reply from the node till end of the test
@@ -224,8 +223,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
 
 		mn, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{slowSendOnly})
+			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
 
 		require.NoError(t, mn.Start(tests.Context(t)))
 		require.NoError(t, mn.Close())
@@ -233,7 +232,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		require.EqualError(t, result.Error(), "service is stopped")
 	})
 	t.Run("Fails when closed", func(t *testing.T) {
-		chainID := types.RandomID()
+		chainID := RandomID()
 		fastNode := newNode(t, nil, nil)
 		// hold reply from the node till end of the test
 		testContext, testCancel := context.WithCancel(tests.Context(t))
@@ -247,7 +246,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			<-testContext.Done()
 		})
 
-		var txSender *TransactionSender[any, *sendTxResult, types.ID, TestSendTxRPCClient]
+		var txSender *TransactionSender[any, *sendTxResult, ID, TestSendTxRPCClient]
 
 		t.Cleanup(func() { // after txSender.Close()
 			result := txSender.SendTransaction(tests.Context(t), nil)
@@ -255,27 +254,27 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		})
 
 		_, txSender = newTestTransactionSender(t, chainID, logger.Test(t),
-			[]Node[types.ID, TestSendTxRPCClient]{fastNode, slowNode},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{slowSendOnly})
+			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
 
 	})
 	t.Run("Returns error if there is no healthy primary nodes", func(t *testing.T) {
-		chainID := types.RandomID()
+		chainID := RandomID()
 		primary := newNodeWithState(t, nodeStateUnreachable, nil, nil)
 		sendOnly := newNodeWithState(t, nodeStateUnreachable, nil, nil)
 
 		lggr := logger.Test(t)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{primary},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{sendOnly})
+			[]Node[ID, TestSendTxRPCClient]{primary},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{sendOnly})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		assert.EqualError(t, result.Error(), ErroringNodeError.Error())
 	})
 
 	t.Run("Transaction success even if one of the nodes is unhealthy", func(t *testing.T) {
-		chainID := types.RandomID()
+		chainID := RandomID()
 		mainNode := newNode(t, nil, nil)
 		unexpectedCall := func(args mock.Arguments) {
 			panic("SendTx must not be called for unhealthy node")
@@ -286,8 +285,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr := logger.Test(t)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr,
-			[]Node[types.ID, TestSendTxRPCClient]{mainNode, unhealthyNode},
-			[]SendOnlyNode[types.ID, TestSendTxRPCClient]{unhealthySendOnlyNode})
+			[]Node[ID, TestSendTxRPCClient]{mainNode, unhealthyNode},
+			[]SendOnlyNode[ID, TestSendTxRPCClient]{unhealthySendOnlyNode})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
 		require.NoError(t, result.Error())

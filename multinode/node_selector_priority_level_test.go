@@ -4,19 +4,17 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 func TestPriorityLevelNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModePriorityLevel, nil)
+	selector := newNodeSelector[ID, RPCClient[ID, Head]](NodeSelectionModePriorityLevel, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModePriorityLevel)
 }
 
 func TestPriorityLevelNodeSelector(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient RPCClient[types.ID, Head]
+	type nodeClient RPCClient[ID, Head]
 	type testNode struct {
 		order int32
 		state nodeState
@@ -66,9 +64,9 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var nodes []Node[types.ID, nodeClient]
+			var nodes []Node[ID, nodeClient]
 			for _, tn := range tc.nodes {
-				node := newMockNode[types.ID, nodeClient](t)
+				node := newMockNode[ID, nodeClient](t)
 				node.On("State").Return(tn.state)
 				node.On("Order").Return(tn.order)
 				nodes = append(nodes, node)

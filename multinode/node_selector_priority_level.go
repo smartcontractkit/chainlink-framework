@@ -4,12 +4,10 @@ import (
 	"math"
 	"sort"
 	"sync/atomic"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 type priorityLevelNodeSelector[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ] struct {
 	nodes           []Node[CHAIN_ID, RPC]
@@ -17,7 +15,7 @@ type priorityLevelNodeSelector[
 }
 
 type nodeWithPriority[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ] struct {
 	node     Node[CHAIN_ID, RPC]
@@ -25,7 +23,7 @@ type nodeWithPriority[
 }
 
 func NewPriorityLevelNodeSelector[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	return &priorityLevelNodeSelector[CHAIN_ID, RPC]{
@@ -72,7 +70,7 @@ func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) getHighestPriorityAliveTier() 
 
 // removeLowerTiers take a slice of nodeWithPriority[CHAIN_ID, BLOCK_HASH, HEAD, RPC] and keeps only the highest tier
 func removeLowerTiers[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](nodes []nodeWithPriority[CHAIN_ID, RPC]) []nodeWithPriority[CHAIN_ID, RPC] {
 	sort.SliceStable(nodes, func(i, j int) bool {
@@ -93,7 +91,7 @@ func removeLowerTiers[
 
 // nrOfPriorityTiers calculates the total number of priority tiers
 func nrOfPriorityTiers[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) int32 {
 	highestPriority := int32(0)
@@ -108,7 +106,7 @@ func nrOfPriorityTiers[
 
 // firstOrHighestPriority takes a list of nodes and returns the first one with the highest priority
 func firstOrHighestPriority[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) Node[CHAIN_ID, RPC] {
 	hp := int32(math.MaxInt32)

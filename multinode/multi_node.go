@@ -12,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 var (
@@ -28,7 +26,7 @@ var (
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ] struct {
 	services.Service
@@ -51,7 +49,7 @@ type MultiNode[
 }
 
 func NewMultiNode[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](
 	lggr logger.Logger,

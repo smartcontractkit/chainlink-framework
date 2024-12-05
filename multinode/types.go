@@ -2,14 +2,39 @@ package multinode
 
 import (
 	"context"
+	"fmt"
 	"math/big"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
+
+// ID represents the base type, for any chain's ID.
+// It should be convertible to a string, that can uniquely identify this chain
+type ID fmt.Stringer
+
+// StringID enables using string directly as a ChainID
+type StringID string
+
+func (s StringID) String() string {
+	return string(s)
+}
+
+// Subscription represents an event subscription where events are
+// delivered on a data channel.
+// This is a generic interface for Subscription to represent used by clients.
+type Subscription interface {
+	// Unsubscribe cancels the sending of events to the data channel
+	// and closes the error channel. Unsubscribe should be callable multiple
+	// times without causing an error.
+	Unsubscribe()
+	// Err returns the subscription error channel. The error channel receives
+	// a value if there is an issue with the subscription (e.g. the network connection
+	// delivering the events has been closed). Only one value will ever be sent.
+	// The error channel is closed by Unsubscribe.
+	Err() <-chan error
+}
 
 // RPCClient includes all the necessary generalized RPC methods used by Node to perform health checks
 type RPCClient[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	HEAD Head,
 ] interface {
 	// ChainID - fetches ChainID from the RPC to verify that it matches config
@@ -17,15 +42,15 @@ type RPCClient[
 	// Dial - prepares the RPC for usage. Can be called on fresh or closed RPC
 	Dial(ctx context.Context) error
 	// SubscribeToHeads - returns channel and subscription for new heads.
-	SubscribeToHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error)
+	SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error)
 	// SubscribeToFinalizedHeads - returns channel and subscription for finalized heads.
-	SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, types.Subscription, error)
+	SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error)
 	// Ping - returns error if RPC is not reachable
 	Ping(context.Context) error
 	// IsSyncing - returns true if the RPC is in Syncing state and can not process calls
 	IsSyncing(ctx context.Context) (bool, error)
 	// UnsubscribeAllExcept - close all subscriptions except `subs`
-	UnsubscribeAllExcept(subs ...types.Subscription)
+	UnsubscribeAllExcept(subs ...Subscription)
 	// Close - closes all subscriptions and aborts all RPC calls
 	Close()
 	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.

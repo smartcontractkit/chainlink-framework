@@ -2,12 +2,10 @@ package multinode
 
 import (
 	"sync/atomic"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 type roundRobinSelector[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ] struct {
 	nodes           []Node[CHAIN_ID, RPC]
@@ -15,7 +13,7 @@ type roundRobinSelector[
 }
 
 func NewRoundRobinSelector[
-	CHAIN_ID types.ID,
+	CHAIN_ID ID,
 	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	return &roundRobinSelector[CHAIN_ID, RPC]{

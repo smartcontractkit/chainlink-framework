@@ -19,12 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	clientMocks "github.com/smartcontractkit/chainlink-framework/multinode/mocks"
-	"github.com/smartcontractkit/chainlink-framework/types"
-	"github.com/smartcontractkit/chainlink-framework/types/mocks"
 )
 
-func newSub(t *testing.T) *mocks.Subscription {
-	sub := mocks.NewSubscription(t)
+func newSub(t *testing.T) *mockSubscription {
+	sub := newMockSubscription(t)
 	sub.On("Err").Return((<-chan error)(nil)).Maybe()
 	sub.On("Unsubscribe")
 	return sub
@@ -49,7 +47,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("if initial subscribe fails, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		node := newDialedNode(t, testNodeOpts{
 			rpc: rpc,
 		})
@@ -66,7 +64,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("if remote RPC connection is closed transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		node := newDialedNode(t, testNodeOpts{
@@ -76,7 +74,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		defer func() { assert.NoError(t, node.close()) }()
 
-		sub := mocks.NewSubscription(t)
+		sub := newMockSubscription(t)
 		errChan := make(chan error)
 		close(errChan)
 		sub.On("Err").Return((<-chan error)(errChan)).Once()
@@ -96,7 +94,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	}
 	t.Run("Stays alive and waits for signal", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
@@ -112,7 +110,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("stays alive while below pollFailureThreshold and resets counter on success", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
@@ -154,7 +152,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("with threshold poll failures, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
@@ -178,7 +176,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
@@ -204,7 +202,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when behind more than SyncThreshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
@@ -239,7 +237,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when behind more than SyncThreshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
@@ -266,7 +264,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when behind but SyncThreshold=0, stay alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
@@ -287,7 +285,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when no new heads received for threshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{},
@@ -311,7 +309,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when no new heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newSubscribedNode(t, testNodeOpts{
@@ -336,7 +334,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 	t.Run("rpc closed head channel", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		sub := newSub(t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		ch := make(chan Head)
@@ -360,7 +358,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("If finality tag is not enabled updates finalized block metric using finality depth and latest head", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		sub := newSub(t)
 		const blockNumber = 1000
 		const finalityDepth = 10
@@ -390,7 +388,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("If fails to subscribe to latest finalized blocks, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		sub := newSub(t)
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		expectedError := errors.New("failed to subscribe to finalized heads")
@@ -414,7 +412,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("Logs warning if latest finalized block is not valid", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		sub := newSub(t)
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Once()
 		ch := make(chan Head, 1)
@@ -440,7 +438,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("On new finalized block updates corresponding metric", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		const expectedBlock = 1101
 		const finalityDepth = 10
 		ch := make(chan Head)
@@ -475,7 +473,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("If finalized heads channel is closed, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		ch := make(chan Head)
 		close(ch)
@@ -498,7 +496,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when no new finalized heads received for threshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		ch := make(chan Head, 1)
 		ch <- head{BlockNumber: 10}.ToMockHead(t)
@@ -530,7 +528,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("when no new finalized heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
 		lggr, observed := logger.TestObserved(t, zap.DebugLevel)
@@ -557,9 +555,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 	})
 	t.Run("If finalized subscription returns an error, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
-		sub := mocks.NewSubscription(t)
+		sub := newMockSubscription(t)
 		errCh := make(chan error, 1)
 		errCh <- errors.New("subscription failed")
 		sub.On("Err").Return((<-chan error)(errCh))
@@ -607,9 +605,9 @@ func writeHeads(t *testing.T, ch chan<- Head, heads ...head) {
 	}
 }
 
-func setupRPCForAliveLoop(t *testing.T, rpc *mockRPCClient[types.ID, Head]) {
+func setupRPCForAliveLoop(t *testing.T, rpc *mockRPCClient[ID, Head]) {
 	rpc.On("Dial", mock.Anything).Return(nil).Maybe()
-	aliveSubscription := mocks.NewSubscription(t)
+	aliveSubscription := newMockSubscription(t)
 	aliveSubscription.On("Err").Return(nil).Maybe()
 	aliveSubscription.On("Unsubscribe").Maybe()
 	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), aliveSubscription, nil).Maybe()
@@ -637,8 +635,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("on old blocks stays outOfSync and returns on close", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr := logger.Test(t)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -652,7 +650,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 0}, ChainInfo{BlockNumber: 13}).Once()
 
-		outOfSyncSubscription := mocks.NewSubscription(t)
+		outOfSyncSubscription := newMockSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		heads := []head{{BlockNumber: 7}, {BlockNumber: 11}, {BlockNumber: 13}}
@@ -675,7 +673,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("if initial dial fails, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
+		rpc := newMockRPCClient[ID, Head](t)
 		node := newAliveNode(t, testNodeOpts{
 			rpc: rpc,
 		})
@@ -692,8 +690,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("if fail to get chainID, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		chainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		chainID := RandomID()
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: chainID,
@@ -705,7 +703,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		// for unreachable
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
-		sub := mocks.NewSubscription(t)
+		sub := newMockSubscription(t)
 		errChan := make(chan error, 1)
 		errChan <- errors.New("subscription was terminate")
 		sub.On("Err").Return((<-chan error)(errChan))
@@ -715,7 +713,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 		expectedError := errors.New("failed to get chain ID")
 		// might be called multiple times
-		rpc.On("ChainID", mock.Anything).Return(types.NewIDFromInt(0), expectedError)
+		rpc.On("ChainID", mock.Anything).Return(NewIDFromInt(0), expectedError)
 		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -723,9 +721,9 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("if chainID does not match, transitions to invalidChainID", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -744,8 +742,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("if syncing, transitions to syncing", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -765,8 +763,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("if fails to fetch syncing status, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -789,8 +787,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("if fails to subscribe, becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -810,8 +808,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("on subscription termination becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -824,7 +822,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
-		sub := mocks.NewSubscription(t)
+		sub := newMockSubscription(t)
 		errChan := make(chan error, 1)
 		errChan <- errors.New("subscription was terminate")
 		sub.On("Err").Return((<-chan error)(errChan))
@@ -839,8 +837,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("becomes unreachable if head channel is closed", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -868,8 +866,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("becomes alive if it receives a newer head", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -881,7 +879,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 
-		outOfSyncSubscription := mocks.NewSubscription(t)
+		outOfSyncSubscription := newMockSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		const highestBlock = 1000
@@ -901,8 +899,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("becomes alive if there is no other nodes", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			chainConfig: clientMocks.ChainConfig{
@@ -924,7 +922,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 
-		outOfSyncSubscription := mocks.NewSubscription(t)
+		outOfSyncSubscription := newMockSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), outOfSyncSubscription, nil).Once()
@@ -938,8 +936,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("Stays out-of-sync if received new head, but lags behind pool", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			chainConfig: clientMocks.ChainConfig{
@@ -966,7 +964,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
 
-		outOfSyncSubscription := mocks.NewSubscription(t)
+		outOfSyncSubscription := newMockSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		ch := make(chan Head)
@@ -983,8 +981,8 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 
 	// creates RPC mock with all calls necessary to create heads subscription that won't produce any events
-	newRPCWithNoOpHeads := func(t *testing.T, chainID types.ID) *mockRPCClient[types.ID, Head] {
-		rpc := newMockRPCClient[types.ID, Head](t)
+	newRPCWithNoOpHeads := func(t *testing.T, chainID ID) *mockRPCClient[ID, Head] {
+		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("Dial", mock.Anything).Return(nil).Once()
 		rpc.On("ChainID", mock.Anything).Return(chainID, nil).Once()
 		sub := newSub(t)
@@ -994,7 +992,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 
 	t.Run("if fails to subscribe to finalized, becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		nodeChainID := types.RandomID()
+		nodeChainID := RandomID()
 		rpc := newRPCWithNoOpHeads(t, nodeChainID)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1016,7 +1014,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("on subscription termination becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		nodeChainID := types.RandomID()
+		nodeChainID := RandomID()
 		rpc := newRPCWithNoOpHeads(t, nodeChainID)
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newAliveNode(t, testNodeOpts{
@@ -1029,7 +1027,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		sub := mocks.NewSubscription(t)
+		sub := newMockSubscription(t)
 		errChan := make(chan error, 1)
 		errChan <- errors.New("subscription was terminate")
 		sub.On("Err").Return((<-chan error)(errChan))
@@ -1047,7 +1045,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("becomes unreachable if head channel is closed", func(t *testing.T) {
 		t.Parallel()
-		nodeChainID := types.RandomID()
+		nodeChainID := RandomID()
 		rpc := newRPCWithNoOpHeads(t, nodeChainID)
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newAliveNode(t, testNodeOpts{
@@ -1077,7 +1075,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("becomes alive on new finalized block", func(t *testing.T) {
 		t.Parallel()
-		nodeChainID := types.RandomID()
+		nodeChainID := RandomID()
 		rpc := newRPCWithNoOpHeads(t, nodeChainID)
 		lggr := logger.Test(t)
 		node := newAliveNode(t, testNodeOpts{
@@ -1094,7 +1092,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		const highestBlock = 13
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{FinalizedBlockNumber: highestBlock}, ChainInfo{FinalizedBlockNumber: highestBlock})
 
-		outOfSyncSubscription := mocks.NewSubscription(t)
+		outOfSyncSubscription := newMockSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		ch := make(chan Head)
@@ -1113,7 +1111,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 	})
 	t.Run("adds finalized block is not increasing flag, if there is no new finalized heads for too long", func(t *testing.T) {
 		t.Parallel()
-		nodeChainID := types.RandomID()
+		nodeChainID := RandomID()
 		rpc := newRPCWithNoOpHeads(t, nodeChainID)
 		lggr, observed := logger.TestObserved(t, zap.DebugLevel)
 		const noNewFinalizedHeads = tests.TestInterval
@@ -1131,7 +1129,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		const highestBlock = 13
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{FinalizedBlockNumber: highestBlock})
 
-		outOfSyncSubscription := mocks.NewSubscription(t)
+		outOfSyncSubscription := newMockSubscription(t)
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		ch := make(chan Head)
@@ -1165,8 +1163,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on failed redial, keeps trying", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1181,8 +1179,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on failed chainID verification, keep trying", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1200,9 +1198,9 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on chain ID mismatch transitions to invalidChainID", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1219,8 +1217,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on syncing status check failure, keeps trying", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1240,8 +1238,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on syncing, transitions to syncing state", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1262,8 +1260,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1282,8 +1280,8 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 	})
 	t.Run("on successful verification without isSyncing becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newAliveNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1320,8 +1318,8 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	})
 	t.Run("on invalid dial becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1338,8 +1336,8 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	})
 	t.Run("on failed chainID call becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1361,9 +1359,9 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	})
 	t.Run("on chainID mismatch keeps trying", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1383,9 +1381,9 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	})
 	t.Run("on successful verification without isSyncing becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1403,9 +1401,9 @@ func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1437,8 +1435,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	}
 	t.Run("if fails on initial dial, becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1457,8 +1455,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	})
 	t.Run("if chainID verification fails, becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1480,9 +1478,9 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	})
 	t.Run("on chain ID mismatch transitions to invalidChainID", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1500,8 +1498,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	})
 	t.Run("if syncing verification fails, becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1527,8 +1525,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	})
 	t.Run("on isSyncing transitions to syncing", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1548,8 +1546,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1569,8 +1567,8 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 	})
 	t.Run("on successful verification without isSyncing becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1664,7 +1662,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 				for _, testCase := range testCases {
 					t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: total difficulty: %d", testCase.name, selectionMode, td), func(t *testing.T) {
 						chainInfo := ChainInfo{BlockNumber: testCase.blockNumber, TotalDifficulty: big.NewInt(td)}
-						rpc := newMockRPCClient[types.ID, Head](t)
+						rpc := newMockRPCClient[ID, Head](t)
 						rpc.On("GetInterceptedChainInfo").Return(chainInfo, ChainInfo{}).Once()
 						node.rpc = rpc
 						outOfSync, liveNodes := node.isOutOfSyncWithPool()
@@ -1724,7 +1722,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 			for _, testCase := range testCases {
 				t.Run(fmt.Sprintf("%s: SelectionModeVal: %s: highest block: %d", testCase.name, NodeSelectionModeTotalDifficulty, hb), func(t *testing.T) {
 					chainInfo := ChainInfo{BlockNumber: hb, TotalDifficulty: big.NewInt(testCase.totalDifficulty)}
-					rpc := newMockRPCClient[types.ID, Head](t)
+					rpc := newMockRPCClient[ID, Head](t)
 					rpc.On("GetInterceptedChainInfo").Return(chainInfo, ChainInfo{}).Once()
 					node.rpc = rpc
 					outOfSync, liveNodes := node.isOutOfSyncWithPool()
@@ -1755,8 +1753,8 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	})
 	t.Run("on invalid dial becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1772,8 +1770,8 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	})
 	t.Run("on failed chainID call becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1795,9 +1793,9 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	})
 	t.Run("on chainID mismatch transitions to invalidChainID", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.NewIDFromInt(10)
-		rpcChainID := types.NewIDFromInt(11)
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := NewIDFromInt(10)
+		rpcChainID := NewIDFromInt(11)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1817,8 +1815,8 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	})
 	t.Run("on failed Syncing check - becomes unreachable", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1842,8 +1840,8 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	})
 	t.Run("on IsSyncing - keeps trying", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
@@ -1864,8 +1862,8 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 	})
 	t.Run("on successful verification becomes alive", func(t *testing.T) {
 		t.Parallel()
-		rpc := newMockRPCClient[types.ID, Head](t)
-		nodeChainID := types.RandomID()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
 		node := newDialedNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
@@ -1961,7 +1959,7 @@ func TestNode_State(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.Name, func(t *testing.T) {
-			rpc := newMockRPCClient[types.ID, Head](t)
+			rpc := newMockRPCClient[ID, Head](t)
 			rpc.On("GetInterceptedChainInfo").Return(tc.NodeChainInfo, tc.PoolChainInfo).Once()
 			node := newTestNode(t, testNodeOpts{
 				config: testNodeConfig{

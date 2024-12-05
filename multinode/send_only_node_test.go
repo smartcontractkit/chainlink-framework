@@ -13,8 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 func TestNewSendOnlyNode(t *testing.T) {
@@ -27,8 +25,8 @@ func TestNewSendOnlyNode(t *testing.T) {
 	redacted := fmt.Sprintf(urlFormat, "xxxxx")
 	lggr := logger.Test(t)
 	name := "TestNewSendOnlyNode"
-	chainID := types.RandomID()
-	client := newMockSendOnlyClient[types.ID](t)
+	chainID := RandomID()
+	client := newMockSendOnlyClient[ID](t)
 
 	node := NewSendOnlyNode(lggr, *u, name, chainID, client)
 	assert.NotNil(t, node)
@@ -43,11 +41,11 @@ func TestStartSendOnlyNode(t *testing.T) {
 	t.Run("becomes unusable if initial dial fails", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		client := newMockSendOnlyClient[types.ID](t)
+		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		expectedError := errors.New("some http error")
 		client.On("Dial", mock.Anything).Return(expectedError).Once()
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.RandomID(), client)
+		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), RandomID(), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
@@ -59,10 +57,10 @@ func TestStartSendOnlyNode(t *testing.T) {
 	t.Run("Default ChainID(0) produces warn and skips checks", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		client := newMockSendOnlyClient[types.ID](t)
+		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil).Once()
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), types.NewIDFromInt(0), client)
+		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), NewIDFromInt(0), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
@@ -74,13 +72,13 @@ func TestStartSendOnlyNode(t *testing.T) {
 	t.Run("Can recover from chainID verification failure", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		client := newMockSendOnlyClient[types.ID](t)
+		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil)
 		expectedError := errors.New("failed to get chain ID")
-		chainID := types.RandomID()
+		chainID := RandomID()
 		const failuresCount = 2
-		client.On("ChainID", mock.Anything).Return(types.RandomID(), expectedError).Times(failuresCount)
+		client.On("ChainID", mock.Anything).Return(RandomID(), expectedError).Times(failuresCount)
 		client.On("ChainID", mock.Anything).Return(chainID, nil)
 
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), chainID, client)
@@ -98,11 +96,11 @@ func TestStartSendOnlyNode(t *testing.T) {
 	t.Run("Can recover from chainID mismatch", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		client := newMockSendOnlyClient[types.ID](t)
+		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil).Once()
-		configuredChainID := types.NewIDFromInt(11)
-		rpcChainID := types.NewIDFromInt(20)
+		configuredChainID := NewIDFromInt(11)
+		rpcChainID := NewIDFromInt(20)
 		const failuresCount = 2
 		client.On("ChainID", mock.Anything).Return(rpcChainID, nil).Times(failuresCount)
 		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
@@ -121,10 +119,10 @@ func TestStartSendOnlyNode(t *testing.T) {
 	t.Run("Start with Random ChainID", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		client := newMockSendOnlyClient[types.ID](t)
+		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil).Once()
-		configuredChainID := types.RandomID()
+		configuredChainID := RandomID()
 		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)
 

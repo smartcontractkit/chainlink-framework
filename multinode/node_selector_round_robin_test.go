@@ -4,23 +4,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
 func TestRoundRobinNodeSelectorName(t *testing.T) {
-	selector := newNodeSelector[types.ID, RPCClient[types.ID, Head]](NodeSelectionModeRoundRobin, nil)
+	selector := newNodeSelector[ID, RPCClient[ID, Head]](NodeSelectionModeRoundRobin, nil)
 	assert.Equal(t, selector.Name(), NodeSelectionModeRoundRobin)
 }
 
 func TestRoundRobinNodeSelector(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient RPCClient[types.ID, Head]
-	var nodes []Node[types.ID, nodeClient]
+	type nodeClient RPCClient[ID, Head]
+	var nodes []Node[ID, nodeClient]
 
 	for i := 0; i < 3; i++ {
-		node := newMockNode[types.ID, nodeClient](t)
+		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
 			node.On("State").Return(nodeStateOutOfSync)
@@ -41,11 +39,11 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 func TestRoundRobinNodeSelector_None(t *testing.T) {
 	t.Parallel()
 
-	type nodeClient RPCClient[types.ID, Head]
-	var nodes []Node[types.ID, nodeClient]
+	type nodeClient RPCClient[ID, Head]
+	var nodes []Node[ID, nodeClient]
 
 	for i := 0; i < 3; i++ {
-		node := newMockNode[types.ID, nodeClient](t)
+		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
 			node.On("State").Return(nodeStateOutOfSync)

@@ -16,23 +16,21 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink-framework/types"
 )
 
-type multiNodeRPCClient RPCClient[types.ID, types.Head[Hashable]]
+type multiNodeRPCClient RPCClient[ID, Head]
 
 type testMultiNode struct {
-	*MultiNode[types.ID, multiNodeRPCClient]
+	*MultiNode[ID, multiNodeRPCClient]
 }
 
 type multiNodeOpts struct {
 	logger                logger.Logger
 	selectionMode         string
 	leaseDuration         time.Duration
-	nodes                 []Node[types.ID, multiNodeRPCClient]
-	sendonlys             []SendOnlyNode[types.ID, multiNodeRPCClient]
-	chainID               types.ID
+	nodes                 []Node[ID, multiNodeRPCClient]
+	sendonlys             []SendOnlyNode[ID, multiNodeRPCClient]
+	chainID               ID
 	chainFamily           string
 	deathDeclarationDelay time.Duration
 }
@@ -42,19 +40,19 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 		opts.logger = logger.Test(t)
 	}
 
-	result := NewMultiNode[types.ID, multiNodeRPCClient](
+	result := NewMultiNode[ID, multiNodeRPCClient](
 		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily, opts.deathDeclarationDelay)
 	return testMultiNode{
 		result,
 	}
 }
 
-func newHealthyNode(t *testing.T, chainID types.ID) *mockNode[types.ID, multiNodeRPCClient] {
+func newHealthyNode(t *testing.T, chainID ID) *mockNode[ID, multiNodeRPCClient] {
 	return newNodeWithState(t, chainID, nodeStateAlive)
 }
 
-func newNodeWithState(t *testing.T, chainID types.ID, state nodeState) *mockNode[types.ID, multiNodeRPCClient] {
-	node := newMockNode[types.ID, multiNodeRPCClient](t)
+func newNodeWithState(t *testing.T, chainID ID, state nodeState) *mockNode[ID, multiNodeRPCClient] {
+	node := newMockNode[ID, multiNodeRPCClient](t)
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
 	node.On("Close").Return(nil).Once()
@@ -67,14 +65,14 @@ func newNodeWithState(t *testing.T, chainID types.ID, state nodeState) *mockNode
 func TestMultiNode_Dial(t *testing.T) {
 	t.Parallel()
 
-	newMockNode := newMockNode[types.ID, multiNodeRPCClient]
-	newMockSendOnlyNode := newMockSendOnlyNode[types.ID, multiNodeRPCClient]
+	newMockNode := newMockNode[ID, multiNodeRPCClient]
+	newMockSendOnlyNode := newMockSendOnlyNode[ID, multiNodeRPCClient]
 
 	t.Run("Fails without nodes", func(t *testing.T) {
 		t.Parallel()
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       types.RandomID(),
+			chainID:       RandomID(),
 		})
 		err := mn.Start(tests.Context(t))
 		assert.ErrorContains(t, err, fmt.Sprintf("no available nodes for chain %s", mn.chainID))
@@ -82,15 +80,15 @@ func TestMultiNode_Dial(t *testing.T) {
 	t.Run("Fails with wrong node's chainID", func(t *testing.T) {
 		t.Parallel()
 		node := newMockNode(t)
-		multiNodeChainID := types.NewIDFromInt(10)
-		nodeChainID := types.NewIDFromInt(11)
+		multiNodeChainID := NewIDFromInt(10)
+		nodeChainID := NewIDFromInt(11)
 		node.On("ConfiguredChainID").Return(nodeChainID).Twice()
 		const nodeName = "nodeName"
 		node.On("String").Return(nodeName).Once()
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       multiNodeChainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
 		})
 		err := mn.Start(tests.Context(t))
 		assert.ErrorContains(t, err, fmt.Sprintf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", nodeName, nodeChainID, mn.chainID))
@@ -98,7 +96,7 @@ func TestMultiNode_Dial(t *testing.T) {
 	t.Run("Fails if node fails", func(t *testing.T) {
 		t.Parallel()
 		node := newMockNode(t)
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node.On("ConfiguredChainID").Return(chainID).Once()
 		expectedError := errors.New("failed to start node")
 		node.On("Start", mock.Anything).Return(expectedError).Once()
@@ -106,7 +104,7 @@ func TestMultiNode_Dial(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
 		})
 		err := mn.Start(tests.Context(t))
 		assert.ErrorIs(t, err, expectedError)
@@ -114,7 +112,7 @@ func TestMultiNode_Dial(t *testing.T) {
 
 	t.Run("Closes started nodes on failure", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node1 := newHealthyNode(t, chainID)
 		node2 := newMockNode(t)
 		node2.On("ConfiguredChainID").Return(chainID).Once()
@@ -125,17 +123,17 @@ func TestMultiNode_Dial(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node1, node2},
+			nodes:         []Node[ID, multiNodeRPCClient]{node1, node2},
 		})
 		err := mn.Start(tests.Context(t))
 		assert.ErrorIs(t, err, expectedError)
 	})
 	t.Run("Fails with wrong send only node's chainID", func(t *testing.T) {
 		t.Parallel()
-		multiNodeChainID := types.NewIDFromInt(10)
+		multiNodeChainID := NewIDFromInt(10)
 		node := newHealthyNode(t, multiNodeChainID)
 		sendOnly := newMockSendOnlyNode(t)
-		sendOnlyChainID := types.NewIDFromInt(11)
+		sendOnlyChainID := NewIDFromInt(11)
 		sendOnly.On("ConfiguredChainID").Return(sendOnlyChainID).Twice()
 		const sendOnlyName = "sendOnlyNodeName"
 		sendOnly.On("String").Return(sendOnlyName).Once()
@@ -143,14 +141,14 @@ func TestMultiNode_Dial(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       multiNodeChainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
-			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
+			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{sendOnly},
 		})
 		err := mn.Start(tests.Context(t))
 		assert.ErrorContains(t, err, fmt.Sprintf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", sendOnlyName, sendOnlyChainID, mn.chainID))
 	})
 
-	newHealthySendOnly := func(t *testing.T, chainID types.ID) *mockSendOnlyNode[types.ID, multiNodeRPCClient] {
+	newHealthySendOnly := func(t *testing.T, chainID ID) *mockSendOnlyNode[ID, multiNodeRPCClient] {
 		node := newMockSendOnlyNode(t)
 		node.On("ConfiguredChainID").Return(chainID).Once()
 		node.On("Start", mock.Anything).Return(nil).Once()
@@ -159,7 +157,7 @@ func TestMultiNode_Dial(t *testing.T) {
 	}
 	t.Run("Fails on send only node failure", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.NewIDFromInt(10)
+		chainID := NewIDFromInt(10)
 		node := newHealthyNode(t, chainID)
 		sendOnly1 := newHealthySendOnly(t, chainID)
 		sendOnly2 := newMockSendOnlyNode(t)
@@ -170,21 +168,21 @@ func TestMultiNode_Dial(t *testing.T) {
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
-			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{sendOnly1, sendOnly2},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
+			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{sendOnly1, sendOnly2},
 		})
 		err := mn.Start(tests.Context(t))
 		assert.ErrorIs(t, err, expectedError)
 	})
 	t.Run("Starts successfully with healthy nodes", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.NewIDFromInt(10)
+		chainID := NewIDFromInt(10)
 		node := newHealthyNode(t, chainID)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
-			sendonlys:     []SendOnlyNode[types.ID, multiNodeRPCClient]{newHealthySendOnly(t, chainID)},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
+			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{newHealthySendOnly(t, chainID)},
 		})
 		servicetest.Run(t, mn)
 		selectedNode, err := mn.selectNode()
@@ -197,14 +195,14 @@ func TestMultiNode_Report(t *testing.T) {
 	t.Parallel()
 	t.Run("Dial starts periodical reporting", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node1 := newHealthyNode(t, chainID)
 		node2 := newNodeWithState(t, chainID, nodeStateOutOfSync)
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node1, node2},
+			nodes:         []Node[ID, multiNodeRPCClient]{node1, node2},
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
@@ -214,13 +212,13 @@ func TestMultiNode_Report(t *testing.T) {
 	})
 	t.Run("Report critical error on all node failure", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node := newNodeWithState(t, chainID, nodeStateOutOfSync)
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
 			logger:        lggr,
 		})
 		mn.reportInterval = tests.TestInterval
@@ -237,28 +235,28 @@ func TestMultiNode_CheckLease(t *testing.T) {
 	t.Parallel()
 	t.Run("Round robin disables lease check", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node := newHealthyNode(t, chainID)
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
 			logger:        lggr,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
 		})
 		servicetest.Run(t, mn)
 		tests.RequireLogMessage(t, observedLogs, "Best node switching is disabled")
 	})
 	t.Run("Misconfigured lease check period won't start", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node := newHealthyNode(t, chainID)
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeHighestHead,
 			chainID:       chainID,
 			logger:        lggr,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node},
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
 			leaseDuration: 0,
 		})
 		servicetest.Run(t, mn)
@@ -266,18 +264,18 @@ func TestMultiNode_CheckLease(t *testing.T) {
 	})
 	t.Run("Lease check updates active node", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		node := newHealthyNode(t, chainID)
 		node.On("UnsubscribeAllExceptAliveLoop")
 		bestNode := newHealthyNode(t, chainID)
-		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(bestNode)
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeHighestHead,
 			chainID:       chainID,
 			logger:        lggr,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node, bestNode},
+			nodes:         []Node[ID, multiNodeRPCClient]{node, bestNode},
 			leaseDuration: tests.TestInterval,
 		})
 		mn.nodeSelector = nodeSelector
@@ -292,7 +290,7 @@ func TestMultiNode_CheckLease(t *testing.T) {
 	})
 	t.Run("NodeStates returns proper states", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.NewIDFromInt(10)
+		chainID := NewIDFromInt(10)
 		nodes := map[string]nodeState{
 			"node_1": nodeStateAlive,
 			"node_2": nodeStateUnreachable,
@@ -306,12 +304,12 @@ func TestMultiNode_CheckLease(t *testing.T) {
 
 		expectedResult := map[string]string{}
 		for name, state := range nodes {
-			node := newMockNode[types.ID, multiNodeRPCClient](t)
+			node := newMockNode[ID, multiNodeRPCClient](t)
 			node.On("State").Return(state).Once()
 			node.On("Name").Return(name).Once()
 			opts.nodes = append(opts.nodes, node)
 
-			sendOnly := newMockSendOnlyNode[types.ID, multiNodeRPCClient](t)
+			sendOnly := newMockSendOnlyNode[ID, multiNodeRPCClient](t)
 			sendOnlyName := "send_only_" + name
 			sendOnly.On("State").Return(state).Once()
 			sendOnly.On("Name").Return(sendOnlyName).Once()
@@ -331,18 +329,18 @@ func TestMultiNode_selectNode(t *testing.T) {
 	t.Parallel()
 	t.Run("Returns same node, if it's still healthy", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
-		node1 := newMockNode[types.ID, multiNodeRPCClient](t)
+		chainID := RandomID()
+		node1 := newMockNode[ID, multiNodeRPCClient](t)
 		node1.On("State").Return(nodeStateAlive).Once()
 		node1.On("String").Return("node1").Maybe()
-		node2 := newMockNode[types.ID, multiNodeRPCClient](t)
+		node2 := newMockNode[ID, multiNodeRPCClient](t)
 		node2.On("String").Return("node2").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{node1, node2},
+			nodes:         []Node[ID, multiNodeRPCClient]{node1, node2},
 		})
-		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(node1).Once()
 		mn.nodeSelector = nodeSelector
 		prevActiveNode, err := mn.selectNode()
@@ -354,18 +352,18 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 	t.Run("Updates node if active is not healthy", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
-		oldBest := newMockNode[types.ID, multiNodeRPCClient](t)
+		chainID := RandomID()
+		oldBest := newMockNode[ID, multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
 		oldBest.On("UnsubscribeAllExceptAliveLoop")
-		newBest := newMockNode[types.ID, multiNodeRPCClient](t)
+		newBest := newMockNode[ID, multiNodeRPCClient](t)
 		newBest.On("String").Return("newBest").Maybe()
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
-			nodes:         []Node[types.ID, multiNodeRPCClient]{oldBest, newBest},
+			nodes:         []Node[ID, multiNodeRPCClient]{oldBest, newBest},
 		})
-		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(oldBest).Once()
 		mn.nodeSelector = nodeSelector
 		activeNode, err := mn.selectNode()
@@ -380,14 +378,14 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
-		chainID := types.RandomID()
+		chainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       chainID,
 			logger:        lggr,
 		})
-		nodeSelector := newMockNodeSelector[types.ID, multiNodeRPCClient](t)
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
@@ -491,7 +489,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 		},
 	}
 
-	chainID := types.RandomID()
+	chainID := RandomID()
 	mn := newTestMultiNode(t, multiNodeOpts{
 		selectionMode: NodeSelectionModeRoundRobin,
 		chainID:       chainID,
@@ -500,7 +498,7 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 		tc := testCases[i]
 		t.Run(tc.Name, func(t *testing.T) {
 			for _, params := range tc.NodeParams {
-				node := newMockNode[types.ID, multiNodeRPCClient](t)
+				node := newMockNode[ID, multiNodeRPCClient](t)
 				mn.primaryNodes = append(mn.primaryNodes, node)
 				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
 				node.On("HighestUserObservations").Return(params.HighestUserObservations)

@@ -17,7 +17,4 @@ packages:
       RPCClient:
       Head:
       PoolChainInfoProvider:
-  github.com/smartcontractkit/chainlink-framework/types:
-    interfaces:
-      Head:
       Subscription:
