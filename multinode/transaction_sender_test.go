@@ -292,6 +292,27 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		require.NoError(t, result.Error())
 		require.Equal(t, Successful, result.Code())
 	})
+	t.Run("All background jobs stop even if RPC returns result after soft timeout", func(t *testing.T) {
+		chainID := RandomID()
+		expectedError := errors.New("transaction failed")
+		fastNode := newNode(t, expectedError, nil)
+
+		// hold reply from the node till SendTransaction returns result
+		sendTxContext, sendTxCancel := context.WithCancel(tests.Context(t))
+		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
+			<-sendTxContext.Done()
+		})
+
+		lggr := logger.Test(t)
+
+		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
+		result := txSender.SendTransaction(sendTxContext, nil)
+		sendTxCancel()
+		require.EqualError(t, result.Error(), expectedError.Error())
+		// TxSender should stop all background go routines after SendTransaction is done and before test is done.
+		// Otherwise, it signals that we have a goroutine leak.
+		txSender.wg.Wait()
+	})
 }
 
 func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
