@@ -1,3 +1,6 @@
+# Log files
+*.log
+
 # bin
 tools/bin/*
 
@@ -15,3 +18,26 @@ generated/
 .idea
 .vscode/
 *.iml
+
+debug.env
+*.txt
+operator_ui/install
+.devenv
+
+# codeship
+*.aes
+dockercfg
+env
+credentials.env
+gcr_creds.env
+
+# Test & linter reports
+*report.xml
+*report.json
+*.out
+dot_graphs/
+
+
+# Ignore DevSpace cache and log folder
+.devspace/
+go.work*
