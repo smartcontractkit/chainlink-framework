@@ -23,13 +23,16 @@ jobs:
         with:
           version: v1.62.2
 
+      - name: Set config path
+        run: echo "CONFIG_PATH=./.golangci.yml" >> $GITHUB_ENV
+
       - name: Find Go modules
         id: find-modules
         run: |
           modules=$(find . -name "go.mod" -exec dirname {} \;)
           echo "modules=$modules" >> $GITHUB_ENV
 
-      - name: Run golangci-lint for each module
+      - name: Lint each module
         run: |
           failed_modules=""
 
@@ -37,7 +40,7 @@ jobs:
             echo "Running golangci-lint in $module"
             cd $module
 
-            if ! golangci-lint run; then
+            if ! golangci-lint run --config ${{ env.CONFIG_PATH }}; then
               failed_modules="$failed_modules $module"
             fi
 
