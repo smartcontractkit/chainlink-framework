@@ -21,28 +21,19 @@ jobs:
       - name: Find Go modules
         id: find-modules
         run: |
-          # Find all directories containing a go.mod file and save them as a newline-separated list
-          find . -name "go.mod" -exec dirname {} \; > go_modules.txt
-          echo "modules=$(cat go_modules.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
+          modules=$(go list -m -json all | jq -r '.Dir')
+          echo "modules=$modules" >> $GITHUB_ENV
 
       - name: Run golangci-lint for each module
-        run: |
-          failed_modules=""
-          for module in ${{ steps.find-modules.outputs.modules }}; do
-            echo "Running golangci-lint in $module"
-            cd $module
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.62.2
+          args: |
+            for module in ${{ env.modules }}; do
+              echo "Running golangci-lint in $module"
+              cd $module
 
-            if ! golangci-lint run; then
-              failed_modules="$failed_modules $module"
-            fi
+              golangci-lint run || exit 1
 
-            cd -
-          done
-
-          if [ -n "$failed_modules" ]; then
-            echo "The following modules failed linting:"
-            echo "$failed_modules"
-            exit 1
-          else
-            echo "All modules passed linting."
-          fi
+              cd -
+            done
