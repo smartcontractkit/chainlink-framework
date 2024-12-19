@@ -18,15 +18,31 @@ jobs:
         with:
           go-version: '1.19'
 
-      - name: Lint multinode
-        working-directory: ./multinode
-        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4
-        with:
-          golangci-lint-version: v1.62.2
+      - name: Find Go modules
+        id: find-modules
+        run: |
+          # Find all directories containing a go.mod file and save them as a newline-separated list
+          find . -name "go.mod" -exec dirname {} \; > go_modules.txt
+          echo "modules=$(cat go_modules.txt | tr '\n' ' ')" >> $GITHUB_OUTPUT
 
-      - name: Lint evm-chain-bindings
-        working-directory: ./tools/evm-chain-bindings
-        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4
-        with:
-          golangci-lint-version: v1.62.2
+      - name: Run golangci-lint for each module
+        run: |
+          failed_modules=""
+          for module in ${{ steps.find-modules.outputs.modules }}; do
+            echo "Running golangci-lint in $module"
+            cd $module
 
+            if ! golangci-lint run; then
+              failed_modules="$failed_modules $module"
+            fi
+
+            cd -
+          done
+
+          if [ -n "$failed_modules" ]; then
+            echo "The following modules failed linting:"
+            echo "$failed_modules"
+            exit 1
+          else
+            echo "All modules passed linting."
+          fi
