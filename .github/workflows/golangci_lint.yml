@@ -26,7 +26,7 @@ jobs:
       - name: Find Go modules
         id: find-modules
         run: |
-          modules=$(go list -m -json all | jq -r '.Dir')
+          modules=$(find . -name "go.mod" -exec dirname {} \;)
           echo "modules=$modules" >> $GITHUB_ENV
 
       - name: Run golangci-lint for each module
