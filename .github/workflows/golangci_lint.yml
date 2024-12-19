@@ -18,6 +18,11 @@ jobs:
         with:
           go-version: '1.19'
 
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.62.2
+
       - name: Find Go modules
         id: find-modules
         run: |
@@ -25,15 +30,24 @@ jobs:
           echo "modules=$modules" >> $GITHUB_ENV
 
       - name: Run golangci-lint for each module
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.62.2
-          args: |
-            for module in ${{ env.modules }}; do
-              echo "Running golangci-lint in $module"
-              cd $module
+        run: |
+          failed_modules=""
 
-              golangci-lint run || exit 1
+          for module in ${{ env.modules }}; do
+            echo "Running golangci-lint in $module"
+            cd $module
 
-              cd -
-            done
+            if ! golangci-lint run; then
+              failed_modules="$failed_modules $module"
+            fi
+
+            cd -
+          done
+
+          if [ -n "$failed_modules" ]; then
+            echo "The following modules failed linting:"
+            echo "$failed_modules"
+            exit 1
+          else
+            echo "All modules passed linting."
+          fi
