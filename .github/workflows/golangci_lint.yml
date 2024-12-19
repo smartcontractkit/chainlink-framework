@@ -10,7 +10,23 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: golangci-lint
-        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4 # v0.2.6
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.19' # Replace with your required Go version
+
+      - name: Lint multinode
+        working-directory: ./multinode
+        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4
         with:
           golangci-lint-version: v1.62.2
+
+      - name: Lint evm-chain-bindings
+        working-directory: ./tools/evm-chain-bindings
+        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4
+        with:
+          golangci-lint-version: v1.62.2
+
