@@ -40,7 +40,7 @@ jobs:
             echo "Running golangci-lint in $module"
             cd $module
 
-            if ! golangci-lint run --config ${{ env.CONFIG_PATH }}; then
+            if ! /home/runner/golangci-lint-1.62.2-linux-amd64/golangci-lint run --config ${{ env.CONFIG_PATH }} --out-format=colored-line-number; then
               failed_modules="$failed_modules $module"
             fi
 
