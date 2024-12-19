@@ -26,17 +26,13 @@ jobs:
       - name: Set config path
         run: echo "CONFIG_PATH=./.golangci.yml" >> $GITHUB_ENV
 
-      - name: Find Go modules
-        id: find-modules
-        run: |
-          modules=$(find . -name "go.mod" -exec dirname {} \;)
-          echo "modules=$modules" >> $GITHUB_ENV
-
       - name: Lint each module
         run: |
+          modules=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq)
+          echo "Found modules: $modules"
           failed_modules=""
 
-          for module in ${{ env.modules }}; do
+          for module in $modules; do
             echo "Running golangci-lint in $module"
             cd $module
 
