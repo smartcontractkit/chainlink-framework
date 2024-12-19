@@ -10,7 +10,43 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: golangci-lint
-        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4 # v0.2.6
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
         with:
-          golangci-lint-version: v1.62.2
+          go-version: '1.19'
+
+      - name: Install golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.62.2
+
+      - name: Set config path
+        run: echo "CONFIG_PATH=./.golangci.yml" >> $GITHUB_ENV
+
+      - name: Lint each module
+        run: |
+          modules=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq)
+          echo "Found modules: $modules"
+          failed_modules=""
+
+          for module in $modules; do
+            echo "Running golangci-lint in $module"
+            cd $module
+
+            if ! /home/runner/golangci-lint-1.62.2-linux-amd64/golangci-lint run --config ${{ env.CONFIG_PATH }} --out-format=colored-line-number; then
+              failed_modules="$failed_modules $module"
+            fi
+
+            cd -
+          done
+
+          if [ -n "$failed_modules" ]; then
+            echo "The following modules failed linting:"
+            echo "$failed_modules"
+            exit 1
+          else
+            echo "All modules passed linting."
+          fi
