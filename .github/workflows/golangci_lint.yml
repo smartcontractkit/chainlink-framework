@@ -18,9 +18,15 @@ jobs:
         with:
           go-version: '1.19'
 
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.62.2
+        env:
+          GOROOT: /usr/local/go
+          GOPATH: $HOME/go
+          PATH: $HOME/go/bin:/usr/local/go/bin:$PATH
+
       - name: Lint multinode
         run: |
           cd ./multinode
           golangci-lint run
-        env:
-          GOLANGCI_LINT_VERSION: v1.62.2
