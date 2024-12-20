@@ -8,7 +8,7 @@ import (
 
 func TestHighestHeadNodeSelectorName(t *testing.T) {
 	selector := newNodeSelector[ID, RPCClient[ID, Head]](NodeSelectionModeHighestHead, nil)
-	assert.Equal(t, selector.Name(), NodeSelectionModeHighestHead)
+	assert.Equal(t, NodeSelectionModeHighestHead, selector.Name())
 }
 
 func TestHighestHeadNodeSelector(t *testing.T) {

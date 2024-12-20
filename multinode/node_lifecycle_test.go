@@ -1447,7 +1447,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -1470,7 +1470,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 			assert.Equal(t, nodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -1491,7 +1491,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
 		})
@@ -1539,7 +1539,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateSyncing
 		})
@@ -1560,7 +1560,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		setupRPCForAliveLoop(t, rpc)
 
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
 		})
@@ -1591,7 +1591,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 	t.Run("skip if nLiveNodes is not configured", func(t *testing.T) {
 		node := newTestNode(t, testNodeOpts{})
 		outOfSync, liveNodes := node.isOutOfSyncWithPool()
-		assert.Equal(t, false, outOfSync)
+		assert.False(t, outOfSync)
 		assert.Equal(t, 0, liveNodes)
 	})
 	t.Run("skip if syncThreshold is not configured", func(t *testing.T) {
@@ -1599,7 +1599,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 		poolInfo := newMockPoolChainInfoProvider(t)
 		node.SetPoolChainInfoProvider(poolInfo)
 		outOfSync, liveNodes := node.isOutOfSyncWithPool()
-		assert.Equal(t, false, outOfSync)
+		assert.False(t, outOfSync)
 		assert.Equal(t, 0, liveNodes)
 	})
 	t.Run("panics on invalid selection mode", func(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 
 func TestTotalDifficultyNodeSelectorName(t *testing.T) {
 	selector := newNodeSelector[ID, RPCClient[ID, Head]](NodeSelectionModeTotalDifficulty, nil)
-	assert.Equal(t, selector.Name(), NodeSelectionModeTotalDifficulty)
+	assert.Equal(t, NodeSelectionModeTotalDifficulty, selector.Name())
 }
 
 func TestTotalDifficultyNodeSelector(t *testing.T) {

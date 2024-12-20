@@ -256,7 +256,6 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		_, txSender = newTestTransactionSender(t, chainID, logger.Test(t),
 			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
-
 	})
 	t.Run("Returns error if there is no healthy primary nodes", func(t *testing.T) {
 		chainID := RandomID()

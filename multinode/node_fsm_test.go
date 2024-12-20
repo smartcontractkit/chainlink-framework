@@ -19,7 +19,7 @@ func (fm *fnMock) AssertNotCalled(t *testing.T) {
 }
 
 func (fm *fnMock) AssertCalled(t *testing.T) {
-	assert.Greater(t, fm.calls, 0)
+	assert.Positive(t, fm.calls)
 }
 
 func TestUnit_Node_StateTransitions(t *testing.T) {

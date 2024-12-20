@@ -128,7 +128,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
