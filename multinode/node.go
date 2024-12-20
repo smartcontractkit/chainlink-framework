@@ -162,10 +162,10 @@ func NewNode[
 func (n *node[CHAIN_ID, HEAD, RPC]) String() string {
 	s := fmt.Sprintf("(%s)%s", Primary.String(), n.name)
 	if n.ws != nil {
-		s = s + fmt.Sprintf(":%s", n.ws.String())
+		s += fmt.Sprintf(":%s", n.ws.String())
 	}
 	if n.http != nil {
-		s = s + fmt.Sprintf(":%s", n.http.String())
+		s += fmt.Sprintf(":%s", n.http.String())
 	}
 	return s
 }

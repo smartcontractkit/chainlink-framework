@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink-framework
+module github.com/smartcontractkit/chainlink-framework/multinode
 
 go 1.23.3
 

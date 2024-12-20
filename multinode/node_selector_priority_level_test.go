@@ -8,7 +8,7 @@ import (
 
 func TestPriorityLevelNodeSelectorName(t *testing.T) {
 	selector := newNodeSelector[ID, RPCClient[ID, Head]](NodeSelectionModePriorityLevel, nil)
-	assert.Equal(t, selector.Name(), NodeSelectionModePriorityLevel)
+	assert.Equal(t, NodeSelectionModePriorityLevel, selector.Name())
 }
 
 func TestPriorityLevelNodeSelector(t *testing.T) {

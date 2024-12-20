@@ -8,7 +8,7 @@ import (
 
 func TestHighestHeadNodeSelectorName(t *testing.T) {
 	selector := newNodeSelector[ID, RPCClient[ID, Head]](NodeSelectionModeHighestHead, nil)
-	assert.Equal(t, selector.Name(), NodeSelectionModeHighestHead)
+	assert.Equal(t, NodeSelectionModeHighestHead, selector.Name())
 }
 
 func TestHighestHeadNodeSelector(t *testing.T) {
@@ -20,13 +20,14 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		node := newMockNode[ID, nodeClient](t)
-		if i == 0 {
+		switch i {
+		case 0:
 			// first node is out of sync
 			node.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: int64(-1)})
-		} else if i == 1 {
+		case 1:
 			// second node is alive, LatestReceivedBlockNumber = 1
 			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
-		} else {
+		default:
 			// third node is alive, LatestReceivedBlockNumber = 2 (best node)
 			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(2)})
 		}

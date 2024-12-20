@@ -18,7 +18,6 @@ linters:
     - misspell
     - noctx
     - nolintlint
-    - perfsprint
     - prealloc
     - revive
     - rowserrcheck

@@ -106,7 +106,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr := logger.Test(t)
 		_, txSender := newTestTransactionSender(t, RandomID(), lggr, nil, nil)
 		result := txSender.SendTransaction(tests.Context(t), nil)
-		assert.EqualError(t, result.Error(), ErroringNodeError.Error())
+		assert.EqualError(t, result.Error(), ErrNodeError.Error())
 	})
 
 	t.Run("Transaction failure happy path", func(t *testing.T) {
@@ -256,7 +256,6 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		_, txSender = newTestTransactionSender(t, chainID, logger.Test(t),
 			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
-
 	})
 	t.Run("Returns error if there is no healthy primary nodes", func(t *testing.T) {
 		chainID := RandomID()
@@ -270,7 +269,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{sendOnly})
 
 		result := txSender.SendTransaction(tests.Context(t), nil)
-		assert.EqualError(t, result.Error(), ErroringNodeError.Error())
+		assert.EqualError(t, result.Error(), ErrNodeError.Error())
 	})
 
 	t.Run("Transaction success even if one of the nodes is unhealthy", func(t *testing.T) {

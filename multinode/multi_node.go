@@ -20,7 +20,7 @@ var (
 		Name: "multi_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
-	ErroringNodeError = fmt.Errorf("no live nodes available")
+	ErrNodeError = fmt.Errorf("no live nodes available")
 )
 
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
@@ -120,7 +120,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) DoAll(ctx context.Context, do func(ctx contex
 			}
 		}
 		if callsCompleted == 0 {
-			return ErroringNodeError
+			return ErrNodeError
 		}
 		return nil
 	})
@@ -217,7 +217,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err e
 	if c.activeNode == nil {
 		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
 		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
-		return nil, ErroringNodeError
+		return nil, ErrNodeError
 	}
 
 	c.lggr.Debugw("Switched to a new active node due to prev node heath issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())

@@ -1,6 +1,6 @@
-name: Golangci-lint
+name: Lint MultiNode
 
-on: [pull_request]
+on: [push]
 
 jobs:
   golangci-lint:
@@ -10,7 +10,11 @@ jobs:
       contents: read
       actions: read
     steps:
-      - name: golangci-lint
-        uses: smartcontractkit/.github/actions/ci-lint-go@2ac9d97a83a5edded09af7fcf4ea5bce7a4473a4 # v0.2.6
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run golangci-lint for multinode
+        uses: golangci/golangci-lint-action@v3
         with:
-          golangci-lint-version: v1.62.2
+          version: v1.62.2
+          working-directory: ./multinode

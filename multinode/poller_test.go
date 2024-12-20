@@ -189,6 +189,6 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 		require.NoError(t, err)
 
 		poller.Unsubscribe()
-		require.Equal(t, <-channel, nil)
+		require.Nil(t, <-channel)
 	})
 }
