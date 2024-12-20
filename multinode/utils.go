@@ -10,6 +10,7 @@ import (
 )
 
 func RandomID() ID {
+	// #nosec G404
 	id := rand.Int63n(math.MaxInt32) + 10000
 	return big.NewInt(id)
 }

@@ -20,7 +20,7 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC]
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
 	var highestTD *big.Int
 	var nodes []Node[CHAIN_ID, RPC]
-	var aliveNodes []Node[CHAIN_ID, RPC]
+	var aliveNodes = make([]Node[CHAIN_ID, RPC], 0)
 
 	for _, n := range s {
 		state, currentChainInfo := n.StateAndLatest()

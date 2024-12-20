@@ -56,6 +56,7 @@ func newNodeWithState(t *testing.T, chainID ID, state nodeState) *mockNode[ID, m
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
 	node.On("Close").Return(nil).Once()
+	// #nosec G404
 	node.On("String").Return(fmt.Sprintf("healthy_node_%d", rand.Int())).Maybe()
 	node.On("SetPoolChainInfoProvider", mock.Anything).Once()
 	node.On("State").Return(state).Maybe()
@@ -390,7 +391,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
 		node, err := mn.selectNode()
-		require.EqualError(t, err, ErroringNodeError.Error())
+		require.EqualError(t, err, ErrNodeError.Error())
 		require.Nil(t, node)
 		tests.RequireLogMessage(t, observedLogs, "No live RPC nodes available")
 	})

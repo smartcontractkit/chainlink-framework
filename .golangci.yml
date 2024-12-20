@@ -4,27 +4,28 @@ linters:
   enable:
     - containedctx
     - depguard
-    #- errorlint
+    - errname
+    - errorlint
     - exhaustive
-    #- exportloopref
+    - exportloopref
     - fatcontext
     - ginkgolinter
-    #- gocritic
+    - gocritic
     - goimports
-    #- gosec
+    - gosec
     - loggercheck
     - mirror
     - misspell
     - noctx
     - nolintlint
-    #- prealloc
+    - prealloc
     - revive
     - rowserrcheck
     - spancheck
     - sqlclosecheck
-    #- testifylint
+    - testifylint
     - unconvert
-    #- whitespace
+    - whitespace
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true

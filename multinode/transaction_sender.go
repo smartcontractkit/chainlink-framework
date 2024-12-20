@@ -153,7 +153,7 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) SendTransaction(ct
 		}
 
 		if healthyNodesNum == 0 {
-			result = txSender.newResult(ErroringNodeError)
+			result = txSender.newResult(ErrNodeError)
 			return
 		}
 

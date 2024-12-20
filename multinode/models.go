@@ -96,7 +96,7 @@ func (s syncStatus) String() string {
 		return "Synced"
 	}
 	var result bytes.Buffer
-	for i := syncStatusNotInSyncWithPool; i < syncStatusLen; i = i << 1 {
+	for i := syncStatusNotInSyncWithPool; i < syncStatusLen; i <<= 1 {
 		if i&s == 0 {
 			continue
 		}

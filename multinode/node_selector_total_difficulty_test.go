@@ -20,13 +20,14 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 
 	for i := 0; i < 3; i++ {
 		node := newMockNode[ID, nodeClient](t)
-		if i == 0 {
+		switch i {
+		case 0:
 			// first node is out of sync
 			node.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: -1})
-		} else if i == 1 {
+		case 1:
 			// second node is alive
 			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: 1, TotalDifficulty: big.NewInt(7)})
-		} else {
+		default:
 			// third node is alive and best
 			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: 2, TotalDifficulty: big.NewInt(8)})
 		}

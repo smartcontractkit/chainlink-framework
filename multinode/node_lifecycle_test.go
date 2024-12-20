@@ -1517,7 +1517,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing status"))
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial"))
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Unexpected error while verifying RPC node synchronization status")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateUnreachable
@@ -1579,7 +1579,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		setupRPCForAliveLoop(t, rpc)
 
 		err := node.Start(tests.Context(t))
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
 		})
