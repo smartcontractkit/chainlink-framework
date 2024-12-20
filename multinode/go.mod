@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink-framework/multinode
 go 1.23.3
 
 require (
-	github.com/cometbft/cometbft v0.38.15
+	github.com/cometbft/cometbft v0.37.5
 	github.com/jpillora/backoff v1.0.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
