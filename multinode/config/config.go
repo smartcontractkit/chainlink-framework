@@ -4,8 +4,6 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-
-	"github.com/smartcontractkit/chainlink-framework/multinode"
 )
 
 // MultiNodeConfig is a wrapper to provide required functions while keeping configs Public
@@ -103,7 +101,7 @@ func (c *MultiNodeConfig) SetDefaults() {
 	}
 	// Selection mode defaults to priority level to enable using node priorities
 	if c.MultiNode.SelectionMode == nil {
-		c.MultiNode.SelectionMode = ptr(multinode.NodeSelectionModePriorityLevel)
+		c.MultiNode.SelectionMode = ptr("PriorityLevel")
 	}
 	// The sync threshold is set to 10 to allow for some flexibility in node synchronization before considering it out of sync.
 	if c.MultiNode.SyncThreshold == nil {
