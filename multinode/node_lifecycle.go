@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
@@ -23,33 +21,6 @@ var (
 	promPoolRPCNodePollsFailed           *prometheus.CounterVec
 	promPoolRPCNodePollsSuccess          *prometheus.CounterVec
 )
-
-func init() {
-	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pool_rpc_node_highest_seen_block",
-		Help: "The highest seen block for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pool_rpc_node_highest_finalized_block",
-		Help: "The highest seen finalized block for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_seen_blocks",
-		Help: "The total number of new blocks seen by the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_total",
-		Help: "The total number of poll checks for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_failed",
-		Help: "The total number of failed poll checks for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_success",
-		Help: "The total number of successful poll checks for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-}
 
 // zombieNodeCheckInterval controls how often to re-check to see if we need to
 // state change in case we have to force a state transition due to no available

@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -19,13 +17,6 @@ var (
 	PromMultiNodeRPCNodeStates *prometheus.GaugeVec
 	ErrNodeError               = fmt.Errorf("no live nodes available")
 )
-
-func init() {
-	PromMultiNodeRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "multi_node_states",
-		Help: "The number of RPC nodes currently in the given state for the given chain",
-	}, []string{"network", "chainId", "state"})
-}
 
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
