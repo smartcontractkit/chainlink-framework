@@ -4,16 +4,38 @@ import (
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var (
-	promPoolRPCNodeTransitionsToAlive          *prometheus.CounterVec
-	promPoolRPCNodeTransitionsToInSync         *prometheus.CounterVec
-	promPoolRPCNodeTransitionsToOutOfSync      *prometheus.CounterVec
-	promPoolRPCNodeTransitionsToUnreachable    *prometheus.CounterVec
-	promPoolRPCNodeTransitionsToInvalidChainID *prometheus.CounterVec
-	promPoolRPCNodeTransitionsToUnusable       *prometheus.CounterVec
-	promPoolRPCNodeTransitionsToSyncing        *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToAlive = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_alive",
+		Help: transitionString(nodeStateAlive),
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToInSync = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_in_sync",
+		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToOutOfSync = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
+		Help: transitionString(nodeStateOutOfSync),
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToUnreachable = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_unreachable",
+		Help: transitionString(nodeStateUnreachable),
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToInvalidChainID = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
+		Help: transitionString(nodeStateInvalidChainID),
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToUnusable = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_unusable",
+		Help: transitionString(nodeStateUnusable),
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToSyncing = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_syncing",
+		Help: transitionString(nodeStateSyncing),
+	}, []string{"chainID", "nodeName"})
 )
 
 // nodeState represents the current state of the node

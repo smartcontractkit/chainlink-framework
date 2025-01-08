@@ -8,18 +8,37 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 )
 
 var (
-	promPoolRPCNodeHighestSeenBlock      *prometheus.GaugeVec
-	promPoolRPCNodeHighestFinalizedBlock *prometheus.GaugeVec
-	promPoolRPCNodeNumSeenBlocks         *prometheus.CounterVec
-	promPoolRPCNodePolls                 *prometheus.CounterVec
-	promPoolRPCNodePollsFailed           *prometheus.CounterVec
-	promPoolRPCNodePollsSuccess          *prometheus.CounterVec
+	promPoolRPCNodeHighestSeenBlock = promauto.With(metricsRegistry).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pool_rpc_node_highest_seen_block",
+		Help: "The highest seen block for the given RPC node",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeHighestFinalizedBlock = promauto.With(metricsRegistry).NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pool_rpc_node_highest_finalized_block",
+		Help: "The highest seen finalized block for the given RPC node",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeNumSeenBlocks = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_seen_blocks",
+		Help: "The total number of new blocks seen by the given RPC node",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodePolls = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_total",
+		Help: "The total number of poll checks for the given RPC node",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodePollsFailed = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_failed",
+		Help: "The total number of failed poll checks for the given RPC node",
+	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodePollsSuccess = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_success",
+		Help: "The total number of successful poll checks for the given RPC node",
+	}, []string{"chainID", "nodeName"})
 )
 
 // zombieNodeCheckInterval controls how often to re-check to see if we need to

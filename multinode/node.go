@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -18,9 +19,18 @@ const QueryTimeout = 10 * time.Second
 var errInvalidChainID = errors.New("invalid chain id")
 
 var (
-	promPoolRPCNodeVerifies        *prometheus.CounterVec
-	promPoolRPCNodeVerifiesFailed  *prometheus.CounterVec
-	promPoolRPCNodeVerifiesSuccess *prometheus.CounterVec
+	promPoolRPCNodeVerifies = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_verifies",
+		Help: "The total number of chain ID verifications for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodeVerifiesFailed = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_verifies_failed",
+		Help: "The total number of failed chain ID verifications for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodeVerifiesSuccess = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_verifies_success",
+		Help: "The total number of successful chain ID verifications for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
 )
 
 type NodeConfig interface {
