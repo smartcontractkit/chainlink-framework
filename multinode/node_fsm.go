@@ -8,6 +8,16 @@ import (
 )
 
 var (
+	promPoolRPCNodeTransitionsToAlive          *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToInSync         *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToOutOfSync      *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToUnreachable    *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToInvalidChainID *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToUnusable       *prometheus.CounterVec
+	promPoolRPCNodeTransitionsToSyncing        *prometheus.CounterVec
+)
+
+func init() {
 	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_alive",
 		Help: transitionString(nodeStateAlive),
@@ -36,7 +46,7 @@ var (
 		Name: "pool_rpc_node_num_transitions_to_syncing",
 		Help: transitionString(nodeStateSyncing),
 	}, []string{"chainID", "nodeName"})
-)
+}
 
 // nodeState represents the current state of the node
 // Node is a FSM (finite state machine)

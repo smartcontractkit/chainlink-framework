@@ -17,11 +17,15 @@ import (
 
 var (
 	// PromMultiNodeInvariantViolations reports violation of our assumptions
+	PromMultiNodeInvariantViolations *prometheus.CounterVec
+)
+
+func init() {
 	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "multi_node_invariant_violations",
 		Help: "The number of invariant violations",
 	}, []string{"network", "chainId", "invariant"})
-)
+}
 
 type SendTxResult interface {
 	Code() SendTxReturnCode

@@ -16,6 +16,15 @@ import (
 )
 
 var (
+	promPoolRPCNodeHighestSeenBlock      *prometheus.GaugeVec
+	promPoolRPCNodeHighestFinalizedBlock *prometheus.GaugeVec
+	promPoolRPCNodeNumSeenBlocks         *prometheus.CounterVec
+	promPoolRPCNodePolls                 *prometheus.CounterVec
+	promPoolRPCNodePollsFailed           *prometheus.CounterVec
+	promPoolRPCNodePollsSuccess          *prometheus.CounterVec
+)
+
+func init() {
 	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
@@ -40,7 +49,7 @@ var (
 		Name: "pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
-)
+}
 
 // zombieNodeCheckInterval controls how often to re-check to see if we need to
 // state change in case we have to force a state transition due to no available
