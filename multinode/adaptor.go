@@ -12,9 +12,14 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 )
 
+type AdaptorConfig interface {
+	NewHeadsPollInterval() time.Duration
+	FinalizedBlockPollInterval() time.Duration
+}
+
 // Adapter is used to integrate multinode into chain-specific clients
 type Adapter[RPC any, HEAD Head] struct {
-	cfg         *config.MultiNodeConfig
+	cfg         AdaptorConfig
 	log         logger.Logger
 	rpc         *RPC
 	ctxTimeout  time.Duration
@@ -121,8 +126,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD,
 	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
-	// TODO: BCFR-1070 - Add BlockPollInterval
-	pollInterval := m.cfg.FinalizedBlockPollInterval() // Use same interval as finalized polling
+	pollInterval := m.cfg.NewHeadsPollInterval()
 	if pollInterval == 0 {
 		return nil, nil, errors.New("PollInterval is 0")
 	}

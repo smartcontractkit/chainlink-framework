@@ -22,6 +22,7 @@ type MultiNode struct {
 	SyncThreshold              *uint32
 	NodeIsSyncingEnabled       *bool
 	LeaseDuration              *config.Duration
+	NewHeadsPollInterval       *config.Duration
 	FinalizedBlockPollInterval *config.Duration
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *config.Duration
@@ -59,6 +60,10 @@ func (c *MultiNodeConfig) NodeIsSyncingEnabled() bool {
 }
 
 func (c *MultiNodeConfig) LeaseDuration() time.Duration { return c.MultiNode.LeaseDuration.Duration() }
+
+func (c *MultiNodeConfig) NewHeadsPollInterval() time.Duration {
+	return c.MultiNode.NewHeadsPollInterval.Duration()
+}
 
 func (c *MultiNodeConfig) FinalizedBlockPollInterval() time.Duration {
 	return c.MultiNode.FinalizedBlockPollInterval.Duration()
@@ -107,6 +112,9 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	}
 	if f.MultiNode.LeaseDuration != nil {
 		c.MultiNode.LeaseDuration = f.MultiNode.LeaseDuration
+	}
+	if f.MultiNode.NewHeadsPollInterval != nil {
+		c.MultiNode.NewHeadsPollInterval = f.MultiNode.NewHeadsPollInterval
 	}
 	if f.MultiNode.FinalizedBlockPollInterval != nil {
 		c.MultiNode.FinalizedBlockPollInterval = f.MultiNode.FinalizedBlockPollInterval
