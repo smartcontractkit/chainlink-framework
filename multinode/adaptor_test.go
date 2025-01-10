@@ -57,8 +57,7 @@ func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
 			FinalizedBlockOffset:         ptr(uint32(50)),
 		},
 	}
-	c, err := NewAdapter[testRPC, *testHead](cfg, &testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
-	require.NoError(t, err)
+	c := NewAdapter[testRPC, *testHead](cfg, &testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
 	t.Cleanup(c.Close)
 	return c
 }
