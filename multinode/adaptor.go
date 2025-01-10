@@ -41,7 +41,7 @@ func NewAdapter[RPC any, HEAD Head](
 	cfg *config.MultiNodeConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
-) (*Adapter[RPC, HEAD], error) {
+) *Adapter[RPC, HEAD] {
 	return &Adapter[RPC, HEAD]{
 		cfg:                  cfg,
 		rpc:                  rpc,
@@ -51,7 +51,7 @@ func NewAdapter[RPC any, HEAD Head](
 		latestFinalizedBlock: latestFinalizedBlock,
 		subs:                 make(map[Subscription]struct{}),
 		chStopInFlight:       make(chan struct{}),
-	}, nil
+	}
 }
 
 func (m *Adapter[RPC, HEAD]) LenSubs() int {
