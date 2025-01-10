@@ -17,7 +17,7 @@ import (
 var (
 	// PromMultiNodeInvariantViolations reports violation of our assumptions
 	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multi_node_invariant_violations",
+		Name: "multinode_transaction_sender_invariant_violations",
 		Help: "The number of invariant violations",
 	}, []string{"network", "chainId", "invariant"})
 )

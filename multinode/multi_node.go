@@ -15,9 +15,8 @@ import (
 )
 
 var (
-	metricsRegistry            = prometheus.NewRegistry()
-	PromMultiNodeRPCNodeStates = promauto.With(metricsRegistry).NewGaugeVec(prometheus.GaugeOpts{
-		Name: "multi_node_states",
+	PromMultiNodeRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "multinode_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
 	ErrNodeError = fmt.Errorf("no live nodes available")

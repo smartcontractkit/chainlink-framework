@@ -16,28 +16,28 @@ import (
 )
 
 var (
-	promPoolRPCNodeHighestSeenBlock = promauto.With(metricsRegistry).NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pool_rpc_node_highest_seen_block",
+	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "multinode_pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeHighestFinalizedBlock = promauto.With(metricsRegistry).NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pool_rpc_node_highest_finalized_block",
+	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "multinode_pool_rpc_node_highest_finalized_block",
 		Help: "The highest seen finalized block for the given RPC node",
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeNumSeenBlocks = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_seen_blocks",
+	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_seen_blocks",
 		Help: "The total number of new blocks seen by the given RPC node",
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePolls = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_total",
+	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_polls_total",
 		Help: "The total number of poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePollsFailed = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_failed",
+	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_polls_failed",
 		Help: "The total number of failed poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePollsSuccess = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_success",
+	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
 )

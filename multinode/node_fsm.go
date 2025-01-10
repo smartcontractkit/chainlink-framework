@@ -8,32 +8,32 @@ import (
 )
 
 var (
-	promPoolRPCNodeTransitionsToAlive = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_alive",
+	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_alive",
 		Help: transitionString(nodeStateAlive),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToInSync = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_in_sync",
+	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_in_sync",
 		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToOutOfSync = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
+	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_out_of_sync",
 		Help: transitionString(nodeStateOutOfSync),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnreachable = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unreachable",
+	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_unreachable",
 		Help: transitionString(nodeStateUnreachable),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToInvalidChainID = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
+	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: transitionString(nodeStateInvalidChainID),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnusable = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unusable",
+	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_unusable",
 		Help: transitionString(nodeStateUnusable),
 	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToSyncing = promauto.With(metricsRegistry).NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_syncing",
+	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multinode_pool_rpc_node_num_transitions_to_syncing",
 		Help: transitionString(nodeStateSyncing),
 	}, []string{"chainID", "nodeName"})
 )
