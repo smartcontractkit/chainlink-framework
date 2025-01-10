@@ -134,10 +134,7 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 	t.Run("RegisterSub", func(t *testing.T) {
 		c := newTestClient(t)
 		mockSub := newMockSub()
-		sub := &ManagedSubscription{
-			Subscription:  mockSub,
-			onUnsubscribe: c.RemoveSub,
-		}
+		sub := NewManagedSubscription(mockSub, c.RemoveSub)
 		err := c.RegisterSub(sub, make(chan struct{}))
 		require.NoError(t, err)
 		require.Equal(t, 1, c.LenSubs())
@@ -149,10 +146,7 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		chStopInFlight := make(chan struct{})
 		close(chStopInFlight)
 		mockSub := newMockSub()
-		sub := &ManagedSubscription{
-			Subscription:  mockSub,
-			onUnsubscribe: c.RemoveSub,
-		}
+		sub := NewManagedSubscription(mockSub, c.RemoveSub)
 		err := c.RegisterSub(sub, chStopInFlight)
 		require.Error(t, err)
 		require.True(t, mockSub.unsubscribed)
@@ -162,15 +156,9 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		c := newTestClient(t)
 		chStopInFlight := make(chan struct{})
 		mockSub1 := newMockSub()
-		sub1 := &ManagedSubscription{
-			Subscription:  mockSub1,
-			onUnsubscribe: c.RemoveSub,
-		}
+		sub1 := NewManagedSubscription(mockSub1, c.RemoveSub)
 		mockSub2 := newMockSub()
-		sub2 := &ManagedSubscription{
-			Subscription:  mockSub2,
-			onUnsubscribe: c.RemoveSub,
-		}
+		sub2 := NewManagedSubscription(mockSub2, c.RemoveSub)
 		err := c.RegisterSub(sub1, chStopInFlight)
 		require.NoError(t, err)
 		err = c.RegisterSub(sub2, chStopInFlight)

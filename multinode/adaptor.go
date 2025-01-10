@@ -141,11 +141,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD,
 		return nil, nil, err
 	}
 
-	sub := &ManagedSubscription{
-		Subscription:  &poller,
-		onUnsubscribe: m.RemoveSub,
-	}
-
+	sub := NewManagedSubscription(&poller, m.RemoveSub)
 	err := m.RegisterSub(sub, chStopInFlight)
 	if err != nil {
 		sub.Unsubscribe()
@@ -174,11 +170,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-c
 		return nil, nil, err
 	}
 
-	sub := &ManagedSubscription{
-		Subscription:  &poller,
-		onUnsubscribe: m.RemoveSub,
-	}
-
+	sub := NewManagedSubscription(&poller, m.RemoveSub)
 	err := m.RegisterSub(sub, chStopInFlight)
 	if err != nil {
 		sub.Unsubscribe()

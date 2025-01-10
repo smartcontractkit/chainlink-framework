@@ -45,6 +45,13 @@ func (w *ManagedSubscription) Unsubscribe() {
 	}
 }
 
+func NewManagedSubscription(sub Subscription, onUnsubscribe func(sub Subscription)) *ManagedSubscription {
+	return &ManagedSubscription{
+		sub,
+		onUnsubscribe,
+	}
+}
+
 // RPCClient includes all the necessary generalized RPC methods used by Node to perform health checks
 type RPCClient[
 	CHAIN_ID ID,
