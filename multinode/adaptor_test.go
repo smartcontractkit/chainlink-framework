@@ -29,10 +29,6 @@ func LatestBlock(ctx context.Context, rpc *testRPC) (*testHead, error) {
 	return &testHead{rpc.latestBlock}, nil
 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
 	requestTimeout := 5 * time.Second
 	lggr := logger.Test(t)

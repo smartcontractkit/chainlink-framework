@@ -58,11 +58,11 @@ func (m *Adapter[RPC, HEAD]) LenSubs() int {
 }
 
 // RegisterSub adds the sub to the Adaptor list and returns a sub which is managed on unsubscribe
-func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription, stopInFLightCh chan struct{}) (*ManagedSubscription, error) {
+func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription) (*ManagedSubscription, error) {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
-	case <-stopInFLightCh:
+	case <-m.chStopInFlight:
 		sub.Unsubscribe()
 		return nil, fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
 	default:
