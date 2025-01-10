@@ -61,9 +61,7 @@ func (m *MultiNodeAdapter[RPC, HEAD]) LenSubs() int {
 }
 
 // registerSub adds the sub to the rpcMultiNodeAdapter list
-func (m *MultiNodeAdapter[RPC, HEAD]) registerSub(sub Subscription, stopInFLightCh chan struct{}) error {
-	m.subsSliceMu.Lock()
-	defer m.subsSliceMu.Unlock()
+func (m *MultiNodeAdapter[RPC, HEAD]) registerSub(sub *ManagedSubscription, stopInFLightCh chan struct{}) error {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
@@ -72,9 +70,16 @@ func (m *MultiNodeAdapter[RPC, HEAD]) registerSub(sub Subscription, stopInFLight
 		return fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
 	default:
 	}
-	// TODO: BCI-3358 - delete sub when caller unsubscribes.
+	m.subsSliceMu.Lock()
+	defer m.subsSliceMu.Unlock()
 	m.subs[sub] = struct{}{}
 	return nil
+}
+
+func (m *MultiNodeAdapter[RPC, HEAD]) removeSub(sub Subscription) {
+	m.subsSliceMu.Lock()
+	defer m.subsSliceMu.Unlock()
+	delete(m.subs, sub)
 }
 
 func (m *MultiNodeAdapter[RPC, HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
@@ -108,7 +113,7 @@ func (m *MultiNodeAdapter[RPC, HEAD]) LatestFinalizedBlock(ctx context.Context) 
 		return head, errors.New("invalid head")
 	}
 
-	m.OnNewFinalizedHead(ctx, chStopInFlight, head)
+	m.onNewFinalizedHead(ctx, chStopInFlight, head)
 	return head, nil
 }
 
@@ -133,13 +138,18 @@ func (m *MultiNodeAdapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-c
 		return nil, nil, err
 	}
 
-	err := m.registerSub(&poller, chStopInFlight)
+	sub := &ManagedSubscription{
+		Subscription:  &poller,
+		onUnsubscribe: m.removeSub,
+	}
+
+	err := m.registerSub(sub, chStopInFlight)
 	if err != nil {
-		poller.Unsubscribe()
+		sub.Unsubscribe()
 		return nil, nil, err
 	}
 
-	return channel, &poller, nil
+	return channel, sub, nil
 }
 
 func (m *MultiNodeAdapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
@@ -161,13 +171,18 @@ func (m *MultiNodeAdapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Cont
 		return nil, nil, err
 	}
 
-	err := m.registerSub(&poller, chStopInFlight)
+	sub := &ManagedSubscription{
+		Subscription:  &poller,
+		onUnsubscribe: m.removeSub,
+	}
+
+	err := m.registerSub(sub, chStopInFlight)
 	if err != nil {
-		poller.Unsubscribe()
+		sub.Unsubscribe()
 		return nil, nil, err
 	}
 
-	return channel, &poller, nil
+	return channel, sub, nil
 }
 
 func (m *MultiNodeAdapter[RPC, HEAD]) onNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
@@ -188,7 +203,7 @@ func (m *MultiNodeAdapter[RPC, HEAD]) onNewHead(ctx context.Context, requestCh <
 	}
 }
 
-func (m *MultiNodeAdapter[RPC, HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *MultiNodeAdapter[RPC, HEAD]) onNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
@@ -235,18 +250,21 @@ func (m *MultiNodeAdapter[RPC, HEAD]) AcquireQueryCtx(parentCtx context.Context,
 
 func (m *MultiNodeAdapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 	m.subsSliceMu.Lock()
-	defer m.subsSliceMu.Unlock()
-
 	keepSubs := map[Subscription]struct{}{}
 	for _, sub := range subs {
 		keepSubs[sub] = struct{}{}
 	}
 
+	var unsubs []Subscription
 	for sub := range m.subs {
 		if _, keep := keepSubs[sub]; !keep {
-			sub.Unsubscribe()
-			delete(m.subs, sub)
+			unsubs = append(unsubs, sub)
 		}
+	}
+	m.subsSliceMu.Unlock()
+
+	for _, sub := range unsubs {
+		sub.Unsubscribe()
 	}
 }
 
