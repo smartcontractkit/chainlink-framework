@@ -80,7 +80,7 @@ func (m *Adapter[RPC, HEAD]) RegisterSub(sub *ManagedSubscription, stopInFLightC
 	return nil
 }
 
-func (m *Adapter[RPC, HEAD]) removeSub(sub Subscription) {
+func (m *Adapter[RPC, HEAD]) RemoveSub(sub Subscription) {
 	m.subsSliceMu.Lock()
 	defer m.subsSliceMu.Unlock()
 	delete(m.subs, sub)
@@ -143,7 +143,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD,
 
 	sub := &ManagedSubscription{
 		Subscription:  &poller,
-		onUnsubscribe: m.removeSub,
+		onUnsubscribe: m.RemoveSub,
 	}
 
 	err := m.RegisterSub(sub, chStopInFlight)
@@ -176,7 +176,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-c
 
 	sub := &ManagedSubscription{
 		Subscription:  &poller,
-		onUnsubscribe: m.removeSub,
+		onUnsubscribe: m.RemoveSub,
 	}
 
 	err := m.RegisterSub(sub, chStopInFlight)
