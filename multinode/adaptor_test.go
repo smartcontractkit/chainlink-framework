@@ -35,7 +35,7 @@ func ptr[T any](t T) *T {
 	return &t
 }
 
-func newTestClient(t *testing.T) *MultiNodeAdapter[testRPC, *testHead] {
+func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
 	requestTimeout := 5 * time.Second
 	lggr := logger.Test(t)
 	cfg := &config.MultiNodeConfig{
@@ -57,7 +57,7 @@ func newTestClient(t *testing.T) *MultiNodeAdapter[testRPC, *testHead] {
 			FinalizedBlockOffset:         ptr(uint32(50)),
 		},
 	}
-	c, err := NewMultiNodeAdapter[testRPC, *testHead](cfg, &testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
+	c, err := NewAdapter[testRPC, *testHead](cfg, &testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
 	require.NoError(t, err)
 	t.Cleanup(c.Close)
 	return c
