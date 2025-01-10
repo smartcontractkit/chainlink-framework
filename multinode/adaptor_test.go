@@ -68,14 +68,14 @@ func TestMultiNodeClient_LatestBlock(t *testing.T) {
 		c := newTestClient(t)
 		head, err := c.LatestBlock(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, true, head.IsValid())
+		require.True(t, head.IsValid())
 	})
 
 	t.Run("LatestFinalizedBlock", func(t *testing.T) {
 		c := newTestClient(t)
 		finalizedHead, err := c.LatestFinalizedBlock(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, true, finalizedHead.IsValid())
+		require.True(t, finalizedHead.IsValid())
 	})
 }
 
@@ -155,7 +155,7 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		}
 		err := c.registerSub(sub, chStopInFlight)
 		require.Error(t, err)
-		require.Equal(t, true, mockSub.unsubscribed)
+		require.True(t, mockSub.unsubscribed)
 	})
 
 	t.Run("UnsubscribeAllExcept", func(t *testing.T) {
@@ -180,12 +180,12 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		// Ensure passed sub is not removed
 		c.UnsubscribeAllExcept(sub1)
 		require.Equal(t, 1, c.LenSubs())
-		require.Equal(t, true, mockSub2.unsubscribed)
-		require.Equal(t, false, mockSub1.unsubscribed)
+		require.True(t, mockSub2.unsubscribed)
+		require.False(t, mockSub1.unsubscribed)
 
 		c.UnsubscribeAllExcept()
 		require.Equal(t, 0, c.LenSubs())
-		require.Equal(t, true, mockSub1.unsubscribed)
+		require.True(t, mockSub1.unsubscribed)
 	})
 
 	t.Run("Remove Subscription on Unsubscribe", func(t *testing.T) {

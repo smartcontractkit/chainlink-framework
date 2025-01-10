@@ -135,7 +135,3 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 		c.MultiNode.FinalizedBlockOffset = f.MultiNode.FinalizedBlockOffset
 	}
 }
-
-func ptr[T any](t T) *T {
-	return &t
-}
