@@ -11,14 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-type AdaptorConfig interface {
-	NewHeadsPollInterval() time.Duration
-	FinalizedBlockPollInterval() time.Duration
-}
-
 // Adapter is used to integrate multinode into chain-specific clients
 type Adapter[RPC any, HEAD Head] struct {
-	cfg         AdaptorConfig
 	log         logger.Logger
 	rpc         *RPC
 	ctxTimeout  time.Duration
@@ -42,12 +36,11 @@ type Adapter[RPC any, HEAD Head] struct {
 }
 
 func NewAdapter[RPC any, HEAD Head](
-	cfg AdaptorConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
+	rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 ) *Adapter[RPC, HEAD] {
 	return &Adapter[RPC, HEAD]{
-		cfg:                  cfg,
 		rpc:                  rpc,
 		log:                  log,
 		ctxTimeout:           ctxTimeout,
@@ -64,23 +57,27 @@ func (m *Adapter[RPC, HEAD]) LenSubs() int {
 	return len(m.subs)
 }
 
-// RegisterSub adds the sub to the Adaptor list
-func (m *Adapter[RPC, HEAD]) RegisterSub(sub *ManagedSubscription, stopInFLightCh chan struct{}) error {
+// RegisterSub adds the sub to the Adaptor list and returns a sub which is managed on unsubscribe
+func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription, stopInFLightCh chan struct{}) (*ManagedSubscription, error) {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
 	case <-stopInFLightCh:
 		sub.Unsubscribe()
-		return fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
+		return nil, fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
 	default:
 	}
 	m.subsSliceMu.Lock()
 	defer m.subsSliceMu.Unlock()
-	m.subs[sub] = struct{}{}
-	return nil
+	managedSub := &ManagedSubscription{
+		sub,
+		m.removeSub,
+	}
+	m.subs[managedSub] = struct{}{}
+	return managedSub, nil
 }
 
-func (m *Adapter[RPC, HEAD]) RemoveSub(sub Subscription) {
+func (m *Adapter[RPC, HEAD]) removeSub(sub Subscription) {
 	m.subsSliceMu.Lock()
 	defer m.subsSliceMu.Unlock()
 	delete(m.subs, sub)
@@ -119,65 +116,6 @@ func (m *Adapter[RPC, HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, er
 
 	m.onNewFinalizedHead(ctx, chStopInFlight, head)
 	return head, nil
-}
-
-func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
-	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
-	defer cancel()
-
-	pollInterval := m.cfg.NewHeadsPollInterval()
-	if pollInterval == 0 {
-		return nil, nil, errors.New("PollInterval is 0")
-	}
-	timeout := pollInterval
-	poller, channel := NewPoller[HEAD](pollInterval, func(pollRequestCtx context.Context) (HEAD, error) {
-		if CtxIsHeathCheckRequest(ctx) {
-			pollRequestCtx = CtxAddHealthCheckFlag(pollRequestCtx)
-		}
-		return m.LatestBlock(pollRequestCtx)
-	}, timeout, m.log)
-
-	if err := poller.Start(ctx); err != nil {
-		return nil, nil, err
-	}
-
-	sub := NewManagedSubscription(&poller, m.RemoveSub)
-	err := m.RegisterSub(sub, chStopInFlight)
-	if err != nil {
-		sub.Unsubscribe()
-		return nil, nil, err
-	}
-
-	return channel, sub, nil
-}
-
-func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
-	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
-	defer cancel()
-
-	finalizedBlockPollInterval := m.cfg.FinalizedBlockPollInterval()
-	if finalizedBlockPollInterval == 0 {
-		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
-	}
-	timeout := finalizedBlockPollInterval
-	poller, channel := NewPoller[HEAD](finalizedBlockPollInterval, func(pollRequestCtx context.Context) (HEAD, error) {
-		if CtxIsHeathCheckRequest(ctx) {
-			pollRequestCtx = CtxAddHealthCheckFlag(pollRequestCtx)
-		}
-		return m.LatestFinalizedBlock(pollRequestCtx)
-	}, timeout, m.log)
-	if err := poller.Start(ctx); err != nil {
-		return nil, nil, err
-	}
-
-	sub := NewManagedSubscription(&poller, m.RemoveSub)
-	err := m.RegisterSub(sub, chStopInFlight)
-	if err != nil {
-		sub.Unsubscribe()
-		return nil, nil, err
-	}
-
-	return channel, sub, nil
 }
 
 func (m *Adapter[RPC, HEAD]) onNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
