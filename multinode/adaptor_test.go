@@ -47,6 +47,7 @@ func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
 			SyncThreshold:                ptr(uint32(10)),
 			LeaseDuration:                common.MustNewDuration(time.Minute),
 			NodeIsSyncingEnabled:         ptr(false),
+			NewHeadsPollInterval:         common.MustNewDuration(5 * time.Second),
 			FinalizedBlockPollInterval:   common.MustNewDuration(5 * time.Second),
 			EnforceRepeatableRead:        ptr(true),
 			DeathDeclarationDelay:        common.MustNewDuration(20 * time.Second),

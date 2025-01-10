@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 )
 
 type AdaptorConfig interface {
@@ -43,7 +42,7 @@ type Adapter[RPC any, HEAD Head] struct {
 }
 
 func NewAdapter[RPC any, HEAD Head](
-	cfg *config.MultiNodeConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
+	cfg AdaptorConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 ) *Adapter[RPC, HEAD] {
