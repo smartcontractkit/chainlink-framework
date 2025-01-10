@@ -64,8 +64,8 @@ func (m *Adapter[RPC, HEAD]) LenSubs() int {
 	return len(m.subs)
 }
 
-// registerSub adds the sub to the rpcMultiNodeAdapter list
-func (m *Adapter[RPC, HEAD]) registerSub(sub *ManagedSubscription, stopInFLightCh chan struct{}) error {
+// RegisterSub adds the sub to the Adaptor list
+func (m *Adapter[RPC, HEAD]) RegisterSub(sub *ManagedSubscription, stopInFLightCh chan struct{}) error {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
@@ -146,7 +146,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD,
 		onUnsubscribe: m.removeSub,
 	}
 
-	err := m.registerSub(sub, chStopInFlight)
+	err := m.RegisterSub(sub, chStopInFlight)
 	if err != nil {
 		sub.Unsubscribe()
 		return nil, nil, err
@@ -179,7 +179,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-c
 		onUnsubscribe: m.removeSub,
 	}
 
-	err := m.registerSub(sub, chStopInFlight)
+	err := m.RegisterSub(sub, chStopInFlight)
 	if err != nil {
 		sub.Unsubscribe()
 		return nil, nil, err

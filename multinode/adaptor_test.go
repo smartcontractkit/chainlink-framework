@@ -131,14 +131,14 @@ func (s *mockSub) Err() <-chan error {
 }
 
 func TestMultiNodeClient_RegisterSubs(t *testing.T) {
-	t.Run("registerSub", func(t *testing.T) {
+	t.Run("RegisterSub", func(t *testing.T) {
 		c := newTestClient(t)
 		mockSub := newMockSub()
 		sub := &ManagedSubscription{
 			Subscription:  mockSub,
 			onUnsubscribe: c.removeSub,
 		}
-		err := c.registerSub(sub, make(chan struct{}))
+		err := c.RegisterSub(sub, make(chan struct{}))
 		require.NoError(t, err)
 		require.Equal(t, 1, c.LenSubs())
 		c.UnsubscribeAllExcept()
@@ -153,7 +153,7 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 			Subscription:  mockSub,
 			onUnsubscribe: c.removeSub,
 		}
-		err := c.registerSub(sub, chStopInFlight)
+		err := c.RegisterSub(sub, chStopInFlight)
 		require.Error(t, err)
 		require.True(t, mockSub.unsubscribed)
 	})
@@ -171,9 +171,9 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 			Subscription:  mockSub2,
 			onUnsubscribe: c.removeSub,
 		}
-		err := c.registerSub(sub1, chStopInFlight)
+		err := c.RegisterSub(sub1, chStopInFlight)
 		require.NoError(t, err)
-		err = c.registerSub(sub2, chStopInFlight)
+		err = c.RegisterSub(sub2, chStopInFlight)
 		require.NoError(t, err)
 		require.Equal(t, 2, c.LenSubs())
 
