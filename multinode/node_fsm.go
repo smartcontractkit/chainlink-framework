@@ -9,31 +9,31 @@ import (
 
 var (
 	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_alive",
+		Name: "pool_rpc_node_num_transitions_to_alive",
 		Help: transitionString(nodeStateAlive),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_in_sync",
+		Name: "pool_rpc_node_num_transitions_to_in_sync",
 		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_out_of_sync",
+		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
 		Help: transitionString(nodeStateOutOfSync),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_unreachable",
+		Name: "pool_rpc_node_num_transitions_to_unreachable",
 		Help: transitionString(nodeStateUnreachable),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_invalid_chain_id",
+		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: transitionString(nodeStateInvalidChainID),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_unusable",
+		Name: "pool_rpc_node_num_transitions_to_unusable",
 		Help: transitionString(nodeStateUnusable),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_transitions_to_syncing",
+		Name: "pool_rpc_node_num_transitions_to_syncing",
 		Help: transitionString(nodeStateSyncing),
 	}, []string{"chainID", "nodeName"})
 )
