@@ -8,8 +8,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	common "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 )
 
 type testRPC struct {
@@ -29,10 +31,34 @@ func LatestBlock(ctx context.Context, rpc *testRPC) (*testHead, error) {
 	return &testHead{rpc.latestBlock}, nil
 }
 
+func ptr[T any](t T) *T {
+	return &t
+}
+
 func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
 	requestTimeout := 5 * time.Second
 	lggr := logger.Test(t)
-	c := NewAdapter[testRPC, *testHead](&testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
+	cfg := &config.MultiNodeConfig{
+		MultiNode: config.MultiNode{
+			Enabled:                      ptr(true),
+			PollFailureThreshold:         ptr(uint32(5)),
+			PollInterval:                 common.MustNewDuration(15 * time.Second),
+			SelectionMode:                ptr(NodeSelectionModePriorityLevel),
+			SyncThreshold:                ptr(uint32(10)),
+			LeaseDuration:                common.MustNewDuration(time.Minute),
+			NodeIsSyncingEnabled:         ptr(false),
+			NewHeadsPollInterval:         common.MustNewDuration(5 * time.Second),
+			FinalizedBlockPollInterval:   common.MustNewDuration(5 * time.Second),
+			EnforceRepeatableRead:        ptr(true),
+			DeathDeclarationDelay:        common.MustNewDuration(20 * time.Second),
+			NodeNoNewHeadsThreshold:      common.MustNewDuration(20 * time.Second),
+			NoNewFinalizedHeadsThreshold: common.MustNewDuration(20 * time.Second),
+			FinalityTagEnabled:           ptr(true),
+			FinalityDepth:                ptr(uint32(0)),
+			FinalizedBlockOffset:         ptr(uint32(50)),
+		},
+	}
+	c := NewAdapter[testRPC, *testHead](cfg, &testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
 	t.Cleanup(c.Close)
 	return c
 }
@@ -50,6 +76,69 @@ func TestMultiNodeClient_LatestBlock(t *testing.T) {
 		finalizedHead, err := c.LatestFinalizedBlock(tests.Context(t))
 		require.NoError(t, err)
 		require.True(t, finalizedHead.IsValid())
+	})
+}
+
+func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
+	t.Run("SubscribeToHeads", func(t *testing.T) {
+		c := newTestClient(t)
+		ch, sub, err := c.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		defer sub.Unsubscribe()
+
+		ctx, cancel := context.WithTimeout(tests.Context(t), time.Minute)
+		defer cancel()
+		select {
+		case head := <-ch:
+			latest, _ := c.GetInterceptedChainInfo()
+			require.Equal(t, head.BlockNumber(), latest.BlockNumber)
+		case <-ctx.Done():
+			t.Fatal("failed to receive head: ", ctx.Err())
+		}
+	})
+
+	t.Run("SubscribeToFinalizedHeads", func(t *testing.T) {
+		c := newTestClient(t)
+		finalizedCh, finalizedSub, err := c.SubscribeToFinalizedHeads(tests.Context(t))
+		require.NoError(t, err)
+		defer finalizedSub.Unsubscribe()
+
+		ctx, cancel := context.WithTimeout(tests.Context(t), time.Minute)
+		defer cancel()
+		select {
+		case finalizedHead := <-finalizedCh:
+			latest, _ := c.GetInterceptedChainInfo()
+			require.Equal(t, finalizedHead.BlockNumber(), latest.FinalizedBlockNumber)
+		case <-ctx.Done():
+			t.Fatal("failed to receive finalized head: ", ctx.Err())
+		}
+	})
+
+	t.Run("Remove Subscription on Unsubscribe", func(t *testing.T) {
+		c := newTestClient(t)
+		_, sub1, err := c.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, 1, c.LenSubs())
+		_, sub2, err := c.SubscribeToFinalizedHeads(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, 2, c.LenSubs())
+
+		sub1.Unsubscribe()
+		require.Equal(t, 1, c.LenSubs())
+		sub2.Unsubscribe()
+		require.Equal(t, 0, c.LenSubs())
+	})
+
+	t.Run("Ensure no deadlock on UnsubscribeAll", func(t *testing.T) {
+		c := newTestClient(t)
+		_, _, err := c.SubscribeToHeads(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, 1, c.LenSubs())
+		_, _, err = c.SubscribeToFinalizedHeads(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, 2, c.LenSubs())
+		c.UnsubscribeAllExcept()
+		require.Equal(t, 0, c.LenSubs())
 	})
 }
 

@@ -11,8 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
+type AdaptorConfig interface {
+	NewHeadsPollInterval() time.Duration
+	FinalizedBlockPollInterval() time.Duration
+}
+
 // Adapter is used to integrate multinode into chain-specific clients
 type Adapter[RPC any, HEAD Head] struct {
+	cfg         AdaptorConfig
 	log         logger.Logger
 	rpc         *RPC
 	ctxTimeout  time.Duration
@@ -36,11 +42,12 @@ type Adapter[RPC any, HEAD Head] struct {
 }
 
 func NewAdapter[RPC any, HEAD Head](
-	rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
+	cfg AdaptorConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 ) *Adapter[RPC, HEAD] {
 	return &Adapter[RPC, HEAD]{
+		cfg:                  cfg,
 		rpc:                  rpc,
 		log:                  log,
 		ctxTimeout:           ctxTimeout,
@@ -81,6 +88,61 @@ func (m *Adapter[RPC, HEAD]) removeSub(sub Subscription) {
 	m.subsSliceMu.Lock()
 	defer m.subsSliceMu.Unlock()
 	delete(m.subs, sub)
+}
+
+func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
+	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
+	defer cancel()
+
+	pollInterval := m.cfg.NewHeadsPollInterval()
+	if pollInterval == 0 {
+		return nil, nil, errors.New("PollInterval is 0")
+	}
+	timeout := pollInterval
+	poller, channel := NewPoller[HEAD](pollInterval, func(pollRequestCtx context.Context) (HEAD, error) {
+		if CtxIsHeathCheckRequest(ctx) {
+			pollRequestCtx = CtxAddHealthCheckFlag(pollRequestCtx)
+		}
+		return m.LatestBlock(pollRequestCtx)
+	}, timeout, m.log)
+
+	if err := poller.Start(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	sub, err := m.RegisterSub(&poller, chStopInFlight)
+	if err != nil {
+		sub.Unsubscribe()
+		return nil, nil, err
+	}
+	return channel, sub, nil
+}
+
+func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
+	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
+	defer cancel()
+
+	finalizedBlockPollInterval := m.cfg.FinalizedBlockPollInterval()
+	if finalizedBlockPollInterval == 0 {
+		return nil, nil, errors.New("FinalizedBlockPollInterval is 0")
+	}
+	timeout := finalizedBlockPollInterval
+	poller, channel := NewPoller[HEAD](finalizedBlockPollInterval, func(pollRequestCtx context.Context) (HEAD, error) {
+		if CtxIsHeathCheckRequest(ctx) {
+			pollRequestCtx = CtxAddHealthCheckFlag(pollRequestCtx)
+		}
+		return m.LatestFinalizedBlock(pollRequestCtx)
+	}, timeout, m.log)
+	if err := poller.Start(ctx); err != nil {
+		return nil, nil, err
+	}
+
+	sub, err := m.RegisterSub(&poller, chStopInFlight)
+	if err != nil {
+		poller.Unsubscribe()
+		return nil, nil, err
+	}
+	return channel, sub, nil
 }
 
 func (m *Adapter[RPC, HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
@@ -201,8 +263,8 @@ func (m *Adapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 	}
 }
 
-// cancelInflightRequests closes and replaces the chStopInFlight
-func (m *Adapter[RPC, HEAD]) cancelInflightRequests() {
+// CancelInflightRequests closes and replaces the chStopInFlight
+func (m *Adapter[RPC, HEAD]) CancelInflightRequests() {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	close(m.chStopInFlight)
@@ -210,7 +272,7 @@ func (m *Adapter[RPC, HEAD]) cancelInflightRequests() {
 }
 
 func (m *Adapter[RPC, HEAD]) Close() {
-	m.cancelInflightRequests()
+	m.CancelInflightRequests()
 	m.UnsubscribeAllExcept()
 	m.chainInfoLock.Lock()
 	m.latestChainInfo = ChainInfo{}
