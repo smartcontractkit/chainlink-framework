@@ -159,7 +159,7 @@ func (m *Adapter[RPC, HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 		return head, errors.New("invalid head")
 	}
 
-	m.onNewHead(ctx, chStopInFlight, head)
+	m.OnNewHead(ctx, chStopInFlight, head)
 	return head, nil
 }
 
@@ -176,11 +176,11 @@ func (m *Adapter[RPC, HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, er
 		return head, errors.New("invalid head")
 	}
 
-	m.onNewFinalizedHead(ctx, chStopInFlight, head)
+	m.OnNewFinalizedHead(ctx, chStopInFlight, head)
 	return head, nil
 }
 
-func (m *Adapter[RPC, HEAD]) onNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *Adapter[RPC, HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
@@ -198,7 +198,7 @@ func (m *Adapter[RPC, HEAD]) onNewHead(ctx context.Context, requestCh <-chan str
 	}
 }
 
-func (m *Adapter[RPC, HEAD]) onNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *Adapter[RPC, HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
