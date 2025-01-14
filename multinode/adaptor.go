@@ -269,8 +269,8 @@ func (m *MultiNodeAdapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription)
 	}
 }
 
-// cancelInflightRequests closes and replaces the chStopInFlight
-func (m *MultiNodeAdapter[RPC, HEAD]) cancelInflightRequests() {
+// CancelInflightRequests closes and replaces the chStopInFlight
+func (m *MultiNodeAdapter[RPC, HEAD]) CancelInflightRequests() {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	close(m.chStopInFlight)
@@ -278,7 +278,7 @@ func (m *MultiNodeAdapter[RPC, HEAD]) cancelInflightRequests() {
 }
 
 func (m *MultiNodeAdapter[RPC, HEAD]) Close() {
-	m.cancelInflightRequests()
+	m.CancelInflightRequests()
 	m.UnsubscribeAllExcept()
 	m.chainInfoLock.Lock()
 	m.latestChainInfo = ChainInfo{}
