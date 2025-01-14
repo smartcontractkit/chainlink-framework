@@ -279,12 +279,16 @@ func (m *Adapter[RPC, HEAD]) GetChStopInflight() chan struct{} {
 	return m.chStopInFlight
 }
 
-func (m *Adapter[RPC, HEAD]) Close() {
-	m.CancelInflightRequests()
-	m.UnsubscribeAllExcept()
+func (m *Adapter[RPC, HEAD]) ResetLatestChainInfo() {
 	m.chainInfoLock.Lock()
 	m.latestChainInfo = ChainInfo{}
 	m.chainInfoLock.Unlock()
+}
+
+func (m *Adapter[RPC, HEAD]) Close() {
+	m.CancelInflightRequests()
+	m.UnsubscribeAllExcept()
+	m.ResetLatestChainInfo()
 }
 
 func (m *Adapter[RPC, HEAD]) GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo) {
