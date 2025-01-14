@@ -168,7 +168,7 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		c.UnsubscribeAllExcept()
 	})
 
-	t.Run("chStopInFlight returns error and unsubscribes", func(t *testing.T) {
+	t.Run("ChStopInFlight returns error and unsubscribes", func(t *testing.T) {
 		c := newTestClient(t)
 		chStopInFlight := make(chan struct{})
 		close(chStopInFlight)

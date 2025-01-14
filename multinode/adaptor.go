@@ -29,7 +29,7 @@ type Adapter[RPC any, HEAD Head] struct {
 	latestBlock          func(ctx context.Context, rpc *RPC) (HEAD, error)
 	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error)
 
-	// chStopInFlight can be closed to immediately cancel all in-flight requests on
+	// ChStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this RpcMultiNodeAdapter. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
 	chStopInFlight chan struct{}
@@ -146,7 +146,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-c
 }
 
 func (m *Adapter[RPC, HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
-	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
+	// capture ChStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
 	ctx, cancel, chStopInFlight, rpc := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
@@ -263,12 +263,20 @@ func (m *Adapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 	}
 }
 
-// CancelInflightRequests closes and replaces the chStopInFlight
+// CancelInflightRequests closes and replaces the ChStopInFlight
 func (m *Adapter[RPC, HEAD]) CancelInflightRequests() {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
 	close(m.chStopInFlight)
 	m.chStopInFlight = make(chan struct{})
+}
+
+// GetChStopInflight provides a convenience helper that mutex wraps a
+// read to the chStopInFlight
+func (m *Adapter[RPC, HEAD]) GetChStopInflight() chan struct{} {
+	m.stateMu.RLock()
+	defer m.stateMu.RUnlock()
+	return m.chStopInFlight
 }
 
 func (m *Adapter[RPC, HEAD]) Close() {
