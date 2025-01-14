@@ -17,27 +17,27 @@ import (
 
 var (
 	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "multinode_pool_rpc_node_highest_seen_block",
+		Name: "pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "multinode_pool_rpc_node_highest_finalized_block",
+		Name: "pool_rpc_node_highest_finalized_block",
 		Help: "The highest seen finalized block for the given RPC node",
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_num_seen_blocks",
+		Name: "pool_rpc_node_num_seen_blocks",
 		Help: "The total number of new blocks seen by the given RPC node",
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_polls_total",
+		Name: "pool_rpc_node_polls_total",
 		Help: "The total number of poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_polls_failed",
+		Name: "pool_rpc_node_polls_failed",
 		Help: "The total number of failed poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multinode_pool_rpc_node_polls_success",
+		Name: "pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
 	}, []string{"chainID", "nodeName"})
 )
