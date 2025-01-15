@@ -22,7 +22,7 @@ type Adapter[RPC any, HEAD Head] struct {
 	log         logger.Logger
 	rpc         *RPC
 	ctxTimeout  time.Duration
-	stateMu     sync.RWMutex // protects state* fields
+	StateMu     sync.RWMutex // protects state* fields
 	subsSliceMu sync.RWMutex
 	subs        map[Subscription]struct{}
 
@@ -31,7 +31,7 @@ type Adapter[RPC any, HEAD Head] struct {
 
 	// ChStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this RpcMultiNodeAdapter. Closing and replacing should be serialized through
-	// stateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
+	// StateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
 	chStopInFlight chan struct{}
 
 	chainInfoLock sync.RWMutex
@@ -64,7 +64,7 @@ func (m *Adapter[RPC, HEAD]) LenSubs() int {
 	return len(m.subs)
 }
 
-// RegisterSub adds the sub to the Adaptor list and returns a sub which is managed on unsubscribe
+// RegisterSub adds the sub to the Adaptor list and returns a managed sub which is removed on unsubscribe
 func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription, stopInFLightCh chan struct{}) (*ManagedSubscription, error) {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
@@ -236,11 +236,11 @@ func MakeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Durati
 func (m *Adapter[RPC, HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	chStopInFlight chan struct{}, raw *RPC) {
 	// Need to wrap in mutex because state transition can cancel and replace context
-	m.stateMu.RLock()
+	m.StateMu.RLock()
 	chStopInFlight = m.chStopInFlight
 	cp := *m.rpc
 	raw = &cp
-	m.stateMu.RUnlock()
+	m.StateMu.RUnlock()
 	ctx, cancel = MakeQueryCtx(parentCtx, chStopInFlight, timeout)
 	return
 }
@@ -267,8 +267,8 @@ func (m *Adapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 
 // CancelInflightRequests closes and replaces the ChStopInFlight
 func (m *Adapter[RPC, HEAD]) CancelInflightRequests() {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
+	m.StateMu.Lock()
+	defer m.StateMu.Unlock()
 	close(m.chStopInFlight)
 	m.chStopInFlight = make(chan struct{})
 }
@@ -276,8 +276,8 @@ func (m *Adapter[RPC, HEAD]) CancelInflightRequests() {
 // GetChStopInflight provides a convenience helper that mutex wraps a
 // read to the chStopInFlight
 func (m *Adapter[RPC, HEAD]) GetChStopInflight() chan struct{} {
-	m.stateMu.RLock()
-	defer m.stateMu.RUnlock()
+	m.StateMu.RLock()
+	defer m.StateMu.RUnlock()
 	return m.chStopInFlight
 }
 
