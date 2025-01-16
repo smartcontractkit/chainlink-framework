@@ -24,6 +24,7 @@ type testHead struct {
 
 func (t *testHead) BlockNumber() int64        { return t.blockNumber }
 func (t *testHead) BlockDifficulty() *big.Int { return nil }
+func (t *testHead) TotalDifficulty() *big.Int { return nil }
 func (t *testHead) IsValid() bool             { return true }
 
 func LatestBlock(ctx context.Context, rpc *testRPC) (*testHead, error) {
