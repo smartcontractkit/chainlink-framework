@@ -22,10 +22,10 @@ type testHead struct {
 	blockNumber int64
 }
 
-func (t *testHead) BlockNumber() int64        { return t.blockNumber }
-func (t *testHead) BlockDifficulty() *big.Int { return nil }
-func (t *testHead) TotalDifficulty() *big.Int { return nil }
-func (t *testHead) IsValid() bool             { return true }
+func (t *testHead) BlockNumber() int64           { return t.blockNumber }
+func (t *testHead) BlockDifficulty() *big.Int    { return nil }
+func (t *testHead) GetTotalDifficulty() *big.Int { return nil }
+func (t *testHead) IsValid() bool                { return true }
 
 func LatestBlock(ctx context.Context, rpc *testRPC) (*testHead, error) {
 	rpc.latestBlock++
