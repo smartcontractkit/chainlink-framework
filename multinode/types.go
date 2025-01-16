@@ -83,7 +83,7 @@ type RPCClient[
 type Head interface {
 	BlockNumber() int64
 	BlockDifficulty() *big.Int
-	TotalDifficulty() *big.Int
+	GetTotalDifficulty() *big.Int
 	IsValid() bool
 }
 

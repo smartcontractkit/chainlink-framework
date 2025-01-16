@@ -187,16 +187,18 @@ func (m *Adapter[RPC, HEAD]) OnNewHead(ctx context.Context, requestCh <-chan str
 
 	m.chainInfoLock.Lock()
 	defer m.chainInfoLock.Unlock()
+	blockNumber := head.BlockNumber()
+	totalDifficulty := head.GetTotalDifficulty()
 	if !CtxIsHeathCheckRequest(ctx) {
-		m.highestUserObservations.BlockNumber = max(m.highestUserObservations.BlockNumber, head.BlockNumber())
-		m.highestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.highestUserObservations.TotalDifficulty, head.TotalDifficulty())
+		m.highestUserObservations.BlockNumber = max(m.highestUserObservations.BlockNumber, blockNumber)
+		m.highestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.highestUserObservations.TotalDifficulty, totalDifficulty)
 	}
 	select {
 	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
 		return
 	default:
-		m.latestChainInfo.BlockNumber = head.BlockNumber()
-		m.latestChainInfo.TotalDifficulty = head.TotalDifficulty()
+		m.latestChainInfo.BlockNumber = blockNumber
+		m.latestChainInfo.TotalDifficulty = totalDifficulty
 	}
 }
 
