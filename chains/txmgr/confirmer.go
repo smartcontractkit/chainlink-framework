@@ -20,10 +20,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
+
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
 )
 
 const (

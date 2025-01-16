@@ -9,9 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
+	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )

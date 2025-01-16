@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+
 	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
