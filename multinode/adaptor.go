@@ -32,7 +32,7 @@ type Adapter[RPC any, HEAD Head] struct {
 	// ChStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this RpcMultiNodeAdapter. Closing and replacing should be serialized through
 	// StateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
-	chStopInFlight chan struct{}
+	ChStopInFlight chan struct{}
 
 	chainInfoLock sync.RWMutex
 	// intercepted values seen by callers of the rpcMultiNodeAdapter excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
@@ -54,7 +54,7 @@ func NewAdapter[RPC any, HEAD Head](
 		latestBlock:          latestBlock,
 		latestFinalizedBlock: latestFinalizedBlock,
 		subs:                 make(map[Subscription]struct{}),
-		chStopInFlight:       make(chan struct{}),
+		ChStopInFlight:       make(chan struct{}),
 	}
 }
 
@@ -191,13 +191,20 @@ func (m *Adapter[RPC, HEAD]) OnNewHead(ctx context.Context, requestCh <-chan str
 		m.highestUserObservations.BlockNumber = max(m.highestUserObservations.BlockNumber, head.BlockNumber())
 		m.highestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.highestUserObservations.TotalDifficulty, head.BlockDifficulty())
 	}
-	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
-		return
-	default:
-		m.latestChainInfo.BlockNumber = head.BlockNumber()
-		m.latestChainInfo.TotalDifficulty = head.BlockDifficulty()
-	}
+	m.latestChainInfo.BlockNumber = head.BlockNumber()
+	m.latestChainInfo.TotalDifficulty = head.BlockDifficulty()
+	/*
+		select {
+			// TODO: Maybe we still need to update this?
+			// TODO requestCh is a cancel request?
+			//
+		case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
+			return
+		default:
+			m.latestChainInfo.BlockNumber = head.BlockNumber()
+			m.latestChainInfo.TotalDifficulty = head.BlockDifficulty()
+		}
+	*/
 }
 
 func (m *Adapter[RPC, HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
@@ -237,7 +244,7 @@ func (m *Adapter[RPC, HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout 
 	chStopInFlight chan struct{}, raw *RPC) {
 	// Need to wrap in mutex because state transition can cancel and replace context
 	m.StateMu.RLock()
-	chStopInFlight = m.chStopInFlight
+	chStopInFlight = m.ChStopInFlight
 	cp := *m.rpc
 	raw = &cp
 	m.StateMu.RUnlock()
@@ -269,16 +276,16 @@ func (m *Adapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 func (m *Adapter[RPC, HEAD]) CancelInflightRequests() {
 	m.StateMu.Lock()
 	defer m.StateMu.Unlock()
-	close(m.chStopInFlight)
-	m.chStopInFlight = make(chan struct{})
+	close(m.ChStopInFlight)
+	m.ChStopInFlight = make(chan struct{})
 }
 
 // GetChStopInflight provides a convenience helper that mutex wraps a
-// read to the chStopInFlight
+// read to the ChStopInFlight
 func (m *Adapter[RPC, HEAD]) GetChStopInflight() chan struct{} {
 	m.StateMu.RLock()
 	defer m.StateMu.RUnlock()
-	return m.chStopInFlight
+	return m.ChStopInFlight
 }
 
 func (m *Adapter[RPC, HEAD]) ResetLatestChainInfo() {
