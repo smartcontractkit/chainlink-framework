@@ -11,9 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-framework/chains"
-
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
-	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
 const (
@@ -37,13 +36,13 @@ type Tracker[
 	ADDR chains.Hashable,
 	TX_HASH chains.Hashable,
 	BLOCK_HASH chains.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	services.StateMachine
-	txStore  txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	txStore  types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	keyStore types.KeyStore[ADDR, CHAIN_ID, SEQ]
 	chainID  CHAIN_ID
 	lggr     logger.Logger
 
@@ -65,12 +64,12 @@ func NewTracker[
 	ADDR chains.Hashable,
 	TX_HASH chains.Hashable,
 	BLOCK_HASH chains.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
+	txStore types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	keyStore types.KeyStore[ADDR, CHAIN_ID, SEQ],
 	chainID CHAIN_ID,
 	lggr logger.Logger,
 ) *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
@@ -298,7 +297,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 }
 
 func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal(ctx context.Context,
-	tx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	tx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	errMsg string) error {
 	tx.Error.SetValid(errMsg)
 

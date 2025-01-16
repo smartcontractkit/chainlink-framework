@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
 	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 

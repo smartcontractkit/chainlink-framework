@@ -9,13 +9,12 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/chainlink-framework/chains"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
-	htrktypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
+	"github.com/smartcontractkit/chainlink-framework/chains"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 )
 
 var (
@@ -45,7 +44,7 @@ type HeadTracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interfac
 }
 
 type headTracker[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
+	HTH types.Head[BLOCK_HASH, ID],
 	S chains.Subscription,
 	ID chains.ID,
 	BLOCK_HASH chains.Hashable,
@@ -57,10 +56,10 @@ type headTracker[
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH]
 	headSaver       HeadSaver[HTH, BLOCK_HASH]
 	mailMon         *mailbox.Monitor
-	client          htrktypes.Client[HTH, S, ID, BLOCK_HASH]
+	client          types.Client[HTH, S, ID, BLOCK_HASH]
 	chainID         chains.ID
-	config          htrktypes.Config
-	htConfig        htrktypes.HeadTrackerConfig
+	config          types.Config
+	htConfig        types.HeadTrackerConfig
 
 	backfillMB   *mailbox.Mailbox[HTH]
 	broadcastMB  *mailbox.Mailbox[HTH]
@@ -70,15 +69,15 @@ type headTracker[
 
 // NewHeadTracker instantiates a new HeadTracker using HeadSaver to persist new block numbers.
 func NewHeadTracker[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
+	HTH types.Head[BLOCK_HASH, ID],
 	S chains.Subscription,
 	ID chains.ID,
 	BLOCK_HASH chains.Hashable,
 ](
 	lggr logger.Logger,
-	client htrktypes.Client[HTH, S, ID, BLOCK_HASH],
-	config htrktypes.Config,
-	htConfig htrktypes.HeadTrackerConfig,
+	client types.Client[HTH, S, ID, BLOCK_HASH],
+	config types.Config,
+	htConfig types.HeadTrackerConfig,
 	headBroadcaster HeadBroadcaster[HTH, BLOCK_HASH],
 	headSaver HeadSaver[HTH, BLOCK_HASH],
 	mailMon *mailbox.Monitor,

@@ -20,11 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
-
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
-	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 )
 
 const (
@@ -87,23 +86,23 @@ type Confirmer[
 	ADDR chains.Hashable,
 	TX_HASH chains.Hashable,
 	BLOCK_HASH chains.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] struct {
 	services.StateMachine
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	txStore types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	lggr    logger.SugaredLogger
-	client  txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	client  types.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
+	types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	stuckTxDetector types.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	resumeCallback  ResumeCallback
-	feeConfig       txmgrtypes.ConfirmerFeeConfig
-	txConfig        txmgrtypes.ConfirmerTransactionsConfig
-	dbConfig        txmgrtypes.ConfirmerDatabaseConfig
+	feeConfig       types.ConfirmerFeeConfig
+	txConfig        types.ConfirmerTransactionsConfig
+	dbConfig        types.ConfirmerDatabaseConfig
 	chainID         CHAIN_ID
 
-	ks               txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	ks               types.KeyStore[ADDR, CHAIN_ID, SEQ]
 	enabledAddresses []ADDR
 
 	mb           *mailbox.Mailbox[HEAD]
@@ -120,20 +119,20 @@ func NewConfirmer[
 	ADDR chains.Hashable,
 	TX_HASH chains.Hashable,
 	BLOCK_HASH chains.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
+	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ chains.Sequence,
 	FEE fees.Fee,
 ](
-	txStore txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	client txmgrtypes.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	feeConfig txmgrtypes.ConfirmerFeeConfig,
-	txConfig txmgrtypes.ConfirmerTransactionsConfig,
-	dbConfig txmgrtypes.ConfirmerDatabaseConfig,
-	keystore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
-	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	txStore types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	client types.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
+	feeConfig types.ConfirmerFeeConfig,
+	txConfig types.ConfirmerTransactionsConfig,
+	dbConfig types.ConfirmerDatabaseConfig,
+	keystore types.KeyStore[ADDR, CHAIN_ID, SEQ],
+	txAttemptBuilder types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
-	stuckTxDetector txmgrtypes.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	stuckTxDetector types.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -318,7 +317,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Che
 	return nil
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessReorgTxs(ctx context.Context, reorgTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessReorgTxs(ctx context.Context, reorgTxs []*types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) error {
 	if len(reorgTxs) == 0 {
 		return nil
 	}
@@ -368,7 +367,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	return ec.txStore.UpdateTxsForRebroadcast(ctx, etxIDs, attemptIDs)
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessIncludedTxs(ctx context.Context, includedTxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) ProcessIncludedTxs(ctx context.Context, includedTxs []*types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) error {
 	if len(includedTxs) == 0 {
 		return nil
 	}
@@ -418,7 +417,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	for _, tx := range stuckTxs {
 		// All stuck transactions will have unique from addresses. It is safe to process separate keys concurrently
 		// NOTE: This design will block one key if another takes a really long time to execute
-		go func(tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
+		go func(tx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) {
 			defer wg.Done()
 			lggr := tx.GetLogger(ec.lggr)
 			// Create a purge attempt for tx
@@ -457,7 +456,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Pro
 	return errors.Join(errorList...)
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resumeFailedTaskRuns(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resumeFailedTaskRuns(ctx context.Context, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
 	if !etx.PipelineTaskRunID.Valid || ec.resumeCallback == nil || !etx.SignalCallback || etx.CallbackCompleted {
 		return nil
 	}
@@ -560,7 +559,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) han
 
 // FindTxsRequiringRebroadcast returns attempts that hit insufficient native tokens,
 // and attempts that need bumping, in sequence ASC order
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address ADDR, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID CHAIN_ID) (etxs []*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxsRequiringRebroadcast(ctx context.Context, lggr logger.Logger, address ADDR, blockNum, gasBumpThreshold, bumpDepth int64, maxInFlightTransactions uint32, chainID CHAIN_ID) (etxs []*types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	// NOTE: These two queries could be combined into one using union but it
 	// becomes harder to read and difficult to test in isolation. KISS principle
 	etxInsufficientFunds, err := ec.txStore.FindTxsRequiringResubmissionDueToInsufficientFunds(ctx, address, chainID)
@@ -619,16 +618,16 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Fin
 	return
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) attemptForRebroadcast(ctx context.Context, lggr logger.Logger, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	if len(etx.TxAttempts) > 0 {
 		etx.TxAttempts[0].Tx = etx
 		previousAttempt := etx.TxAttempts[0]
 		logFields := ec.logFieldsPreviousAttempt(previousAttempt)
-		if previousAttempt.State == txmgrtypes.TxAttemptInsufficientFunds {
+		if previousAttempt.State == types.TxAttemptInsufficientFunds {
 			// Do not create a new attempt if we ran out of funds last time since bumping gas is pointless
 			// Instead try to resubmit the same attempt at the same price, in the hope that the wallet was funded since our last attempt
 			lggr.Debugw("Rebroadcast InsufficientFunds", logFields...)
-			previousAttempt.State = txmgrtypes.TxAttemptInProgress
+			previousAttempt.State = types.TxAttemptInProgress
 			return previousAttempt, nil
 		}
 		attempt, err = ec.bumpGas(ctx, etx, etx.TxAttempts)
@@ -638,7 +637,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
 			previousAttempt.BroadcastBeforeBlockNum = nil
-			previousAttempt.State = txmgrtypes.TxAttemptInProgress
+			previousAttempt.State = types.TxAttemptInProgress
 			return previousAttempt, nil
 		}
 		return attempt, err
@@ -648,7 +647,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logFieldsPreviousAttempt(attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) []interface{} {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logFieldsPreviousAttempt(attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) []interface{} {
 	etx := attempt.Tx
 	return []interface{}{
 		"etxID", etx.ID,
@@ -661,7 +660,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) log
 	}
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bumpGas(ctx context.Context, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], previousAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (bumpedAttempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bumpGas(ctx context.Context, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], previousAttempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (bumpedAttempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	previousAttempt := previousAttempts[0]
 	logFields := ec.logFieldsPreviousAttempt(previousAttempt)
 
@@ -684,8 +683,8 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 	return bumpedAttempt, fmt.Errorf("error bumping gas: %w", err)
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.SugaredLogger, etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockHeight int64) error {
-	if attempt.State != txmgrtypes.TxAttemptInProgress {
+func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleInProgressAttempt(ctx context.Context, lggr logger.SugaredLogger, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], blockHeight int64) error {
+	if attempt.State != types.TxAttemptInProgress {
 		return fmt.Errorf("invariant violation: expected tx_attempt %v to be in_progress, it was %s", attempt.ID, attempt.State)
 	}
 
@@ -866,7 +865,7 @@ func observeUntilTxConfirmed[
 	TX_HASH, BLOCK_HASH chains.Hashable,
 	SEQ chains.Sequence,
 	FEE fees.Fee,
-](chainID CHAIN_ID, attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
+](chainID CHAIN_ID, attempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
 	for _, attempt := range attempts {
 		// We estimate the time until confirmation by subtracting from the time the tx (not the attempt)
 		// was created. We want to measure the amount of time taken from when a transaction is created

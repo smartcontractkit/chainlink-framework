@@ -14,8 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-framework/chains"
-
-	htrktypes "github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
+	"github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 )
 
 var (
@@ -50,7 +49,7 @@ type HeadListener[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interfa
 }
 
 type headListener[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
+	HTH types.Head[BLOCK_HASH, ID],
 	S chains.Subscription,
 	ID chains.ID,
 	BLOCK_HASH chains.Hashable,
@@ -58,8 +57,8 @@ type headListener[
 	services.Service
 	eng *services.Engine
 
-	config           htrktypes.Config
-	client           htrktypes.Client[HTH, S, ID, BLOCK_HASH]
+	config           types.Config
+	client           types.Client[HTH, S, ID, BLOCK_HASH]
 	onSubscription   func(context.Context)
 	handleNewHead    HeadHandler[HTH, BLOCK_HASH]
 	chHeaders        <-chan HTH
@@ -69,15 +68,15 @@ type headListener[
 }
 
 func NewHeadListener[
-	HTH htrktypes.Head[BLOCK_HASH, ID],
+	HTH types.Head[BLOCK_HASH, ID],
 	S chains.Subscription,
 	ID chains.ID,
 	BLOCK_HASH chains.Hashable,
-	CLIENT htrktypes.Client[HTH, S, ID, BLOCK_HASH],
+	CLIENT types.Client[HTH, S, ID, BLOCK_HASH],
 ](
 	lggr logger.Logger,
 	client CLIENT,
-	config htrktypes.Config,
+	config types.Config,
 	onSubscription func(context.Context),
 	handleNewHead HeadHandler[HTH, BLOCK_HASH],
 ) HeadListener[HTH, BLOCK_HASH] {
