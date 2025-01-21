@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
-	"github.com/smartcontractkit/chainlink-framework/chains"
 	nullv4 "gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -18,6 +17,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
+	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
