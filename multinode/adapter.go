@@ -11,14 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-type AdaptorConfig interface {
+type AdapterConfig interface {
 	NewHeadsPollInterval() time.Duration
 	FinalizedBlockPollInterval() time.Duration
 }
 
 // Adapter is used to integrate multinode into chain-specific clients
 type Adapter[RPC any, HEAD Head] struct {
-	cfg         AdaptorConfig
+	cfg         AdapterConfig
 	log         logger.Logger
 	rpc         *RPC
 	ctxTimeout  time.Duration
@@ -42,7 +42,7 @@ type Adapter[RPC any, HEAD Head] struct {
 }
 
 func NewAdapter[RPC any, HEAD Head](
-	cfg AdaptorConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
+	cfg AdapterConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
 ) *Adapter[RPC, HEAD] {
@@ -64,7 +64,7 @@ func (m *Adapter[RPC, HEAD]) LenSubs() int {
 	return len(m.subs)
 }
 
-// RegisterSub adds the sub to the Adaptor list and returns a managed sub which is removed on unsubscribe
+// RegisterSub adds the sub to the Adapter list and returns a managed sub which is removed on unsubscribe
 func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription, stopInFLightCh chan struct{}) (*ManagedSubscription, error) {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
