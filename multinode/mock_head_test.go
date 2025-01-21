@@ -113,6 +113,53 @@ func (_c *mockHead_BlockNumber_Call) RunAndReturn(run func() int64) *mockHead_Bl
 	return _c
 }
 
+// GetTotalDifficulty provides a mock function with given fields:
+func (_m *mockHead) GetTotalDifficulty() *big.Int {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTotalDifficulty")
+	}
+
+	var r0 *big.Int
+	if rf, ok := ret.Get(0).(func() *big.Int); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	return r0
+}
+
+// mockHead_GetTotalDifficulty_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTotalDifficulty'
+type mockHead_GetTotalDifficulty_Call struct {
+	*mock.Call
+}
+
+// GetTotalDifficulty is a helper method to define mock.On call
+func (_e *mockHead_Expecter) GetTotalDifficulty() *mockHead_GetTotalDifficulty_Call {
+	return &mockHead_GetTotalDifficulty_Call{Call: _e.mock.On("GetTotalDifficulty")}
+}
+
+func (_c *mockHead_GetTotalDifficulty_Call) Run(run func()) *mockHead_GetTotalDifficulty_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockHead_GetTotalDifficulty_Call) Return(_a0 *big.Int) *mockHead_GetTotalDifficulty_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockHead_GetTotalDifficulty_Call) RunAndReturn(run func() *big.Int) *mockHead_GetTotalDifficulty_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // IsValid provides a mock function with given fields:
 func (_m *mockHead) IsValid() bool {
 	ret := _m.Called()
