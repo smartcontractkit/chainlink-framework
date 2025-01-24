@@ -713,6 +713,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetTransac
 	}
 }
 
+// Deprecated: use txmgrtest.ErrTxManager
 type NullTxManager[
 	CHAIN_ID chains.ID,
 	HEAD chains.Head[BLOCK_HASH],
