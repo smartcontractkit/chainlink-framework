@@ -72,25 +72,112 @@ func newTestRPC(t *testing.T) *testRPC {
 	return rpc
 }
 
-// TODO: add more coverage to verify OnNewHead and OnNewFinalizedHead properly treats
-// TODO: HealthCheckRequests and respects closure of requestCh
-func TestMultiNodeClient_LatestBlock(t *testing.T) {
+func TestAdapter_LatestBlock(t *testing.T) {
 	t.Run("LatestBlock", func(t *testing.T) {
 		rpc := newTestRPC(t)
+		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		head, err := rpc.LatestBlock(tests.Context(t))
 		require.NoError(t, err)
 		require.True(t, head.IsValid())
+		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(1), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(1), highestChainInfo.BlockNumber)
 	})
 
 	t.Run("LatestFinalizedBlock", func(t *testing.T) {
 		rpc := newTestRPC(t)
+		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 		finalizedHead, err := rpc.LatestFinalizedBlock(tests.Context(t))
 		require.NoError(t, err)
 		require.True(t, finalizedHead.IsValid())
+		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(1), latestChainInfo.FinalizedBlockNumber)
+		require.Equal(t, int64(1), highestChainInfo.FinalizedBlockNumber)
 	})
 }
 
-func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
+func TestAdapter_OnNewHeadFunctions(t *testing.T) {
+	timeout := 10 * time.Second
+	t.Run("OnNewHead and OnNewFinalizedHead updates chain info", func(t *testing.T) {
+		rpc := newTestRPC(t)
+		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
+
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(tests.Context(t), timeout)
+		defer cancel()
+		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 10})
+		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 3})
+		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 5})
+		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 1})
+
+		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(5), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(1), latestChainInfo.FinalizedBlockNumber)
+		require.Equal(t, int64(10), highestChainInfo.BlockNumber)
+		require.Equal(t, int64(3), highestChainInfo.FinalizedBlockNumber)
+	})
+
+	t.Run("OnNewHead respects HealthCheckCtx", func(t *testing.T) {
+		rpc := newTestRPC(t)
+		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
+
+		healthCheckCtx := CtxAddHealthCheckFlag(tests.Context(t))
+
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(healthCheckCtx, timeout)
+		defer cancel()
+		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 10})
+		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 3})
+		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 5})
+		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 1})
+
+		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(5), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(1), latestChainInfo.FinalizedBlockNumber)
+
+		// Highest chain info should not be set on health check requests
+		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
+	})
+
+	t.Run("OnNewHead and OnNewFinalizedHead respects closure of requestCh", func(t *testing.T) {
+		rpc := newTestRPC(t)
+		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
+
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(tests.Context(t), timeout)
+		defer cancel()
+		rpc.CancelLifeCycle()
+
+		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 10})
+		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 3})
+		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 5})
+		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 1})
+
+		// Latest chain info should not be set if life cycle is cancelled
+		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
+		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
+		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
+
+		require.Equal(t, int64(10), highestChainInfo.BlockNumber)
+		require.Equal(t, int64(3), highestChainInfo.FinalizedBlockNumber)
+	})
+}
+
+func TestAdapter_HeadSubscriptions(t *testing.T) {
 	t.Run("SubscribeToHeads", func(t *testing.T) {
 		rpc := newTestRPC(t)
 		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
