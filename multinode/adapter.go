@@ -219,11 +219,11 @@ func (m *Adapter[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan
 	}
 }
 
-// MakeQueryCtx returns a context that cancels if:
+// makeQueryCtx returns a context that cancels if:
 // 1. Passed in ctx cancels
 // 2. Passed in channel is closed
 // 3. Default timeout is reached (queryTimeout)
-func MakeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Duration) (context.Context, context.CancelFunc) {
+func makeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Duration) (context.Context, context.CancelFunc) {
 	var chCancel, timeoutCancel context.CancelFunc
 	ctx, chCancel = ch.Ctx(ctx)
 	ctx, timeoutCancel = context.WithTimeout(ctx, timeout)
@@ -240,7 +240,7 @@ func (m *Adapter[HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.
 	m.stateMu.RLock()
 	lifeCycleCh = m.lifeCycleCh
 	m.stateMu.RUnlock()
-	ctx, cancel = MakeQueryCtx(parentCtx, lifeCycleCh, timeout)
+	ctx, cancel = makeQueryCtx(parentCtx, lifeCycleCh, timeout)
 	return
 }
 
@@ -270,14 +270,6 @@ func (m *Adapter[HEAD]) CancelLifeCycle() {
 	defer m.stateMu.Unlock()
 	close(m.lifeCycleCh)
 	m.lifeCycleCh = make(chan struct{})
-}
-
-// GetLifeCycleCh provides a convenience helper that mutex wraps a
-// read to the lifeCycleCh
-func (m *Adapter[HEAD]) GetLifeCycleCh() chan struct{} {
-	m.stateMu.RLock()
-	defer m.stateMu.RUnlock()
-	return m.lifeCycleCh
 }
 
 func (m *Adapter[HEAD]) resetLatestChainInfo() {
