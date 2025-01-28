@@ -15,7 +15,18 @@ import (
 )
 
 type testRPC struct {
-	latestBlock int64
+	*Adapter[*testHead]
+	latestBlockNum int64
+}
+
+// latestBlock simulates a chain-specific latestBlock function
+func (rpc *testRPC) latestBlock(ctx context.Context) (*testHead, error) {
+	rpc.latestBlockNum++
+	return &testHead{rpc.latestBlockNum}, nil
+}
+
+func (rpc *testRPC) Close() {
+	rpc.Adapter.Close()
 }
 
 type testHead struct {
@@ -27,16 +38,11 @@ func (t *testHead) BlockDifficulty() *big.Int    { return nil }
 func (t *testHead) GetTotalDifficulty() *big.Int { return nil }
 func (t *testHead) IsValid() bool                { return true }
 
-func LatestBlock(ctx context.Context, rpc *testRPC) (*testHead, error) {
-	rpc.latestBlock++
-	return &testHead{rpc.latestBlock}, nil
-}
-
 func ptr[T any](t T) *T {
 	return &t
 }
 
-func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
+func newTestRPC(t *testing.T) *testRPC {
 	requestTimeout := 5 * time.Second
 	lggr := logger.Test(t)
 	cfg := &config.MultiNodeConfig{
@@ -59,22 +65,26 @@ func newTestClient(t *testing.T) *Adapter[testRPC, *testHead] {
 			FinalizedBlockOffset:         ptr(uint32(50)),
 		},
 	}
-	c := NewAdapter[testRPC, *testHead](cfg, &testRPC{}, requestTimeout, lggr, LatestBlock, LatestBlock)
-	t.Cleanup(c.Close)
-	return c
+
+	rpc := &testRPC{}
+	rpc.Adapter = NewAdapter[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock)
+	t.Cleanup(rpc.Close)
+	return rpc
 }
 
+// TODO: add more coverage to verify OnNewHead and OnNewFinalizedHead properly treats
+// TODO: HealthCheckRequests and respects closure of requestCh
 func TestMultiNodeClient_LatestBlock(t *testing.T) {
 	t.Run("LatestBlock", func(t *testing.T) {
-		c := newTestClient(t)
-		head, err := c.LatestBlock(tests.Context(t))
+		rpc := newTestRPC(t)
+		head, err := rpc.LatestBlock(tests.Context(t))
 		require.NoError(t, err)
 		require.True(t, head.IsValid())
 	})
 
 	t.Run("LatestFinalizedBlock", func(t *testing.T) {
-		c := newTestClient(t)
-		finalizedHead, err := c.LatestFinalizedBlock(tests.Context(t))
+		rpc := newTestRPC(t)
+		finalizedHead, err := rpc.LatestFinalizedBlock(tests.Context(t))
 		require.NoError(t, err)
 		require.True(t, finalizedHead.IsValid())
 	})
@@ -82,8 +92,8 @@ func TestMultiNodeClient_LatestBlock(t *testing.T) {
 
 func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
 	t.Run("SubscribeToHeads", func(t *testing.T) {
-		c := newTestClient(t)
-		ch, sub, err := c.SubscribeToHeads(tests.Context(t))
+		rpc := newTestRPC(t)
+		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 
@@ -91,7 +101,7 @@ func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
 		defer cancel()
 		select {
 		case head := <-ch:
-			latest, _ := c.GetInterceptedChainInfo()
+			latest, _ := rpc.GetInterceptedChainInfo()
 			require.Equal(t, head.BlockNumber(), latest.BlockNumber)
 		case <-ctx.Done():
 			t.Fatal("failed to receive head: ", ctx.Err())
@@ -99,8 +109,8 @@ func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
 	})
 
 	t.Run("SubscribeToFinalizedHeads", func(t *testing.T) {
-		c := newTestClient(t)
-		finalizedCh, finalizedSub, err := c.SubscribeToFinalizedHeads(tests.Context(t))
+		rpc := newTestRPC(t)
+		finalizedCh, finalizedSub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
 		defer finalizedSub.Unsubscribe()
 
@@ -108,7 +118,7 @@ func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
 		defer cancel()
 		select {
 		case finalizedHead := <-finalizedCh:
-			latest, _ := c.GetInterceptedChainInfo()
+			latest, _ := rpc.GetInterceptedChainInfo()
 			require.Equal(t, finalizedHead.BlockNumber(), latest.FinalizedBlockNumber)
 		case <-ctx.Done():
 			t.Fatal("failed to receive finalized head: ", ctx.Err())
@@ -116,30 +126,30 @@ func TestMultiNodeClient_HeadSubscriptions(t *testing.T) {
 	})
 
 	t.Run("Remove Subscription on Unsubscribe", func(t *testing.T) {
-		c := newTestClient(t)
-		_, sub1, err := c.SubscribeToHeads(tests.Context(t))
+		rpc := newTestRPC(t)
+		_, sub1, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 1, c.LenSubs())
-		_, sub2, err := c.SubscribeToFinalizedHeads(tests.Context(t))
+		require.Equal(t, 1, rpc.LenSubs())
+		_, sub2, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 2, c.LenSubs())
+		require.Equal(t, 2, rpc.LenSubs())
 
 		sub1.Unsubscribe()
-		require.Equal(t, 1, c.LenSubs())
+		require.Equal(t, 1, rpc.LenSubs())
 		sub2.Unsubscribe()
-		require.Equal(t, 0, c.LenSubs())
+		require.Equal(t, 0, rpc.LenSubs())
 	})
 
 	t.Run("Ensure no deadlock on UnsubscribeAll", func(t *testing.T) {
-		c := newTestClient(t)
-		_, _, err := c.SubscribeToHeads(tests.Context(t))
+		rpc := newTestRPC(t)
+		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 1, c.LenSubs())
-		_, _, err = c.SubscribeToFinalizedHeads(tests.Context(t))
+		require.Equal(t, 1, rpc.LenSubs())
+		_, _, err = rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 2, c.LenSubs())
-		c.UnsubscribeAllExcept()
-		require.Equal(t, 0, c.LenSubs())
+		require.Equal(t, 2, rpc.LenSubs())
+		rpc.UnsubscribeAllExcept()
+		require.Equal(t, 0, rpc.LenSubs())
 	})
 }
 
@@ -160,44 +170,44 @@ func (s *mockSub) Err() <-chan error {
 
 func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 	t.Run("RegisterSub", func(t *testing.T) {
-		c := newTestClient(t)
+		rpc := newTestRPC(t)
 		mockSub := newMockSub()
-		sub, err := c.RegisterSub(mockSub, make(chan struct{}))
+		sub, err := rpc.RegisterSub(mockSub, make(chan struct{}))
 		require.NoError(t, err)
 		require.NotNil(t, sub)
-		require.Equal(t, 1, c.LenSubs())
-		c.UnsubscribeAllExcept()
+		require.Equal(t, 1, rpc.LenSubs())
+		rpc.UnsubscribeAllExcept()
 	})
 
-	t.Run("chStopInFlight returns error and unsubscribes", func(t *testing.T) {
-		c := newTestClient(t)
+	t.Run("lifeCycleCh returns error and unsubscribes", func(t *testing.T) {
+		rpc := newTestRPC(t)
 		chStopInFlight := make(chan struct{})
 		close(chStopInFlight)
 		mockSub := newMockSub()
-		_, err := c.RegisterSub(mockSub, chStopInFlight)
+		_, err := rpc.RegisterSub(mockSub, chStopInFlight)
 		require.Error(t, err)
 		require.True(t, mockSub.unsubscribed)
 	})
 
 	t.Run("UnsubscribeAllExcept", func(t *testing.T) {
-		c := newTestClient(t)
+		rpc := newTestRPC(t)
 		chStopInFlight := make(chan struct{})
 		mockSub1 := newMockSub()
 		mockSub2 := newMockSub()
-		sub1, err := c.RegisterSub(mockSub1, chStopInFlight)
+		sub1, err := rpc.RegisterSub(mockSub1, chStopInFlight)
 		require.NoError(t, err)
-		_, err = c.RegisterSub(mockSub2, chStopInFlight)
+		_, err = rpc.RegisterSub(mockSub2, chStopInFlight)
 		require.NoError(t, err)
-		require.Equal(t, 2, c.LenSubs())
+		require.Equal(t, 2, rpc.LenSubs())
 
 		// Ensure passed sub is not removed
-		c.UnsubscribeAllExcept(sub1)
-		require.Equal(t, 1, c.LenSubs())
+		rpc.UnsubscribeAllExcept(sub1)
+		require.Equal(t, 1, rpc.LenSubs())
 		require.True(t, mockSub2.unsubscribed)
 		require.False(t, mockSub1.unsubscribed)
 
-		c.UnsubscribeAllExcept()
-		require.Equal(t, 0, c.LenSubs())
+		rpc.UnsubscribeAllExcept()
+		require.Equal(t, 0, rpc.LenSubs())
 		require.True(t, mockSub1.unsubscribed)
 	})
 }

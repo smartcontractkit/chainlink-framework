@@ -17,59 +17,58 @@ type AdapterConfig interface {
 }
 
 // Adapter is used to integrate multinode into chain-specific clients
-type Adapter[RPC any, HEAD Head] struct {
+type Adapter[HEAD Head] struct {
 	cfg         AdapterConfig
 	log         logger.Logger
-	rpc         *RPC
 	ctxTimeout  time.Duration
 	stateMu     sync.RWMutex // protects state* fields
 	subsSliceMu sync.RWMutex
 	subs        map[Subscription]struct{}
 
-	latestBlock          func(ctx context.Context, rpc *RPC) (HEAD, error)
-	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error)
+	latestBlock          func(ctx context.Context) (HEAD, error)
+	latestFinalizedBlock func(ctx context.Context) (HEAD, error)
 
-	// chStopInFlight can be closed to immediately cancel all in-flight requests on
-	// this RpcMultiNodeAdapter. Closing and replacing should be serialized through
+	// lifeCycleCh can be closed to immediately cancel all in-flight requests on
+	// this RPC. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
-	chStopInFlight chan struct{}
+	// Closed once RPC is declared unhealthy.
+	lifeCycleCh chan struct{}
 
 	chainInfoLock sync.RWMutex
 	// intercepted values seen by callers of the rpcMultiNodeAdapter excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
 	highestUserObservations ChainInfo
-	// most recent chain info observed during current lifecycle (reseted on DisconnectAll)
+	// most recent chain info observed during current lifecycle (reset on DisconnectAll)
 	latestChainInfo ChainInfo
 }
 
-func NewAdapter[RPC any, HEAD Head](
-	cfg AdapterConfig, rpc *RPC, ctxTimeout time.Duration, log logger.Logger,
-	latestBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
-	latestFinalizedBlock func(ctx context.Context, rpc *RPC) (HEAD, error),
-) *Adapter[RPC, HEAD] {
-	return &Adapter[RPC, HEAD]{
+func NewAdapter[HEAD Head](
+	cfg AdapterConfig, ctxTimeout time.Duration, log logger.Logger,
+	latestBlock func(ctx context.Context) (HEAD, error),
+	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
+) *Adapter[HEAD] {
+	return &Adapter[HEAD]{
 		cfg:                  cfg,
-		rpc:                  rpc,
 		log:                  log,
 		ctxTimeout:           ctxTimeout,
 		latestBlock:          latestBlock,
 		latestFinalizedBlock: latestFinalizedBlock,
 		subs:                 make(map[Subscription]struct{}),
-		chStopInFlight:       make(chan struct{}),
+		lifeCycleCh:          make(chan struct{}),
 	}
 }
 
-func (m *Adapter[RPC, HEAD]) LenSubs() int {
+func (m *Adapter[HEAD]) LenSubs() int {
 	m.subsSliceMu.RLock()
 	defer m.subsSliceMu.RUnlock()
 	return len(m.subs)
 }
 
 // RegisterSub adds the sub to the Adapter list and returns a managed sub which is removed on unsubscribe
-func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription, stopInFLightCh chan struct{}) (*ManagedSubscription, error) {
+func (m *Adapter[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{}) (*ManagedSubscription, error) {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
-	case <-stopInFLightCh:
+	case <-lifeCycleCh:
 		sub.Unsubscribe()
 		return nil, fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
 	default:
@@ -84,14 +83,14 @@ func (m *Adapter[RPC, HEAD]) RegisterSub(sub Subscription, stopInFLightCh chan s
 	return managedSub, nil
 }
 
-func (m *Adapter[RPC, HEAD]) removeSub(sub Subscription) {
+func (m *Adapter[HEAD]) removeSub(sub Subscription) {
 	m.subsSliceMu.Lock()
 	defer m.subsSliceMu.Unlock()
 	delete(m.subs, sub)
 }
 
-func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
-	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
+func (m *Adapter[HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
+	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
 	pollInterval := m.cfg.NewHeadsPollInterval()
@@ -110,7 +109,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD,
 		return nil, nil, err
 	}
 
-	sub, err := m.RegisterSub(&poller, chStopInFlight)
+	sub, err := m.RegisterSub(&poller, lifeCycleCh)
 	if err != nil {
 		sub.Unsubscribe()
 		return nil, nil, err
@@ -118,8 +117,8 @@ func (m *Adapter[RPC, HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD,
 	return channel, sub, nil
 }
 
-func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
-	ctx, cancel, chStopInFlight, _ := m.AcquireQueryCtx(ctx, m.ctxTimeout)
+func (m *Adapter[HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
+	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
 	finalizedBlockPollInterval := m.cfg.FinalizedBlockPollInterval()
@@ -137,7 +136,7 @@ func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-c
 		return nil, nil, err
 	}
 
-	sub, err := m.RegisterSub(&poller, chStopInFlight)
+	sub, err := m.RegisterSub(&poller, lifeCycleCh)
 	if err != nil {
 		poller.Unsubscribe()
 		return nil, nil, err
@@ -145,12 +144,12 @@ func (m *Adapter[RPC, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-c
 	return channel, sub, nil
 }
 
-func (m *Adapter[RPC, HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
-	// capture chStopInFlight to ensure we are not updating chainInfo with observations related to previous life cycle
-	ctx, cancel, chStopInFlight, rpc := m.AcquireQueryCtx(ctx, m.ctxTimeout)
+func (m *Adapter[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
+	// capture lifeCycleCh to ensure we are not updating chainInfo with observations related to previous life cycle
+	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
-	head, err := m.latestBlock(ctx, rpc)
+	head, err := m.latestBlock(ctx)
 	if err != nil {
 		return head, err
 	}
@@ -159,15 +158,15 @@ func (m *Adapter[RPC, HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 		return head, errors.New("invalid head")
 	}
 
-	m.OnNewHead(ctx, chStopInFlight, head)
+	m.OnNewHead(ctx, lifeCycleCh, head)
 	return head, nil
 }
 
-func (m *Adapter[RPC, HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
-	ctx, cancel, chStopInFlight, rpc := m.AcquireQueryCtx(ctx, m.ctxTimeout)
+func (m *Adapter[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
+	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
-	head, err := m.latestFinalizedBlock(ctx, rpc)
+	head, err := m.latestFinalizedBlock(ctx)
 	if err != nil {
 		return head, err
 	}
@@ -176,11 +175,11 @@ func (m *Adapter[RPC, HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, er
 		return head, errors.New("invalid head")
 	}
 
-	m.OnNewFinalizedHead(ctx, chStopInFlight, head)
+	m.OnNewFinalizedHead(ctx, lifeCycleCh, head)
 	return head, nil
 }
 
-func (m *Adapter[RPC, HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *Adapter[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
@@ -202,7 +201,7 @@ func (m *Adapter[RPC, HEAD]) OnNewHead(ctx context.Context, requestCh <-chan str
 	}
 }
 
-func (m *Adapter[RPC, HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *Adapter[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
@@ -235,19 +234,17 @@ func MakeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Durati
 	return ctx, cancel
 }
 
-func (m *Adapter[RPC, HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
-	chStopInFlight chan struct{}, raw *RPC) {
+func (m *Adapter[HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
+	lifeCycleCh chan struct{}) {
 	// Need to wrap in mutex because state transition can cancel and replace context
 	m.stateMu.RLock()
-	chStopInFlight = m.chStopInFlight
-	cp := *m.rpc
-	raw = &cp
+	lifeCycleCh = m.lifeCycleCh
 	m.stateMu.RUnlock()
-	ctx, cancel = MakeQueryCtx(parentCtx, chStopInFlight, timeout)
+	ctx, cancel = MakeQueryCtx(parentCtx, lifeCycleCh, timeout)
 	return
 }
 
-func (m *Adapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
+func (m *Adapter[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 	m.subsSliceMu.Lock()
 	keepSubs := map[Subscription]struct{}{}
 	for _, sub := range subs {
@@ -267,36 +264,36 @@ func (m *Adapter[RPC, HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 	}
 }
 
-// CancelInflightRequests closes and replaces the chStopInFlight
-func (m *Adapter[RPC, HEAD]) CancelInflightRequests() {
+// CancelLifeCycle closes and replaces the lifeCycleCh
+func (m *Adapter[HEAD]) CancelLifeCycle() {
 	m.stateMu.Lock()
 	defer m.stateMu.Unlock()
-	close(m.chStopInFlight)
-	m.chStopInFlight = make(chan struct{})
+	close(m.lifeCycleCh)
+	m.lifeCycleCh = make(chan struct{})
 }
 
-// GetChStopInflight provides a convenience helper that mutex wraps a
-// read to the chStopInFlight
-func (m *Adapter[RPC, HEAD]) GetChStopInflight() chan struct{} {
+// GetLifeCycleCh provides a convenience helper that mutex wraps a
+// read to the lifeCycleCh
+func (m *Adapter[HEAD]) GetLifeCycleCh() chan struct{} {
 	m.stateMu.RLock()
 	defer m.stateMu.RUnlock()
-	return m.chStopInFlight
+	return m.lifeCycleCh
 }
 
-func (m *Adapter[RPC, HEAD]) ResetLatestChainInfo() {
+func (m *Adapter[HEAD]) resetLatestChainInfo() {
 	m.chainInfoLock.Lock()
 	m.latestChainInfo = ChainInfo{}
 	m.chainInfoLock.Unlock()
 }
 
-func (m *Adapter[RPC, HEAD]) Close() {
-	m.CancelInflightRequests()
+func (m *Adapter[HEAD]) Close() {
+	m.CancelLifeCycle()
 	m.UnsubscribeAllExcept()
-	m.ResetLatestChainInfo()
+	m.resetLatestChainInfo()
 }
 
-func (m *Adapter[RPC, HEAD]) GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo) {
-	m.chainInfoLock.Lock()
-	defer m.chainInfoLock.Unlock()
+func (m *Adapter[HEAD]) GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo) {
+	m.chainInfoLock.RLock()
+	defer m.chainInfoLock.RUnlock()
 	return m.latestChainInfo, m.highestUserObservations
 }
