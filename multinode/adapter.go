@@ -35,7 +35,7 @@ type Adapter[HEAD Head] struct {
 	lifeCycleCh chan struct{}
 
 	chainInfoLock sync.RWMutex
-	// intercepted values seen by callers of the rpcMultiNodeAdapter excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
+	// intercepted values seen by callers of the Adapter excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
 	highestUserObservations ChainInfo
 	// most recent chain info observed during current lifecycle (reset on DisconnectAll)
 	latestChainInfo ChainInfo
