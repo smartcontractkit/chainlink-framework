@@ -38,9 +38,9 @@ type Adapter[HEAD Head] struct {
 
 	chainInfoLock sync.RWMutex
 	// intercepted values seen by callers of the Adapter excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
-	highestUserObservations ChainInfo
+	chainInfoHighestUserObservations ChainInfo
 	// most recent chain info observed during current lifecycle
-	latestChainInfo ChainInfo
+	chainInfoLatest ChainInfo
 }
 
 func NewAdapter[HEAD Head](
@@ -101,7 +101,7 @@ func (m *Adapter[HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subs
 	}
 	timeout := pollInterval
 	poller, channel := NewPoller[HEAD](pollInterval, func(pollRequestCtx context.Context) (HEAD, error) {
-		if CtxIsHeathCheckRequest(ctx) {
+		if CtxIsHealthCheckRequest(ctx) {
 			pollRequestCtx = CtxAddHealthCheckFlag(pollRequestCtx)
 		}
 		return m.LatestBlock(pollRequestCtx)
@@ -129,7 +129,7 @@ func (m *Adapter[HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan H
 	}
 	timeout := finalizedBlockPollInterval
 	poller, channel := NewPoller[HEAD](finalizedBlockPollInterval, func(pollRequestCtx context.Context) (HEAD, error) {
-		if CtxIsHeathCheckRequest(ctx) {
+		if CtxIsHealthCheckRequest(ctx) {
 			pollRequestCtx = CtxAddHealthCheckFlag(pollRequestCtx)
 		}
 		return m.LatestFinalizedBlock(pollRequestCtx)
@@ -190,16 +190,16 @@ func (m *Adapter[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}
 	defer m.chainInfoLock.Unlock()
 	blockNumber := head.BlockNumber()
 	totalDifficulty := head.GetTotalDifficulty()
-	if !CtxIsHeathCheckRequest(ctx) {
-		m.highestUserObservations.BlockNumber = max(m.highestUserObservations.BlockNumber, blockNumber)
-		m.highestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.highestUserObservations.TotalDifficulty, totalDifficulty)
+	if !CtxIsHealthCheckRequest(ctx) {
+		m.chainInfoHighestUserObservations.BlockNumber = max(m.chainInfoHighestUserObservations.BlockNumber, blockNumber)
+		m.chainInfoHighestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.chainInfoHighestUserObservations.TotalDifficulty, totalDifficulty)
 	}
 	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
+	case <-requestCh: // no need to update chainInfoLatest, as rpcMultiNodeAdapter already started new life cycle
 		return
 	default:
-		m.latestChainInfo.BlockNumber = blockNumber
-		m.latestChainInfo.TotalDifficulty = totalDifficulty
+		m.chainInfoLatest.BlockNumber = blockNumber
+		m.chainInfoLatest.TotalDifficulty = totalDifficulty
 	}
 }
 
@@ -210,14 +210,14 @@ func (m *Adapter[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan
 
 	m.chainInfoLock.Lock()
 	defer m.chainInfoLock.Unlock()
-	if !CtxIsHeathCheckRequest(ctx) {
-		m.highestUserObservations.FinalizedBlockNumber = max(m.highestUserObservations.FinalizedBlockNumber, head.BlockNumber())
+	if !CtxIsHealthCheckRequest(ctx) {
+		m.chainInfoHighestUserObservations.FinalizedBlockNumber = max(m.chainInfoHighestUserObservations.FinalizedBlockNumber, head.BlockNumber())
 	}
 	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
+	case <-requestCh: // no need to update chainInfoLatest, as rpcMultiNodeAdapter already started new life cycle
 		return
 	default:
-		m.latestChainInfo.FinalizedBlockNumber = head.BlockNumber()
+		m.chainInfoLatest.FinalizedBlockNumber = head.BlockNumber()
 	}
 }
 
@@ -276,7 +276,7 @@ func (m *Adapter[HEAD]) CancelLifeCycle() {
 
 func (m *Adapter[HEAD]) resetLatestChainInfo() {
 	m.chainInfoLock.Lock()
-	m.latestChainInfo = ChainInfo{}
+	m.chainInfoLatest = ChainInfo{}
 	m.chainInfoLock.Unlock()
 }
 
@@ -289,5 +289,5 @@ func (m *Adapter[HEAD]) Close() {
 func (m *Adapter[HEAD]) GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo) {
 	m.chainInfoLock.RLock()
 	defer m.chainInfoLock.RUnlock()
-	return m.latestChainInfo, m.highestUserObservations
+	return m.chainInfoLatest, m.chainInfoHighestUserObservations
 }

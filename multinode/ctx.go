@@ -12,6 +12,6 @@ func CtxAddHealthCheckFlag(ctx context.Context) context.Context {
 	return context.WithValue(ctx, contextKeyHeathCheckRequest, struct{}{})
 }
 
-func CtxIsHeathCheckRequest(ctx context.Context) bool {
+func CtxIsHealthCheckRequest(ctx context.Context) bool {
 	return ctx.Value(contextKeyHeathCheckRequest) != nil
 }
