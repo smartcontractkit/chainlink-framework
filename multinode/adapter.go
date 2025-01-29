@@ -18,12 +18,11 @@ type AdapterConfig interface {
 
 // Adapter is used to integrate multinode into chain-specific clients
 type Adapter[HEAD Head] struct {
-	cfg         AdapterConfig
-	log         logger.Logger
-	ctxTimeout  time.Duration
-	stateMu     sync.RWMutex // protects state* fields
-	subsSliceMu sync.RWMutex
-	subs        map[Subscription]struct{}
+	cfg        AdapterConfig
+	log        logger.Logger
+	ctxTimeout time.Duration
+	subsMu     sync.RWMutex
+	subs       map[Subscription]struct{}
 
 	latestBlock          func(ctx context.Context) (HEAD, error)
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error)
@@ -32,6 +31,7 @@ type Adapter[HEAD Head] struct {
 	// this RPC. Closing and replacing should be serialized through
 	// stateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
 	// Closed once RPC is declared unhealthy.
+	lifeCycleMu sync.RWMutex
 	lifeCycleCh chan struct{}
 
 	chainInfoLock sync.RWMutex
@@ -58,8 +58,8 @@ func NewAdapter[HEAD Head](
 }
 
 func (m *Adapter[HEAD]) LenSubs() int {
-	m.subsSliceMu.RLock()
-	defer m.subsSliceMu.RUnlock()
+	m.subsMu.RLock()
+	defer m.subsMu.RUnlock()
 	return len(m.subs)
 }
 
@@ -73,8 +73,8 @@ func (m *Adapter[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{})
 		return nil, fmt.Errorf("failed to register subscription - all in-flight requests were canceled")
 	default:
 	}
-	m.subsSliceMu.Lock()
-	defer m.subsSliceMu.Unlock()
+	m.subsMu.Lock()
+	defer m.subsMu.Unlock()
 	managedSub := &ManagedSubscription{
 		sub,
 		m.removeSub,
@@ -84,8 +84,8 @@ func (m *Adapter[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{})
 }
 
 func (m *Adapter[HEAD]) removeSub(sub Subscription) {
-	m.subsSliceMu.Lock()
-	defer m.subsSliceMu.Unlock()
+	m.subsMu.Lock()
+	defer m.subsMu.Unlock()
 	delete(m.subs, sub)
 }
 
@@ -237,15 +237,15 @@ func makeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Durati
 func (m *Adapter[HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	lifeCycleCh chan struct{}) {
 	// Need to wrap in mutex because state transition can cancel and replace context
-	m.stateMu.RLock()
+	m.lifeCycleMu.RLock()
 	lifeCycleCh = m.lifeCycleCh
-	m.stateMu.RUnlock()
+	m.lifeCycleMu.RUnlock()
 	ctx, cancel = makeQueryCtx(parentCtx, lifeCycleCh, timeout)
 	return
 }
 
 func (m *Adapter[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
-	m.subsSliceMu.Lock()
+	m.subsMu.Lock()
 	keepSubs := map[Subscription]struct{}{}
 	for _, sub := range subs {
 		keepSubs[sub] = struct{}{}
@@ -257,7 +257,7 @@ func (m *Adapter[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 			unsubs = append(unsubs, sub)
 		}
 	}
-	m.subsSliceMu.Unlock()
+	m.subsMu.Unlock()
 
 	for _, sub := range unsubs {
 		sub.Unsubscribe()
@@ -266,8 +266,8 @@ func (m *Adapter[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 
 // CancelLifeCycle closes and replaces the lifeCycleCh
 func (m *Adapter[HEAD]) CancelLifeCycle() {
-	m.stateMu.Lock()
-	defer m.stateMu.Unlock()
+	m.lifeCycleMu.Lock()
+	defer m.lifeCycleMu.Unlock()
 	close(m.lifeCycleCh)
 	m.lifeCycleCh = make(chan struct{})
 }
