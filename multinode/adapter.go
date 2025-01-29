@@ -16,7 +16,9 @@ type AdapterConfig interface {
 	FinalizedBlockPollInterval() time.Duration
 }
 
-// Adapter is used to integrate multinode into chain-specific clients
+// Adapter is used to integrate multinode into chain-specific clients.
+// For new MultiNode integrations, we wrap the RPC client and inherit from the Adapter
+// to get the required RPCClient methods and enable the use of MultiNode.
 type Adapter[HEAD Head] struct {
 	cfg        AdapterConfig
 	log        logger.Logger
@@ -29,8 +31,8 @@ type Adapter[HEAD Head] struct {
 
 	// lifeCycleCh can be closed to immediately cancel all in-flight requests on
 	// this RPC. Closing and replacing should be serialized through
-	// stateMu since it can happen on state transitions as well as RpcMultiNodeAdapter Close.
-	// Closed once RPC is declared unhealthy.
+	// lifeCycleMu since it can happen on state transitions as well as Adapter Close.
+	// Also closed when RPC is declared unhealthy.
 	lifeCycleMu sync.RWMutex
 	lifeCycleCh chan struct{}
 
