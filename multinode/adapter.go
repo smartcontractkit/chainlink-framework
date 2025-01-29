@@ -19,6 +19,10 @@ type AdapterConfig interface {
 // Adapter is used to integrate multinode into chain-specific clients.
 // For new MultiNode integrations, we wrap the RPC client and inherit from the Adapter
 // to get the required RPCClient methods and enable the use of MultiNode.
+//
+// The Adapter provides chain-agnostic functionality such as head and finalized head
+// subscriptions, which are required in each Node lifecycle to execute various
+// health checks.
 type Adapter[HEAD Head] struct {
 	cfg        AdapterConfig
 	log        logger.Logger
