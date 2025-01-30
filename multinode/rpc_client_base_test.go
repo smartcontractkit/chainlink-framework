@@ -216,27 +216,27 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 		rpc := newTestRPC(t)
 		_, sub1, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 1, rpc.LenSubs())
+		require.Equal(t, 1, rpc.lenSubs())
 		_, sub2, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 2, rpc.LenSubs())
+		require.Equal(t, 2, rpc.lenSubs())
 
 		sub1.Unsubscribe()
-		require.Equal(t, 1, rpc.LenSubs())
+		require.Equal(t, 1, rpc.lenSubs())
 		sub2.Unsubscribe()
-		require.Equal(t, 0, rpc.LenSubs())
+		require.Equal(t, 0, rpc.lenSubs())
 	})
 
 	t.Run("Ensure no deadlock on UnsubscribeAll", func(t *testing.T) {
 		rpc := newTestRPC(t)
 		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 1, rpc.LenSubs())
+		require.Equal(t, 1, rpc.lenSubs())
 		_, _, err = rpc.SubscribeToFinalizedHeads(tests.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, 2, rpc.LenSubs())
+		require.Equal(t, 2, rpc.lenSubs())
 		rpc.UnsubscribeAllExcept()
-		require.Equal(t, 0, rpc.LenSubs())
+		require.Equal(t, 0, rpc.lenSubs())
 	})
 }
 
@@ -262,7 +262,7 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		sub, err := rpc.RegisterSub(mockSub, make(chan struct{}))
 		require.NoError(t, err)
 		require.NotNil(t, sub)
-		require.Equal(t, 1, rpc.LenSubs())
+		require.Equal(t, 1, rpc.lenSubs())
 		rpc.UnsubscribeAllExcept()
 	})
 
@@ -285,16 +285,16 @@ func TestMultiNodeClient_RegisterSubs(t *testing.T) {
 		require.NoError(t, err)
 		_, err = rpc.RegisterSub(mockSub2, chStopInFlight)
 		require.NoError(t, err)
-		require.Equal(t, 2, rpc.LenSubs())
+		require.Equal(t, 2, rpc.lenSubs())
 
 		// Ensure passed sub is not removed
 		rpc.UnsubscribeAllExcept(sub1)
-		require.Equal(t, 1, rpc.LenSubs())
+		require.Equal(t, 1, rpc.lenSubs())
 		require.True(t, mockSub2.unsubscribed)
 		require.False(t, mockSub1.unsubscribed)
 
 		rpc.UnsubscribeAllExcept()
-		require.Equal(t, 0, rpc.LenSubs())
+		require.Equal(t, 0, rpc.lenSubs())
 		require.True(t, mockSub1.unsubscribed)
 	})
 }

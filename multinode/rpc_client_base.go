@@ -64,7 +64,7 @@ func NewRPCClientBase[HEAD Head](
 	}
 }
 
-func (m *RPCClientBase[HEAD]) LenSubs() int {
+func (m *RPCClientBase[HEAD]) lenSubs() int {
 	m.subsMu.RLock()
 	defer m.subsMu.RUnlock()
 	return len(m.subs)
@@ -72,7 +72,7 @@ func (m *RPCClientBase[HEAD]) LenSubs() int {
 
 // RegisterSub adds the sub to the RPCClientBase list and returns a managed sub which is removed on unsubscribe
 func (m *RPCClientBase[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{}) (*ManagedSubscription, error) {
-	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
+	// ensure that the `sub` belongs to current life cycle of the `RPCClientBase` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
 	case <-lifeCycleCh:
@@ -200,7 +200,7 @@ func (m *RPCClientBase[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan st
 		m.highestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.highestUserObservations.TotalDifficulty, totalDifficulty)
 	}
 	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
+	case <-requestCh: // no need to update latestChainInfo, as RPCClientBase already started new life cycle
 		return
 	default:
 		m.latestChainInfo.BlockNumber = blockNumber
@@ -219,7 +219,7 @@ func (m *RPCClientBase[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh 
 		m.highestUserObservations.FinalizedBlockNumber = max(m.highestUserObservations.FinalizedBlockNumber, head.BlockNumber())
 	}
 	select {
-	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
+	case <-requestCh: // no need to update latestChainInfo, as RPCClientBase already started new life cycle
 		return
 	default:
 		m.latestChainInfo.FinalizedBlockNumber = head.BlockNumber()
