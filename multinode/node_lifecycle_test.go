@@ -590,6 +590,7 @@ func (h head) ToMockHead(t *testing.T) *mockHead {
 	m := newMockHead(t)
 	m.On("BlockNumber").Return(h.BlockNumber).Maybe()
 	m.On("BlockDifficulty").Return(h.BlockDifficulty).Maybe()
+	m.On("GetTotalDifficulty").Return(h.BlockDifficulty).Maybe()
 	m.On("IsValid").Return(true).Maybe()
 	return m
 }

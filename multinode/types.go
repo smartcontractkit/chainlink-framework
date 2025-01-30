@@ -32,6 +32,19 @@ type Subscription interface {
 	Err() <-chan error
 }
 
+// ManagedSubscription is a Subscription which contains an onUnsubscribe callback for cleanup
+type ManagedSubscription struct {
+	Subscription
+	onUnsubscribe func(sub Subscription)
+}
+
+func (w *ManagedSubscription) Unsubscribe() {
+	w.Subscription.Unsubscribe()
+	if w.onUnsubscribe != nil {
+		w.onUnsubscribe(w)
+	}
+}
+
 // RPCClient includes all the necessary generalized RPC methods used by Node to perform health checks
 type RPCClient[
 	CHAIN_ID ID,
@@ -54,8 +67,8 @@ type RPCClient[
 	// Close - closes all subscriptions and aborts all RPC calls
 	Close()
 	// GetInterceptedChainInfo - returns latest and highest observed by application layer ChainInfo.
-	// latest ChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
-	// highestUserObservations ChainInfo is the highest ChainInfo observed excluding health checks calls.
+	// latestChainInfo is the most recent value received within a NodeClient's current lifecycle between Dial and DisconnectAll.
+	// highestUserObservations is the highest ChainInfo observed excluding health checks calls.
 	// Its values must not be reset.
 	// The results of corresponding calls, to get the most recent head and the latest finalized head, must be
 	// intercepted and reflected in ChainInfo before being returned to a caller. Otherwise, MultiNode is not able to
@@ -70,6 +83,7 @@ type RPCClient[
 type Head interface {
 	BlockNumber() int64
 	BlockDifficulty() *big.Int
+	GetTotalDifficulty() *big.Int
 	IsValid() bool
 }
 
