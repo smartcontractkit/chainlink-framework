@@ -57,6 +57,6 @@ jobs:
 
       - name: Ensure "make generate" has been run
         run: |
-          cd multinode && make rm-mocked && make generate
+          make rm-mocked && make generate
           git add --all
           git diff --stat --cached --exit-code
