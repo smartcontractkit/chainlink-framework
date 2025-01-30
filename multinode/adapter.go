@@ -11,20 +11,20 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-type AdapterConfig interface {
+type RPCClientBaseConfig interface {
 	NewHeadsPollInterval() time.Duration
 	FinalizedBlockPollInterval() time.Duration
 }
 
-// Adapter is used to integrate multinode into chain-specific clients.
-// For new MultiNode integrations, we wrap the RPC client and inherit from the Adapter
+// RPCClientBase is used to integrate multinode into chain-specific clients.
+// For new MultiNode integrations, we wrap the RPC client and inherit from the RPCClientBase
 // to get the required RPCClient methods and enable the use of MultiNode.
 //
-// The Adapter provides chain-agnostic functionality such as head and finalized head
+// The RPCClientBase provides chain-agnostic functionality such as head and finalized head
 // subscriptions, which are required in each Node lifecycle to execute various
 // health checks.
-type Adapter[HEAD Head] struct {
-	cfg        AdapterConfig
+type RPCClientBase[HEAD Head] struct {
+	cfg        RPCClientBaseConfig
 	log        logger.Logger
 	ctxTimeout time.Duration
 	subsMu     sync.RWMutex
@@ -35,24 +35,25 @@ type Adapter[HEAD Head] struct {
 
 	// lifeCycleCh can be closed to immediately cancel all in-flight requests on
 	// this RPC. Closing and replacing should be serialized through
-	// lifeCycleMu since it can happen on state transitions as well as Adapter Close.
+	// lifeCycleMu since it can happen on state transitions as well as RPCClientBase Close.
 	// Also closed when RPC is declared unhealthy.
 	lifeCycleMu sync.RWMutex
 	lifeCycleCh chan struct{}
 
+	// chainInfoLock protects highestUserObservations and latestChainInfo
 	chainInfoLock sync.RWMutex
-	// intercepted values seen by callers of the Adapter excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
-	chainInfoHighestUserObservations ChainInfo
+	// intercepted values seen by callers of the RPCClientBase excluding health check calls. Need to ensure MultiNode provides repeatable read guarantee
+	highestUserObservations ChainInfo
 	// most recent chain info observed during current lifecycle
-	chainInfoLatest ChainInfo
+	latestChainInfo ChainInfo
 }
 
-func NewAdapter[HEAD Head](
-	cfg AdapterConfig, ctxTimeout time.Duration, log logger.Logger,
+func NewRPCClientBase[HEAD Head](
+	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
-) *Adapter[HEAD] {
-	return &Adapter[HEAD]{
+) *RPCClientBase[HEAD] {
+	return &RPCClientBase[HEAD]{
 		cfg:                  cfg,
 		log:                  log,
 		ctxTimeout:           ctxTimeout,
@@ -63,14 +64,14 @@ func NewAdapter[HEAD Head](
 	}
 }
 
-func (m *Adapter[HEAD]) LenSubs() int {
+func (m *RPCClientBase[HEAD]) LenSubs() int {
 	m.subsMu.RLock()
 	defer m.subsMu.RUnlock()
 	return len(m.subs)
 }
 
-// RegisterSub adds the sub to the Adapter list and returns a managed sub which is removed on unsubscribe
-func (m *Adapter[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{}) (*ManagedSubscription, error) {
+// RegisterSub adds the sub to the RPCClientBase list and returns a managed sub which is removed on unsubscribe
+func (m *RPCClientBase[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{}) (*ManagedSubscription, error) {
 	// ensure that the `sub` belongs to current life cycle of the `rpcMultiNodeAdapter` and it should not be killed due to
 	// previous `DisconnectAll` call.
 	select {
@@ -89,13 +90,13 @@ func (m *Adapter[HEAD]) RegisterSub(sub Subscription, lifeCycleCh chan struct{})
 	return managedSub, nil
 }
 
-func (m *Adapter[HEAD]) removeSub(sub Subscription) {
+func (m *RPCClientBase[HEAD]) removeSub(sub Subscription) {
 	m.subsMu.Lock()
 	defer m.subsMu.Unlock()
 	delete(m.subs, sub)
 }
 
-func (m *Adapter[HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
+func (m *RPCClientBase[HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
@@ -123,7 +124,7 @@ func (m *Adapter[HEAD]) SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subs
 	return channel, sub, nil
 }
 
-func (m *Adapter[HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
+func (m *RPCClientBase[HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
@@ -150,7 +151,7 @@ func (m *Adapter[HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan H
 	return channel, sub, nil
 }
 
-func (m *Adapter[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
+func (m *RPCClientBase[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 	// capture lifeCycleCh to ensure we are not updating chainInfo with observations related to previous life cycle
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
@@ -168,7 +169,7 @@ func (m *Adapter[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 	return head, nil
 }
 
-func (m *Adapter[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
+func (m *RPCClientBase[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
@@ -185,7 +186,7 @@ func (m *Adapter[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) 
 	return head, nil
 }
 
-func (m *Adapter[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *RPCClientBase[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
@@ -195,19 +196,19 @@ func (m *Adapter[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}
 	blockNumber := head.BlockNumber()
 	totalDifficulty := head.GetTotalDifficulty()
 	if !CtxIsHealthCheckRequest(ctx) {
-		m.chainInfoHighestUserObservations.BlockNumber = max(m.chainInfoHighestUserObservations.BlockNumber, blockNumber)
-		m.chainInfoHighestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.chainInfoHighestUserObservations.TotalDifficulty, totalDifficulty)
+		m.highestUserObservations.BlockNumber = max(m.highestUserObservations.BlockNumber, blockNumber)
+		m.highestUserObservations.TotalDifficulty = MaxTotalDifficulty(m.highestUserObservations.TotalDifficulty, totalDifficulty)
 	}
 	select {
-	case <-requestCh: // no need to update chainInfoLatest, as rpcMultiNodeAdapter already started new life cycle
+	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
 		return
 	default:
-		m.chainInfoLatest.BlockNumber = blockNumber
-		m.chainInfoLatest.TotalDifficulty = totalDifficulty
+		m.latestChainInfo.BlockNumber = blockNumber
+		m.latestChainInfo.TotalDifficulty = totalDifficulty
 	}
 }
 
-func (m *Adapter[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
+func (m *RPCClientBase[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
 	if !head.IsValid() {
 		return
 	}
@@ -215,13 +216,13 @@ func (m *Adapter[HEAD]) OnNewFinalizedHead(ctx context.Context, requestCh <-chan
 	m.chainInfoLock.Lock()
 	defer m.chainInfoLock.Unlock()
 	if !CtxIsHealthCheckRequest(ctx) {
-		m.chainInfoHighestUserObservations.FinalizedBlockNumber = max(m.chainInfoHighestUserObservations.FinalizedBlockNumber, head.BlockNumber())
+		m.highestUserObservations.FinalizedBlockNumber = max(m.highestUserObservations.FinalizedBlockNumber, head.BlockNumber())
 	}
 	select {
-	case <-requestCh: // no need to update chainInfoLatest, as rpcMultiNodeAdapter already started new life cycle
+	case <-requestCh: // no need to update latestChainInfo, as rpcMultiNodeAdapter already started new life cycle
 		return
 	default:
-		m.chainInfoLatest.FinalizedBlockNumber = head.BlockNumber()
+		m.latestChainInfo.FinalizedBlockNumber = head.BlockNumber()
 	}
 }
 
@@ -240,7 +241,7 @@ func makeQueryCtx(ctx context.Context, ch services.StopChan, timeout time.Durati
 	return ctx, cancel
 }
 
-func (m *Adapter[HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
+func (m *RPCClientBase[HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.Duration) (ctx context.Context, cancel context.CancelFunc,
 	lifeCycleCh chan struct{}) {
 	// Need to wrap in mutex because state transition can cancel and replace context
 	m.lifeCycleMu.RLock()
@@ -250,7 +251,7 @@ func (m *Adapter[HEAD]) AcquireQueryCtx(parentCtx context.Context, timeout time.
 	return
 }
 
-func (m *Adapter[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
+func (m *RPCClientBase[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 	m.subsMu.Lock()
 	keepSubs := map[Subscription]struct{}{}
 	for _, sub := range subs {
@@ -271,27 +272,27 @@ func (m *Adapter[HEAD]) UnsubscribeAllExcept(subs ...Subscription) {
 }
 
 // CancelLifeCycle closes and replaces the lifeCycleCh
-func (m *Adapter[HEAD]) CancelLifeCycle() {
+func (m *RPCClientBase[HEAD]) CancelLifeCycle() {
 	m.lifeCycleMu.Lock()
 	defer m.lifeCycleMu.Unlock()
 	close(m.lifeCycleCh)
 	m.lifeCycleCh = make(chan struct{})
 }
 
-func (m *Adapter[HEAD]) resetLatestChainInfo() {
+func (m *RPCClientBase[HEAD]) resetLatestChainInfo() {
 	m.chainInfoLock.Lock()
-	m.chainInfoLatest = ChainInfo{}
+	m.latestChainInfo = ChainInfo{}
 	m.chainInfoLock.Unlock()
 }
 
-func (m *Adapter[HEAD]) Close() {
+func (m *RPCClientBase[HEAD]) Close() {
 	m.CancelLifeCycle()
 	m.UnsubscribeAllExcept()
 	m.resetLatestChainInfo()
 }
 
-func (m *Adapter[HEAD]) GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo) {
+func (m *RPCClientBase[HEAD]) GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo) {
 	m.chainInfoLock.RLock()
 	defer m.chainInfoLock.RUnlock()
-	return m.chainInfoLatest, m.chainInfoHighestUserObservations
+	return m.latestChainInfo, m.highestUserObservations
 }

@@ -15,7 +15,7 @@ import (
 )
 
 type testRPC struct {
-	*Adapter[*testHead]
+	*RPCClientBase[*testHead]
 	latestBlockNum int64
 }
 
@@ -26,7 +26,7 @@ func (rpc *testRPC) latestBlock(ctx context.Context) (*testHead, error) {
 }
 
 func (rpc *testRPC) Close() {
-	rpc.Adapter.Close()
+	rpc.RPCClientBase.Close()
 }
 
 type testHead struct {
@@ -67,7 +67,7 @@ func newTestRPC(t *testing.T) *testRPC {
 	}
 
 	rpc := &testRPC{}
-	rpc.Adapter = NewAdapter[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock)
+	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock)
 	t.Cleanup(rpc.Close)
 	return rpc
 }
