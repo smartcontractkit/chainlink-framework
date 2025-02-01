@@ -9,7 +9,7 @@ jobs:
       modules: ${{ steps.set-modules.outputs.modules }}
     steps:
       - uses: actions/checkout@v4
-        id: set-modules
+      - id: set-modules
         run: echo modules=$(echo "$(dirname $(find * -name 'go.mod'))" | jq -cnR '[inputs | select(length>0)]') >> $GITHUB_OUTPUT
 
   golangci-lint:
