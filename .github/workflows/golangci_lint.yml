@@ -1,6 +1,6 @@
-name: Lint MultiNode
+name: golangci-lint
 
-on: [push]
+on: [pull_request]
 
 jobs:
   detect-modules:
@@ -34,9 +34,8 @@ jobs:
         with:
           go-version-file: "multinode/go.mod"
       - name: Run golangci-lint for ${{ matrix.module }}
-        continue-on-error: true
         uses: golangci/golangci-lint-action@v3
         with:
-          only-new-issues: false
+          only-new-issues: true
           version: v1.62.2
           working-directory: ${{ matrix.module }}
