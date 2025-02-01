@@ -26,22 +26,17 @@ jobs:
       fail-fast: false
       matrix:
         module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
-#        module: ["chains", "multinode"]
     steps:
-#      - run: echo "Matrix - Project ${{ matrix.modules }}"
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
           go-version-file: "multinode/go.mod"
-
       - name: Run golangci-lint for ${{ matrix.module }}
         continue-on-error: true
         uses: golangci/golangci-lint-action@v3
         with:
-#          cache-invalidation-interval: 7
-          only-new-issues: true
+          only-new-issues: false
           version: v1.62.2
           working-directory: ${{ matrix.module }}
