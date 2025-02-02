@@ -48,7 +48,7 @@ type Resender[
 	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	client              txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	tracker             *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID]
 	chainID             CHAIN_ID
 	interval            time.Duration
 	config              txmgrtypes.ResenderChainConfig
@@ -73,7 +73,7 @@ func NewResender[
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
+	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID],
 	pollInterval time.Duration,
 	config txmgrtypes.ResenderChainConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
