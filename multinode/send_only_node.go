@@ -83,19 +83,23 @@ func NewSendOnlyNode[
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) Start(ctx context.Context) error {
 	return s.StartOnce(s.name, func() error {
-		s.start(ctx)
+		s.wg.Add(1)
+		go s.start()
 		return nil
 	})
 }
 
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
-func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
+	defer s.wg.Done()
 	if s.State() != nodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", s.state))
 	}
+	ctx, cancel := s.chStop.NewCtx()
+	defer cancel()
 
-	err := s.rpc.Dial(startCtx)
+	err := s.rpc.Dial(ctx)
 	if err != nil {
 		promPoolRPCNodeTransitionsToUnusable.WithLabelValues(s.chainID.String(), s.name).Inc()
 		s.log.Errorw("Dial failed: SendOnly Node is unusable", "err", err)
@@ -108,7 +112,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 		// Skip verification if chainID is zero
 		s.log.Warn("sendonly rpc ChainID verification skipped")
 	} else {
-		chainID, err := s.rpc.ChainID(startCtx)
+		chainID, err := s.rpc.ChainID(ctx)
 		if err != nil || chainID.String() != s.chainID.String() {
 			promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
 			if err != nil {

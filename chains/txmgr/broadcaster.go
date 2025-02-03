@@ -133,7 +133,7 @@ type Broadcaster[
 
 	processUnstartedTxsImpl ProcessUnstartedTxs[ADDR]
 
-	ks               types.KeyStore[ADDR, CHAIN_ID, SEQ]
+	ks               types.KeyStore[ADDR, CHAIN_ID]
 	enabledAddresses []ADDR
 
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
@@ -165,7 +165,7 @@ func NewBroadcaster[
 	feeConfig types.BroadcasterFeeConfig,
 	txConfig types.BroadcasterTransactionsConfig,
 	listenerConfig types.BroadcasterListenerConfig,
-	keystore types.KeyStore[ADDR, CHAIN_ID, SEQ],
+	keystore types.KeyStore[ADDR, CHAIN_ID],
 	txAttemptBuilder types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	sequenceTracker types.SequenceTracker[ADDR, SEQ],
 	lggr logger.Logger,

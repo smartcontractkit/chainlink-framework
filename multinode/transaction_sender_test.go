@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 )
 
-type TestSendTxRPCClient SendTxRPCClient[any, *sendTxResult]
+type TestSendTxRPCClient SendTxRPCClient[any, any]
 
 type sendTxMultiNode struct {
 	*MultiNode[ID, TestSendTxRPCClient]
@@ -27,39 +27,17 @@ type sendTxRPC struct {
 	sendTxErr error
 }
 
-type sendTxResult struct {
-	err  error
-	code SendTxReturnCode
-}
-
-var _ SendTxResult = (*sendTxResult)(nil)
-
-func NewSendTxResult(err error) *sendTxResult {
-	result := &sendTxResult{
-		err: err,
-	}
-	return result
-}
-
-func (r *sendTxResult) Error() error {
-	return r.err
-}
-
-func (r *sendTxResult) Code() SendTxReturnCode {
-	return r.code
-}
-
 var _ TestSendTxRPCClient = (*sendTxRPC)(nil)
 
 func newSendTxRPC(sendTxErr error, sendTxRun func(args mock.Arguments)) *sendTxRPC {
 	return &sendTxRPC{sendTxErr: sendTxErr, sendTxRun: sendTxRun}
 }
 
-func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) *sendTxResult {
+func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) (any, SendTxReturnCode, error) {
 	if rpc.sendTxRun != nil {
 		rpc.sendTxRun(mock.Arguments{ctx})
 	}
-	return &sendTxResult{err: rpc.sendTxErr, code: classifySendTxError(nil, rpc.sendTxErr)}
+	return nil, classifySendTxError(nil, rpc.sendTxErr), rpc.sendTxErr
 }
 
 // newTestTransactionSender returns a sendTxMultiNode and TransactionSender.
@@ -67,11 +45,11 @@ func (rpc *sendTxRPC) SendTransaction(ctx context.Context, _ any) *sendTxResult 
 func newTestTransactionSender(t *testing.T, chainID ID, lggr logger.Logger,
 	nodes []Node[ID, TestSendTxRPCClient],
 	sendOnlyNodes []SendOnlyNode[ID, TestSendTxRPCClient],
-) (*sendTxMultiNode, *TransactionSender[any, *sendTxResult, ID, TestSendTxRPCClient]) {
+) (*sendTxMultiNode, *TransactionSender[any, any, ID, TestSendTxRPCClient]) {
 	mn := sendTxMultiNode{NewMultiNode[ID, TestSendTxRPCClient](
 		lggr, NodeSelectionModeRoundRobin, 0, nodes, sendOnlyNodes, chainID, "chainFamily", 0)}
 
-	txSender := NewTransactionSender[any, *sendTxResult, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, NewSendTxResult, tests.TestInterval)
+	txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
 	servicetest.Run(t, txSender)
 	return &mn, txSender
 }
@@ -105,8 +83,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 	t.Run("Fails if there is no nodes available", func(t *testing.T) {
 		lggr := logger.Test(t)
 		_, txSender := newTestTransactionSender(t, RandomID(), lggr, nil, nil)
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		assert.EqualError(t, result.Error(), ErrNodeError.Error())
+		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		assert.EqualError(t, err, ErrNodeError.Error())
 	})
 
 	t.Run("Transaction failure happy path", func(t *testing.T) {
@@ -118,9 +96,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{mainNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.ErrorIs(t, result.Error(), expectedError)
-		require.Equal(t, Fatal, result.Code())
+		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.ErrorIs(t, err, expectedError)
+		require.Equal(t, Fatal, code)
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
 		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 2)
 	})
@@ -133,9 +111,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{mainNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.NoError(t, result.Error())
-		require.Equal(t, Successful, result.Code())
+		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.NoError(t, err)
+		require.Equal(t, Successful, code)
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
 		tests.AssertLogCountEventually(t, observedLogs, "RPC returned error", 1)
 	})
@@ -156,8 +134,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		requestContext, cancel := context.WithCancel(tests.Context(t))
 		cancel()
-		result := txSender.SendTransaction(requestContext, nil)
-		require.EqualError(t, result.Error(), "context canceled")
+		_, _, err := txSender.SendTransaction(requestContext, nil)
+		require.EqualError(t, err, "context canceled")
 	})
 
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
@@ -176,8 +154,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr := logger.Test(t)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, result.Error(), expectedError.Error())
+		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, expectedError.Error())
 	})
 	t.Run("Returns success without waiting for the rest of the nodes", func(t *testing.T) {
 		chainID := RandomID()
@@ -198,9 +176,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
 
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.NoError(t, result.Error())
-		require.Equal(t, Successful, result.Code())
+		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.NoError(t, err)
+		require.Equal(t, Successful, code)
 	})
 	t.Run("Fails when multinode is closed", func(t *testing.T) {
 		chainID := RandomID()
@@ -228,8 +206,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		require.NoError(t, mn.Start(tests.Context(t)))
 		require.NoError(t, mn.Close())
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.EqualError(t, result.Error(), "service is stopped")
+		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.EqualError(t, err, "service is stopped")
 	})
 	t.Run("Fails when closed", func(t *testing.T) {
 		chainID := RandomID()
@@ -246,11 +224,11 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			<-testContext.Done()
 		})
 
-		var txSender *TransactionSender[any, *sendTxResult, ID, TestSendTxRPCClient]
+		var txSender *TransactionSender[any, any, ID, TestSendTxRPCClient]
 
 		t.Cleanup(func() { // after txSender.Close()
-			result := txSender.SendTransaction(tests.Context(t), nil)
-			assert.EqualError(t, result.err, "TransactionSender not started")
+			_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+			assert.EqualError(t, err, "TransactionSender not started")
 		})
 
 		_, txSender = newTestTransactionSender(t, chainID, logger.Test(t),
@@ -268,8 +246,8 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{primary},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{sendOnly})
 
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		assert.EqualError(t, result.Error(), ErrNodeError.Error())
+		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		assert.EqualError(t, err, ErrNodeError.Error())
 	})
 
 	t.Run("Transaction success even if one of the nodes is unhealthy", func(t *testing.T) {
@@ -287,9 +265,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{mainNode, unhealthyNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{unhealthySendOnlyNode})
 
-		result := txSender.SendTransaction(tests.Context(t), nil)
-		require.NoError(t, result.Error())
-		require.Equal(t, Successful, result.Code())
+		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		require.NoError(t, err)
+		require.Equal(t, Successful, code)
 	})
 	t.Run("All background jobs stop even if RPC returns result after soft timeout", func(t *testing.T) {
 		chainID := RandomID()
@@ -305,9 +283,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr := logger.Test(t)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
-		result := txSender.SendTransaction(sendTxContext, nil)
+		_, _, err := txSender.SendTransaction(sendTxContext, nil)
 		sendTxCancel()
-		require.EqualError(t, result.Error(), expectedError.Error())
+		require.EqualError(t, err, expectedError.Error())
 		// TxSender should stop all background go routines after SendTransaction is done and before test is done.
 		// Otherwise, it signals that we have a goroutine leak.
 		txSender.wg.Wait()
@@ -326,62 +304,62 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 		Name                string
 		ExpectedTxResult    string
 		ExpectedCriticalErr string
-		ResultsByCode       sendTxResults[*sendTxResult]
+		ResultsByCode       sendTxResults[any]
 	}{
 		{
 			Name:                "Returns success and logs critical error on success and Fatal",
 			ExpectedTxResult:    "success",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
-			ResultsByCode: sendTxResults[*sendTxResult]{
-				Successful: {NewSendTxResult(errors.New("success"))},
-				Fatal:      {NewSendTxResult(errors.New("fatal"))},
+			ResultsByCode: sendTxResults[any]{
+				Successful: {newSendTxResult(errors.New("success"))},
+				Fatal:      {newSendTxResult(errors.New("fatal"))},
 			},
 		},
 		{
 			Name:                "Returns TransactionAlreadyKnown and logs critical error on TransactionAlreadyKnown and Fatal",
 			ExpectedTxResult:    "tx_already_known",
 			ExpectedCriticalErr: "found contradictions in nodes replies on SendTransaction: got success and severe error",
-			ResultsByCode: sendTxResults[*sendTxResult]{
-				TransactionAlreadyKnown: {NewSendTxResult(errors.New("tx_already_known"))},
-				Unsupported:             {NewSendTxResult(errors.New("unsupported"))},
+			ResultsByCode: sendTxResults[any]{
+				TransactionAlreadyKnown: {newSendTxResult(errors.New("tx_already_known"))},
+				Unsupported:             {newSendTxResult(errors.New("unsupported"))},
 			},
 		},
 		{
 			Name:                "Prefers sever error to temporary",
 			ExpectedTxResult:    "underpriced",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxResults[*sendTxResult]{
-				Retryable:   {NewSendTxResult(errors.New("retryable"))},
-				Underpriced: {NewSendTxResult(errors.New("underpriced"))},
+			ResultsByCode: sendTxResults[any]{
+				Retryable:   {newSendTxResult(errors.New("retryable"))},
+				Underpriced: {newSendTxResult(errors.New("underpriced"))},
 			},
 		},
 		{
 			Name:                "Returns temporary error",
 			ExpectedTxResult:    "retryable",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxResults[*sendTxResult]{
-				Retryable: {NewSendTxResult(errors.New("retryable"))},
+			ResultsByCode: sendTxResults[any]{
+				Retryable: {newSendTxResult(errors.New("retryable"))},
 			},
 		},
 		{
 			Name:                "Insufficient funds is treated as  error",
 			ExpectedTxResult:    "insufficientFunds",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxResults[*sendTxResult]{
-				InsufficientFunds: {NewSendTxResult(errors.New("insufficientFunds"))},
+			ResultsByCode: sendTxResults[any]{
+				InsufficientFunds: {newSendTxResult(errors.New("insufficientFunds"))},
 			},
 		},
 		{
 			Name:                "Logs critical error on empty ResultsByCode",
 			ExpectedCriticalErr: "expected at least one response on SendTransaction",
-			ResultsByCode:       sendTxResults[*sendTxResult]{},
+			ResultsByCode:       sendTxResults[any]{},
 		},
 		{
 			Name:                "Zk terminally stuck",
 			ExpectedTxResult:    "not enough keccak counters to continue the execution",
 			ExpectedCriticalErr: "",
-			ResultsByCode: sendTxResults[*sendTxResult]{
-				TerminallyStuck: {NewSendTxResult(errors.New("not enough keccak counters to continue the execution"))},
+			ResultsByCode: sendTxResults[any]{
+				TerminallyStuck: {newSendTxResult(errors.New("not enough keccak counters to continue the execution"))},
 			},
 		},
 	}
@@ -394,7 +372,7 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 		t.Run(testCase.Name, func(t *testing.T) {
 			txResult, err := aggregateTxResults(testCase.ResultsByCode)
 			if testCase.ExpectedTxResult != "" {
-				require.EqualError(t, txResult.Error(), testCase.ExpectedTxResult)
+				require.EqualError(t, txResult.error, testCase.ExpectedTxResult)
 			}
 
 			logger.Sugared(logger.Test(t)).Info("Map: " + fmt.Sprint(testCase.ResultsByCode))
@@ -414,4 +392,8 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 		delete(codesToCover, codeToIgnore)
 	}
 	assert.Empty(t, codesToCover, "all of the SendTxReturnCode must be covered by this test")
+}
+
+func newSendTxResult(err error) sendTxResult[any] {
+	return sendTxResult[any]{error: err}
 }
