@@ -15,6 +15,10 @@ jobs:
   build-test:
     needs: detect-modules
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+      actions: read
     strategy:
       fail-fast: false
       matrix:
@@ -36,18 +40,30 @@ jobs:
 
       - name: Print Races
         if: failure()
-        id: print-races
         run: |
           find race.* | xargs cat > race.txt
           if [[ -s race.txt ]]; then
             cat race.txt
           fi
 
+      # GitHub artifact names must be unique and cannot contain '/'.
+      - name: Prepare Name
+        id: prepare-name
+        run: |
+          VALUE=${{matrix.module}}
+          echo "VALUE=${VALUE////_}" >> $GITHUB_OUTPUT
+
+#      - name: Test Name
+#        id: test-name
+#        run:
+#           echo ${{steps.prepare-name.outputs.VALUE}}
+##          echo "repository=${{ matrix.module }}" >> $GITHUB_OUTPUT
+
       - name: Upload Go test results
         if: always()
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: go-test-results-${{ matrix.module }}
+          name: go-test-results-${{steps.prepare-name.outputs.VALUE}}
           path: |
             ${{ matrix.module }}/coverage.txt
             ${{ matrix.module }}/race.*
