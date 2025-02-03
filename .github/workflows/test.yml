@@ -1,10 +1,24 @@
 name: MultiNode Build and Test
 
-on: [push]
+on: [pull_request]
 
 jobs:
-  build-test:
+  detect-modules:
     runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set-modules
+        run: echo modules=$(echo "$(dirname $(find * -name 'go.mod'))" | jq -cnR '[inputs | select(length>0)]') >> $GITHUB_OUTPUT
+
+  build-test:
+    needs: detect-modules
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
     steps:
       - name: Checkout
         uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
@@ -12,13 +26,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
         with:
-          go-version-file: "multinode/go.mod"
+          go-version-file: "${{ matrix.module }}/go.mod"
 
       - name: Build multinode
-        run: cd multinode && go build -v ./...
+        run: cd ${{ matrix.module }} && go build -v ./...
 
       - name: Unit Tests
-        run: cd multinode && GORACE="log_path=$PWD/race" go test -race ./... -coverpkg=./... -coverprofile=coverage.txt
+        run: cd ${{ matrix.module }} && GORACE="log_path=$PWD/race" go test -race ./... -coverpkg=./... -coverprofile=coverage.txt
 
       - name: Print Races
         if: failure()
