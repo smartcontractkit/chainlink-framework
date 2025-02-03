@@ -28,11 +28,11 @@ jobs:
         with:
           go-version-file: ${{ matrix.module }}/go.mod
 
-      - name: Build multinode
+      - name: Build
         run: cd ${{ matrix.module }} && go build -v ./...
 
       - name: Unit Tests
-        run: cd ${{ matrix.module }} && GORACE="log_path=$PWD/race" go test -race ./... -coverpkg=./... -coverprofile=coverage-${{ matrix.module }}.txt
+        run: cd ${{ matrix.module }} && GORACE="log_path=$PWD/race" go test -race ./... -coverpkg=./... -coverprofile=coverage.txt
 
       - name: Print Races
         if: failure()
@@ -47,10 +47,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: go-test-results-${{ matrix.module }}
+          name: go-test-results
           path: |
-            ./coverage-${{ matrix.module }}.txt
-            ./race-${{ matrix.module }}.*
+            ${{ matrix.module }}/coverage.txt
+            ${{ matrix.module }}/race.*
 
 #  check-tidy:
 #    runs-on: ubuntu-latest
