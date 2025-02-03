@@ -3,14 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-framework/tools/evm-chain-bindings/pkg/gen/evm"
-	"github.com/smartcontractkit/chainlink-framework/tools/evm-chain-bindings/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/smartcontractkit/chainlink-framework/tools/evm-chain-bindings/pkg/gen/evm"
+	"github.com/smartcontractkit/chainlink-framework/tools/evm-chain-bindings/pkg/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
@@ -45,12 +46,12 @@ func Usage() {
 
 func debugLogging(text string, args ...interface{}) {
 	if *verbose {
-		fmt.Printf(text, args)
+		fmt.Printf(text, args...)
 	}
 }
 
 func logError(err error, exitStatus ExitStatus) {
-	fmt.Printf("Error: ", err)
+	fmt.Printf("Error: %v", err)
 	os.Exit(int(exitStatus))
 }
 
@@ -79,7 +80,7 @@ func parseArguments() {
 func formatCode(goModRelatedOutputDir string) {
 	cmd := exec.Command("gofmt", "-w", goModRelatedOutputDir)
 	if err := cmd.Run(); err != nil {
-		fmt.Println("Error formatting file with gofmt -w %s\n", goModRelatedOutputDir)
+		fmt.Printf("Error formatting file with gofmt -w %s\n", goModRelatedOutputDir)
 		logError(err, FailedFormatingFile)
 	}
 }
@@ -99,7 +100,7 @@ func writeGoCode(contracts map[string]evm.CodeDetails, packageName string, gener
 		contractFileName := utils.CamelToSnake(contractName)
 		err = utils.GenerateFile(goModRelatedOutputDir, contractFileName, "go", generatedContractContent)
 		if err != nil {
-			fmt.Printf("Error generating contract biding file %s: %s\n", contractFileName)
+			fmt.Printf("Error generating contract biding file %s\n", contractFileName)
 			logError(err, FailedGeneratingContractBindingFile)
 		}
 	}
@@ -123,10 +124,10 @@ func processChainReaderChainWriterConfig(err error, contracts map[string]evm.Cod
 	return chainReaderConfig, chainWriterConfig
 }
 
-func prepareOutputDirectory(contracts map[string]evm.CodeDetails) error {
+func prepareOutputDirectory(_ map[string]evm.CodeDetails) error {
 	err := utils.CreateDirectories([]string{*output}, *clean)
 	if err != nil {
-		fmt.Printf("Failed creating or cleaning directories %s\n", contracts)
+		fmt.Printf("Failed creating or cleaning directories\n")
 		logError(err, FailedCleaningOrCreatingOutputDir)
 	}
 	return err
@@ -176,9 +177,9 @@ func processInputs() ([]string, string) {
 	debugLogging("Option values:")
 	debugLogging("contracts: %s\n", *contracts)
 	debugLogging("output %s\n", *output)
-	debugLogging("clean %s\n", *clean)
-	debugLogging("verbose %s\n", *verbose)
-	debugLogging("fail-if-no-contracts %s\n", *silentIfNoContracts)
+	debugLogging("clean %v\n", *clean)
+	debugLogging("verbose %v\n", *verbose)
+	debugLogging("fail-if-no-contracts %v\n", *silentIfNoContracts)
 	contractFolders := toAbsolutePathsBasedOnGoModLocation(strings.Split(*contracts, ","))
 	fmt.Printf("Procesing contract folders: %s\n", contractFolders)
 	goModRelatedOutputDir := toAbsolutePath(*output)

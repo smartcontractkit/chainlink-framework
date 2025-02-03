@@ -1,7 +1,6 @@
 package utils
 
 import (
-	"errors"
 	"strings"
 	"unicode"
 )
@@ -45,14 +44,6 @@ func ContainsUnderscore(s string) bool {
 func RemoveUnderscore(s string) string {
 	const underscore = "_"
 	return strings.ReplaceAll(s, string(underscore), "")
-}
-
-func GetLetter(index int) (string, error) {
-	if index < 0 || index > 25 {
-		return "", errors.New("index out of range, must be between 0 and 25")
-	}
-	letter := string('a' + index)
-	return letter, nil
 }
 
 func CamelToSnake(camel string) string {
