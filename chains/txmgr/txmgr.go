@@ -103,7 +103,7 @@ type Txm[
 	txStore                 txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config                  txmgrtypes.TransactionManagerChainConfig
 	txConfig                txmgrtypes.TransactionManagerTransactionsConfig
-	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ]
+	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID]
 	chainID                 CHAIN_ID
 	checkerFactory          TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	pruneQueueAndCreateLock sync.Mutex
@@ -150,7 +150,7 @@ func NewTxm[
 	chainId CHAIN_ID,
 	cfg txmgrtypes.TransactionManagerChainConfig,
 	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID, SEQ],
+	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID],
 	lggr logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],

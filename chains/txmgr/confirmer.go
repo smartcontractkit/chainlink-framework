@@ -103,7 +103,7 @@ type Confirmer[
 	dbConfig        types.ConfirmerDatabaseConfig
 	chainID         CHAIN_ID
 
-	ks               types.KeyStore[ADDR, CHAIN_ID, SEQ]
+	ks               types.KeyStore[ADDR, CHAIN_ID]
 	enabledAddresses []ADDR
 
 	mb           *mailbox.Mailbox[HEAD]
@@ -129,7 +129,7 @@ func NewConfirmer[
 	feeConfig types.ConfirmerFeeConfig,
 	txConfig types.ConfirmerTransactionsConfig,
 	dbConfig types.ConfirmerDatabaseConfig,
-	keystore types.KeyStore[ADDR, CHAIN_ID, SEQ],
+	keystore types.KeyStore[ADDR, CHAIN_ID],
 	txAttemptBuilder types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,

@@ -43,7 +43,7 @@ type Tracker[
 ] struct {
 	services.StateMachine
 	txStore  types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	keyStore types.KeyStore[ADDR, CHAIN_ID, SEQ]
+	keyStore types.KeyStore[ADDR, CHAIN_ID]
 	chainID  CHAIN_ID
 	lggr     logger.Logger
 
@@ -70,7 +70,7 @@ func NewTracker[
 	FEE fees.Fee,
 ](
 	txStore types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	keyStore types.KeyStore[ADDR, CHAIN_ID, SEQ],
+	keyStore types.KeyStore[ADDR, CHAIN_ID],
 	chainID CHAIN_ID,
 	lggr logger.Logger,
 ) *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
