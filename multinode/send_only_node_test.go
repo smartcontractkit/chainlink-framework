@@ -51,7 +51,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateUnusable, s.State())
+		assert.Equal(t, nodeStateUndialed, s.State())
+		tests.AssertEventually(t, func() bool { return s.State() == nodeStateUnusable })
 		tests.RequireLogMessage(t, observedLogs, "Dial failed: SendOnly Node is unusable")
 	})
 	t.Run("Default ChainID(0) produces warn and skips checks", func(t *testing.T) {
@@ -66,7 +67,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateAlive, s.State())
+		assert.Equal(t, nodeStateUndialed, s.State())
+		tests.AssertEventually(t, func() bool { return s.State() == nodeStateAlive })
 		tests.RequireLogMessage(t, observedLogs, "sendonly rpc ChainID verification skipped")
 	})
 	t.Run("Can recover from chainID verification failure", func(t *testing.T) {
@@ -79,7 +81,6 @@ func TestStartSendOnlyNode(t *testing.T) {
 		chainID := RandomID()
 		const failuresCount = 2
 		client.On("ChainID", mock.Anything).Return(RandomID(), expectedError).Times(failuresCount)
-		client.On("ChainID", mock.Anything).Return(chainID, nil)
 
 		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), chainID, client)
 
@@ -87,11 +88,11 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateUnreachable, s.State())
+		assert.Equal(t, nodeStateUndialed, s.State())
+		tests.AssertEventually(t, func() bool { return s.State() == nodeStateUnreachable })
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
-		tests.AssertEventually(t, func() bool {
-			return s.State() == nodeStateAlive
-		})
+		client.On("ChainID", mock.Anything).Return(chainID, nil)
+		tests.AssertEventually(t, func() bool { return s.State() == nodeStateAlive })
 	})
 	t.Run("Can recover from chainID mismatch", func(t *testing.T) {
 		t.Parallel()
@@ -110,7 +111,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		err := s.Start(tests.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, nodeStateInvalidChainID, s.State())
+		assert.Equal(t, nodeStateUndialed, s.State())
+		tests.AssertEventually(t, func() bool { return s.State() == nodeStateInvalidChainID })
 		tests.AssertLogCountEventually(t, observedLogs, "sendonly rpc ChainID doesn't match local chain ID", failuresCount)
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
