@@ -218,7 +218,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 // actually return an error.
 func (n *node[CHAIN_ID, HEAD, RPC]) Start(startCtx context.Context) error {
 	return n.StartOnce(n.name, func() error {
-		n.start(startCtx)
+		n.wg.Add(1)
+		go n.start()
 		return nil
 	})
 }
@@ -228,19 +229,22 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Start(startCtx context.Context) error {
 // Not thread-safe.
 // Node lifecycle is synchronous: only one goroutine should be running at a
 // time.
-func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
-	if n.state != nodeStateUndialed {
+func (n *node[CHAIN_ID, HEAD, RPC]) start() {
+	defer n.wg.Done()
+	if n.State() != nodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
 
-	if err := n.rpc.Dial(startCtx); err != nil {
+	if err := n.rpc.Dial(ctx); err != nil {
 		n.lfcLog.Errorw("Dial failed: Node is unreachable", "err", err)
 		n.declareUnreachable()
 		return
 	}
 	n.setState(nodeStateDialed)
 
-	state := n.verifyConn(startCtx, n.lfcLog)
+	state := n.verifyConn(ctx, n.lfcLog)
 	n.declareState(state)
 }
 
