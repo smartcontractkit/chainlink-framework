@@ -47,7 +47,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
         with:
-          name: go-test-results
+          name: go-test-results-${{ matrix.module }}
           path: |
             ${{ matrix.module }}/coverage.txt
             ${{ matrix.module }}/race.*
