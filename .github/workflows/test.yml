@@ -41,13 +41,15 @@ jobs:
       - name: Print Races
         if: failure()
         run: |
+          cd ${{ matrix.module }}
           find race.* | xargs cat > race.txt
           if [[ -s race.txt ]]; then
             cat race.txt
           fi
 
-      # GitHub artifact names must be unique and cannot contain '/'.
+      # GitHub artifact names cannot contain '/'.
       - name: Prepare Name
+        if: always()
         id: prepare-name
         run: |
           VALUE=${{matrix.module}}
