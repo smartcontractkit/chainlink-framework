@@ -223,17 +223,25 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 	}
 	eb.chStop = make(chan struct{})
 	eb.wg = sync.WaitGroup{}
-	eb.wg.Add(len(eb.enabledAddresses))
 	eb.triggers = make(map[ADDR]chan struct{})
+	eb.wg.Add(1)
+	go eb.loadAndMonitor()
+
+	eb.isStarted = true
+	return nil
+}
+
+func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadAndMonitor() {
+	defer eb.wg.Done()
+	ctx, cancel := eb.chStop.NewCtx()
+	defer cancel()
 	eb.sequenceTracker.LoadNextSequences(ctx, eb.enabledAddresses)
+	eb.wg.Add(len(eb.enabledAddresses))
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
 		eb.triggers[addr] = triggerCh
 		go eb.monitorTxs(addr, triggerCh)
 	}
-
-	eb.isStarted = true
-	return nil
 }
 
 // Close closes the Broadcaster
