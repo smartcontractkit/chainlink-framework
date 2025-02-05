@@ -42,6 +42,11 @@ var (
 // Node is a FSM (finite state machine)
 type nodeState int
 
+// isInitializing returns true if the node is still doing the initial dial & verification.
+func (n nodeState) isInitializing() bool {
+	return n == nodeStateUndialed || n == nodeStateDialed
+}
+
 func (n nodeState) String() string {
 	switch n {
 	case nodeStateUndialed:

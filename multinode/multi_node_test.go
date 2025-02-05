@@ -186,7 +186,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{newHealthySendOnly(t, chainID)},
 		})
 		servicetest.Run(t, mn)
-		selectedNode, err := mn.selectNode()
+		selectedNode, err := mn.selectNode(tests.Context(t))
 		require.NoError(t, err)
 		assert.Equal(t, node, selectedNode)
 	})
@@ -330,6 +330,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 	t.Parallel()
 	t.Run("Returns same node, if it's still healthy", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		chainID := RandomID()
 		node1 := newMockNode[ID, multiNodeRPCClient](t)
 		node1.On("State").Return(nodeStateAlive).Once()
@@ -344,15 +345,16 @@ func TestMultiNode_selectNode(t *testing.T) {
 		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(node1).Once()
 		mn.nodeSelector = nodeSelector
-		prevActiveNode, err := mn.selectNode()
+		prevActiveNode, err := mn.selectNode(ctx)
 		require.NoError(t, err)
 		require.Equal(t, node1.String(), prevActiveNode.String())
-		newActiveNode, err := mn.selectNode()
+		newActiveNode, err := mn.selectNode(ctx)
 		require.NoError(t, err)
 		require.Equal(t, prevActiveNode.String(), newActiveNode.String())
 	})
 	t.Run("Updates node if active is not healthy", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		chainID := RandomID()
 		oldBest := newMockNode[ID, multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
@@ -367,18 +369,19 @@ func TestMultiNode_selectNode(t *testing.T) {
 		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
 		nodeSelector.On("Select").Return(oldBest).Once()
 		mn.nodeSelector = nodeSelector
-		activeNode, err := mn.selectNode()
+		activeNode, err := mn.selectNode(ctx)
 		require.NoError(t, err)
 		require.Equal(t, oldBest.String(), activeNode.String())
 		// old best died, so we should replace it
 		oldBest.On("State").Return(nodeStateOutOfSync).Twice()
 		nodeSelector.On("Select").Return(newBest).Once()
-		newActiveNode, err := mn.selectNode()
+		newActiveNode, err := mn.selectNode(ctx)
 		require.NoError(t, err)
 		require.Equal(t, newBest.String(), newActiveNode.String())
 	})
 	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
+		ctx := tests.Context(t)
 		chainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
@@ -390,7 +393,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 		nodeSelector.On("Select").Return(nil).Once()
 		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
 		mn.nodeSelector = nodeSelector
-		node, err := mn.selectNode()
+		node, err := mn.selectNode(ctx)
 		require.EqualError(t, err, ErrNodeError.Error())
 		require.Nil(t, node)
 		tests.RequireLogMessage(t, observedLogs, "No live RPC nodes available")

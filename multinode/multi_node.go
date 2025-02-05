@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -181,10 +182,11 @@ func (c *MultiNode[CHAIN_ID, RPC]) close() error {
 	return services.CloseAll(services.MultiCloser(c.primaryNodes), services.MultiCloser(c.sendOnlyNodes))
 }
 
-// SelectRPC returns an RPC of an active node. If there are no active nodes it returns an error.
+// SelectRPC returns an RPC of an active node. If there are no active nodes it returns an error, but tolerates undialed
+// nodes by waiting for initial dial.
 // Call this method from your chain-specific client implementation to access any chain-specific rpc calls.
-func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC() (rpc RPC, err error) {
-	n, err := c.selectNode()
+func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC(ctx context.Context) (rpc RPC, err error) {
+	n, err := c.selectNode(ctx)
 	if err != nil {
 		return rpc, err
 	}
@@ -192,7 +194,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC() (rpc RPC, err error) {
 }
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
-func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err error) {
+func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CHAIN_ID, RPC], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -213,8 +215,23 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode() (node Node[CHAIN_ID, RPC], err e
 		prevNodeName = c.activeNode.String()
 		c.activeNode.UnsubscribeAllExceptAliveLoop()
 	}
-	c.activeNode = c.nodeSelector.Select()
-	if c.activeNode == nil {
+
+	for {
+		c.activeNode = c.nodeSelector.Select()
+		if c.activeNode != nil {
+			break
+		}
+		if slices.ContainsFunc(c.primaryNodes, func(n Node[CHAIN_ID, RPC]) bool {
+			return n.State().isInitializing()
+		}) {
+			// initial dial still in-progress - retry until done
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+				continue
+			}
+		}
 		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
 		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
 		return nil, ErrNodeError
