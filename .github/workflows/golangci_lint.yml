@@ -45,6 +45,7 @@ jobs:
   golangci-lint-result:
     needs: golangci-lint
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ always() && needs.golangci-lint.result != 'skipped'}}
     steps:
-      - run: if [[ ${{ needs.golangci-lint.result }} == 'success' ]]; then exit 0; else exit 1; fi
+      - if: ${{ needs.golangci-lint.result != 'success' }}
+      - run:  exit 1

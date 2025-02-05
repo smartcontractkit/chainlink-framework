@@ -66,9 +66,10 @@ jobs:
   build-test-result:
     needs: build-test
     runs-on: ubuntu-latest
-    if: always()
+    if: ${{ always() && needs.build-test.result != 'skipped'}}
     steps:
-      - run: if [[ ${{ needs.build-test.result }} == 'success' ]]; then exit 0; else exit 1; fi
+      - if: ${{ needs.build-test.result != 'success' }}
+      - run: exit 1
 
   check-tidy:
     runs-on: ubuntu-latest
