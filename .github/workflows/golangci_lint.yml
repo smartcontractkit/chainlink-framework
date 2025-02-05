@@ -39,3 +39,7 @@ jobs:
           only-new-issues: true
           version: v1.62.2
           working-directory: ${{ matrix.module }}
+
+  golangci-lint-matrix:
+    needs: golangci-lint
+    runs-on: ubuntu-latest
