@@ -3,15 +3,15 @@ name: Build and Test
 on: [pull_request]
 
 jobs:
-#  detect-modules:
-#    runs-on: ubuntu-latest
-#    outputs:
-#      modules: ${{ steps.set-modules.outputs.modules }}
-#    steps:
-#      - uses: actions/checkout@v4
-#      - id: set-modules
-#        run: echo modules=$(echo "$(dirname $(find * -name 'go.mod'))" | jq -cnR '[inputs | select(length>0)]') >> $GITHUB_OUTPUT
-#
+  detect-modules:
+    runs-on: ubuntu-latest
+    outputs:
+      modules: ${{ steps.set-modules.outputs.modules }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: set-modules
+        run: echo modules=$(echo "$(dirname $(find * -name 'go.mod'))" | jq -cnR '[inputs | select(length>0)]') >> $GITHUB_OUTPUT
+
 #  build-test:
 #    needs: detect-modules
 #    runs-on: ubuntu-latest
