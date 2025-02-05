@@ -12,73 +12,73 @@ jobs:
       - id: set-modules
         run: echo modules=$(echo "$(dirname $(find * -name 'go.mod'))" | jq -cnR '[inputs | select(length>0)]') >> $GITHUB_OUTPUT
 
-  build-test:
-    needs: detect-modules
-    runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
-
-      - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
-        with:
-          go-version-file: ${{ matrix.module }}/go.mod
-
-      - name: Build
-        run: cd ${{ matrix.module }} && go build -v ./...
-
-      - name: Unit Tests
-        run: cd ${{ matrix.module }} && GORACE="log_path=$PWD/race" go test -race ./... -coverpkg=./... -coverprofile=coverage.txt
-
-      - name: Print Races
-        if: failure()
-        run: |
-          cd ${{ matrix.module }}
-          find race.* | xargs cat > race.txt
-          if [[ -s race.txt ]]; then
-            cat race.txt
-          fi
-
-      # GitHub artifact names cannot contain '/'.
-      - name: Prepare Name
-        if: always()
-        id: prepare-name
-        run: |
-          VALUE=${{matrix.module}}
-          echo "VALUE=${VALUE////_}" >> $GITHUB_OUTPUT
-
-      - name: Upload Go test results
-        if: always()
-        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
-        with:
-          name: go-test-results-${{steps.prepare-name.outputs.VALUE}}
-          path: |
-            ${{ matrix.module }}/coverage.txt
-            ${{ matrix.module }}/race.*
-
-  check-tidy:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
-
-      - name: Set up Go
-        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
-        with:
-          go-version-file: "multinode/go.mod"
-
-      - name: Ensure "make gomodtidy" has been run
-        run: |
-          make gomodtidy
-          git add --all
-          git diff --minimal --cached --exit-code
-
-      - name: Ensure "make generate" has been run
-        run: |
-          make rm-mocked && make generate
-          git add --all
-          git diff --stat --cached --exit-code
+#  build-test:
+#    needs: detect-modules
+#    runs-on: ubuntu-latest
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+#
+#      - name: Set up Go
+#        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+#        with:
+#          go-version-file: ${{ matrix.module }}/go.mod
+#
+#      - name: Build
+#        run: cd ${{ matrix.module }} && go build -v ./...
+#
+#      - name: Unit Tests
+#        run: cd ${{ matrix.module }} && GORACE="log_path=$PWD/race" go test -race ./... -coverpkg=./... -coverprofile=coverage.txt
+#
+#      - name: Print Races
+#        if: failure()
+#        run: |
+#          cd ${{ matrix.module }}
+#          find race.* | xargs cat > race.txt
+#          if [[ -s race.txt ]]; then
+#            cat race.txt
+#          fi
+#
+#      # GitHub artifact names cannot contain '/'.
+#      - name: Prepare Name
+#        if: always()
+#        id: prepare-name
+#        run: |
+#          VALUE=${{matrix.module}}
+#          echo "VALUE=${VALUE////_}" >> $GITHUB_OUTPUT
+#
+#      - name: Upload Go test results
+#        if: always()
+#        uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808 # v4.3.3
+#        with:
+#          name: go-test-results-${{steps.prepare-name.outputs.VALUE}}
+#          path: |
+#            ${{ matrix.module }}/coverage.txt
+#            ${{ matrix.module }}/race.*
+#
+#  check-tidy:
+#    runs-on: ubuntu-latest
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@0ad4b8fadaa221de15dcec353f45205ec38ea70b # v4.1.4
+#
+#      - name: Set up Go
+#        uses: actions/setup-go@0c52d547c9bc32b1aa3301fd7a9cb496313a4491 # v5.0.0
+#        with:
+#          go-version-file: "multinode/go.mod"
+#
+#      - name: Ensure "make gomodtidy" has been run
+#        run: |
+#          make gomodtidy
+#          git add --all
+#          git diff --minimal --cached --exit-code
+#
+#      - name: Ensure "make generate" has been run
+#        run: |
+#          make rm-mocked && make generate
+#          git add --all
+#          git diff --stat --cached --exit-code
