@@ -39,3 +39,13 @@ jobs:
           only-new-issues: true
           version: v1.62.2
           working-directory: ${{ matrix.module }}
+
+  # Per https://github.com/orgs/community/discussions/4324, we need to capture a matrix-job result
+  # to use it for branch protection.
+  golangci-lint-result:
+    needs: golangci-lint
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.golangci-lint.result != 'skipped'}}
+    steps:
+      - if: ${{ needs.golangci-lint.result != 'success' }}
+        run:  exit 1

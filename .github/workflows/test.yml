@@ -61,6 +61,16 @@ jobs:
             ${{ matrix.module }}/coverage.txt
             ${{ matrix.module }}/race.*
 
+  # Per https://github.com/orgs/community/discussions/4324, we need to capture a matrix-job result
+  # to use it for branch protection.
+  build-test-result:
+    needs: build-test
+    runs-on: ubuntu-latest
+    if: ${{ always() && needs.build-test.result != 'skipped'}}
+    steps:
+      - if: ${{ needs.build-test.result != 'success' }}
+        run: exit 1
+
   check-tidy:
     runs-on: ubuntu-latest
     steps:
