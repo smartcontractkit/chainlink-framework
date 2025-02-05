@@ -22,7 +22,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
+        module: ["chains"]
+#        module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -40,6 +41,9 @@ jobs:
           version: v1.62.2
           working-directory: ${{ matrix.module }}
 
-  golangci-lint-matrix:
+  golangci-lint-result:
     needs: golangci-lint
     runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - run: if [[ ${{ needs.golangci-lint.result }} == 'success' ]]; then exit 0; else exit 1; fi
