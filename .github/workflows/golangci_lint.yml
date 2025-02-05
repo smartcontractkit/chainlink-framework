@@ -22,7 +22,6 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-#        module: ["chains"]
         module: ${{ fromJson(needs.detect-modules.outputs.modules) }}
     steps:
       - name: Checkout repository
