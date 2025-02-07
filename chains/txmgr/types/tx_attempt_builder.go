@@ -5,10 +5,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-framework/chains/heads"
 
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
-	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 )
 
 // TxAttemptBuilder takes the base unsigned transaction + optional parameters (tx type, gas parameters)
@@ -24,7 +24,7 @@ type TxAttemptBuilder[
 ] interface {
 	// interfaces for running the underlying estimator
 	services.Service
-	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
+	heads.Trackable[HEAD, BLOCK_HASH]
 
 	// NewTxAttempt builds a transaction using the configured transaction type and fee estimator (new estimation)
 	NewTxAttempt(ctx context.Context, tx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], lggr logger.Logger, opts ...fees.Opt) (attempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fee FEE, feeLimit uint64, retryable bool, err error)

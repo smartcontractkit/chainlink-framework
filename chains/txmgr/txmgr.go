@@ -16,10 +16,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-framework/chains/heads"
 
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
-	"github.com/smartcontractkit/chainlink-framework/chains/headtracker"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 )
 
@@ -42,7 +42,7 @@ type TxManager[
 	SEQ chains.Sequence,
 	FEE fees.Fee,
 ] interface {
-	headtracker.HeadTrackable[HEAD, BLOCK_HASH]
+	heads.Trackable[HEAD, BLOCK_HASH]
 	services.Service
 	Trigger(addr ADDR)
 	CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error)

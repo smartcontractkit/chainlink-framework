@@ -1,4 +1,4 @@
-package headtracker
+package heads
 
 import (
 	"context"
@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-framework/chains"
-	"github.com/smartcontractkit/chainlink-framework/chains/headtracker/types"
 )
 
 var (
@@ -29,11 +28,11 @@ var (
 	}, []string{"ChainID"})
 )
 
-// HeadHandler is a callback that handles incoming heads
-type HeadHandler[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] func(ctx context.Context, header H) error
+// Handler is a callback that handles incoming heads
+type Handler[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] func(ctx context.Context, header H) error
 
-// HeadListener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node
-type HeadListener[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
+// Listener is a chain agnostic interface that manages connection of Client that receives heads from the blockchain node
+type Listener[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	services.Service
 
 	// ListenForNewHeads runs the listen loop (not thread safe)
@@ -45,12 +44,16 @@ type HeadListener[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interfa
 	// Connected returns true if the listener is connected (thread safe)
 	Connected() bool
 
-	// HealthReport returns report of errors within HeadListener
+	// HealthReport returns report of errors within Listener
 	HealthReport() map[string]error
 }
 
-type headListener[
-	HTH types.Head[BLOCK_HASH, ID],
+type ListenerConfig interface {
+	BlockEmissionIdleWarningThreshold() time.Duration
+}
+
+type listener[
+	HTH Head[BLOCK_HASH, ID],
 	S chains.Subscription,
 	ID chains.ID,
 	BLOCK_HASH chains.Hashable,
@@ -58,30 +61,30 @@ type headListener[
 	services.Service
 	eng *services.Engine
 
-	config           types.Config
-	client           types.Client[HTH, S, ID, BLOCK_HASH]
+	config           ListenerConfig
+	client           Client[HTH, S, ID, BLOCK_HASH]
 	onSubscription   func(context.Context)
-	handleNewHead    HeadHandler[HTH, BLOCK_HASH]
+	handleNewHead    Handler[HTH, BLOCK_HASH]
 	chHeaders        <-chan HTH
 	headSubscription chains.Subscription
 	connected        atomic.Bool
 	receivingHeads   atomic.Bool
 }
 
-func NewHeadListener[
-	HTH types.Head[BLOCK_HASH, ID],
+func NewListener[
+	HTH Head[BLOCK_HASH, ID],
 	S chains.Subscription,
 	ID chains.ID,
 	BLOCK_HASH chains.Hashable,
-	CLIENT types.Client[HTH, S, ID, BLOCK_HASH],
+	CLIENT Client[HTH, S, ID, BLOCK_HASH],
 ](
 	lggr logger.Logger,
 	client CLIENT,
-	config types.Config,
+	config ListenerConfig,
 	onSubscription func(context.Context),
-	handleNewHead HeadHandler[HTH, BLOCK_HASH],
-) HeadListener[HTH, BLOCK_HASH] {
-	hl := &headListener[HTH, S, ID, BLOCK_HASH]{
+	handleNewHead Handler[HTH, BLOCK_HASH],
+) Listener[HTH, BLOCK_HASH] {
+	hl := &listener[HTH, S, ID, BLOCK_HASH]{
 		config:         config,
 		client:         client,
 		onSubscription: onSubscription,
@@ -94,56 +97,56 @@ func NewHeadListener[
 	return hl
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) start(context.Context) error {
-	hl.eng.Go(hl.ListenForNewHeads)
+func (l *listener[HTH, S, ID, BLOCK_HASH]) start(context.Context) error {
+	l.eng.Go(l.ListenForNewHeads)
 	return nil
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(ctx context.Context) {
-	defer hl.unsubscribe()
+func (l *listener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(ctx context.Context) {
+	defer l.unsubscribe()
 
 	for {
-		if !hl.subscribe(ctx) {
+		if !l.subscribe(ctx) {
 			break
 		}
 
-		if hl.onSubscription != nil {
-			hl.onSubscription(ctx)
+		if l.onSubscription != nil {
+			l.onSubscription(ctx)
 		}
-		err := hl.receiveHeaders(ctx, hl.handleNewHead)
+		err := l.receiveHeaders(ctx, l.handleNewHead)
 		if ctx.Err() != nil {
 			break
 		} else if err != nil {
-			hl.eng.Errorw("Error in new head subscription, unsubscribed", "err", err)
+			l.eng.Errorw("Error in new head subscription, unsubscribed", "err", err)
 			continue
 		}
 		break
 	}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) ReceivingHeads() bool {
-	return hl.receivingHeads.Load()
+func (l *listener[HTH, S, ID, BLOCK_HASH]) ReceivingHeads() bool {
+	return l.receivingHeads.Load()
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) Connected() bool {
-	return hl.connected.Load()
+func (l *listener[HTH, S, ID, BLOCK_HASH]) Connected() bool {
+	return l.connected.Load()
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
+func (l *listener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 	var err error
-	if !hl.ReceivingHeads() {
+	if !l.ReceivingHeads() {
 		err = errors.New("Listener is not receiving heads")
 	}
-	if !hl.Connected() {
+	if !l.Connected() {
 		err = errors.New("Listener is not connected")
 	}
-	return map[string]error{hl.Name(): err}
+	return map[string]error{l.Name(): err}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, handleNewHead HeadHandler[HTH, BLOCK_HASH]) error {
+func (l *listener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, handleNewHead Handler[HTH, BLOCK_HASH]) error {
 	var noHeadsAlarmC <-chan time.Time
 	var noHeadsAlarmT *time.Ticker
-	noHeadsAlarmDuration := hl.config.BlockEmissionIdleWarningThreshold()
+	noHeadsAlarmDuration := l.config.BlockEmissionIdleWarningThreshold()
 	if noHeadsAlarmDuration > 0 {
 		noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
 		noHeadsAlarmC = noHeadsAlarmT.C
@@ -154,28 +157,28 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 		case <-ctx.Done():
 			return nil
 
-		case blockHeader, open := <-hl.chHeaders:
-			chainId := hl.client.ConfiguredChainID()
+		case blockHeader, open := <-l.chHeaders:
+			chainID := l.client.ConfiguredChainID()
 			if noHeadsAlarmT != nil {
 				// We've received a head, reset the no heads alarm
 				noHeadsAlarmT.Stop()
 				noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
 				noHeadsAlarmC = noHeadsAlarmT.C
 			}
-			hl.receivingHeads.Store(true)
+			l.receivingHeads.Store(true)
 			if !open {
 				return errors.New("head listener: chHeaders prematurely closed")
 			}
 			if !blockHeader.IsValid() {
-				hl.eng.Error("got nil block header")
+				l.eng.Error("got nil block header")
 				continue
 			}
 
 			// Compare the chain ID of the block header to the chain ID of the client
-			if !blockHeader.HasChainID() || blockHeader.ChainID().String() != chainId.String() {
-				hl.eng.Panicf("head listener for %s received block header for %s", chainId, blockHeader.ChainID())
+			if !blockHeader.HasChainID() || blockHeader.ChainID().String() != chainID.String() {
+				l.eng.Panicf("head listener for %s received block header for %s", chainID, blockHeader.ChainID())
 			}
-			promNumHeadsReceived.WithLabelValues(chainId.String()).Inc()
+			promNumHeadsReceived.WithLabelValues(chainID.String()).Inc()
 
 			err := handleNewHead(ctx, blockHeader)
 			if ctx.Err() != nil {
@@ -184,7 +187,7 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 				return err
 			}
 
-		case err, open := <-hl.headSubscription.Err():
+		case err, open := <-l.headSubscription.Err():
 			// err can be nil, because of using chainIDSubForwarder
 			if !open || err == nil {
 				return errors.New("head listener: subscription Err channel prematurely closed")
@@ -193,59 +196,59 @@ func (hl *headListener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Conte
 
 		case <-noHeadsAlarmC:
 			// We haven't received a head on the channel for a long time, log a warning
-			hl.eng.Warnf("have not received a head for %v", noHeadsAlarmDuration)
-			hl.receivingHeads.Store(false)
+			l.eng.Warnf("have not received a head for %v", noHeadsAlarmDuration)
+			l.receivingHeads.Store(false)
 		}
 	}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) bool {
+func (l *listener[HTH, S, ID, BLOCK_HASH]) subscribe(ctx context.Context) bool {
 	subscribeRetryBackoff := backoff.Backoff{
 		Min:    1 * time.Second,
 		Max:    15 * time.Second,
 		Jitter: true,
 	}
 
-	chainId := hl.client.ConfiguredChainID()
+	chainID := l.client.ConfiguredChainID()
 
 	for {
-		hl.unsubscribe()
+		l.unsubscribe()
 
-		hl.eng.Debugf("Subscribing to new heads on chain %s", chainId.String())
+		l.eng.Debugf("Subscribing to new heads on chain %s", chainID.String())
 
 		select {
 		case <-ctx.Done():
 			return false
 
 		case <-time.After(subscribeRetryBackoff.Duration()):
-			err := hl.subscribeToHead(ctx)
+			err := l.subscribeToHead(ctx)
 			if err != nil {
-				promEthConnectionErrors.WithLabelValues(chainId.String()).Inc()
-				hl.eng.Warnw("Failed to subscribe to heads on chain", "chainID", chainId.String(), "err", err)
+				promEthConnectionErrors.WithLabelValues(chainID.String()).Inc()
+				l.eng.Warnw("Failed to subscribe to heads on chain", "chainID", chainID.String(), "err", err)
 			} else {
-				hl.eng.Debugf("Subscribed to heads on chain %s", chainId.String())
+				l.eng.Debugf("Subscribed to heads on chain %s", chainID.String())
 				return true
 			}
 		}
 	}
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Context) error {
+func (l *listener[HTH, S, ID, BLOCK_HASH]) subscribeToHead(ctx context.Context) error {
 	var err error
-	hl.chHeaders, hl.headSubscription, err = hl.client.SubscribeToHeads(ctx)
+	l.chHeaders, l.headSubscription, err = l.client.SubscribeToHeads(ctx)
 	if err != nil {
 		return fmt.Errorf("Client#SubscribeToHeads: %w", err)
 	}
 
-	hl.connected.Store(true)
+	l.connected.Store(true)
 
 	return nil
 }
 
-func (hl *headListener[HTH, S, ID, BLOCK_HASH]) unsubscribe() {
-	if hl.headSubscription != nil {
-		hl.connected.Store(false)
-		hl.headSubscription.Unsubscribe()
-		hl.headSubscription = nil
+func (l *listener[HTH, S, ID, BLOCK_HASH]) unsubscribe() {
+	if l.headSubscription != nil {
+		l.connected.Store(false)
+		l.headSubscription.Unsubscribe()
+		l.headSubscription = nil
 	}
 }

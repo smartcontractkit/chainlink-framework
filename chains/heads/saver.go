@@ -1,4 +1,4 @@
-package headtracker
+package heads
 
 import (
 	"context"
@@ -6,9 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains"
 )
 
-// HeadSaver is an chain agnostic interface for saving and loading heads
-// Different chains will instantiate generic HeadSaver type with their native Head and BlockHash types.
-type HeadSaver[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
+// Saver is a chain agnostic interface for saving and loading heads
+// Different chains will instantiate generic Saver type with their native Head and BlockHash types.
+type Saver[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	// Save updates the latest block number, if indeed the latest, and persists
 	// this number in case of reboot.
 	Save(ctx context.Context, head H) error
