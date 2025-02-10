@@ -3,13 +3,12 @@ package multinode
 import (
 	"context"
 	"fmt"
-	"testing"
-
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -138,19 +137,20 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		require.EqualError(t, err, "context canceled")
 	})
 
-	t.Run("Context cancelled while sending results", func(t *testing.T) {
+	t.Run("Context cancelled while sending results does not cause invariant violation", func(t *testing.T) {
 		requestContext, cancel := context.WithCancel(tests.Context(t))
 		mainNode := newNode(t, nil, func(_ mock.Arguments) {
 			cancel()
 		})
 
-		lggr := logger.Test(t)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 
 		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
 			[]Node[ID, TestSendTxRPCClient]{mainNode}, nil)
 
 		_, _, err := txSender.SendTransaction(requestContext, nil)
 		require.EqualError(t, err, "context canceled")
+		require.Empty(t, observedLogs.FilterMessage("observed invariant violation on SendTransaction").Len())
 	})
 
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
