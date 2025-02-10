@@ -201,7 +201,12 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 	}
 
 	_, criticalErr := aggregateTxResults(resultsByCode)
-	if criticalErr != nil && ctx.Err() == nil {
+	if criticalErr != nil {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
 		PromMultiNodeInvariantViolations.WithLabelValues(txSender.chainFamily, txSender.chainID.String(), criticalErr.Error()).Inc()
 	}
