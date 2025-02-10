@@ -253,7 +253,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 // clients and making it unavailable for use until back in-sync.
 func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(syncIssues syncStatus) {
 	n.transitionToOutOfSync(func() {
-		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state, "syncIssues", syncIssues)
+		n.lfcLog.Warnw("RPC Node is out of sync", "nodeState", n.state, "syncIssues", syncIssues)
 		n.wg.Add(1)
 		go n.outOfSyncLoop(syncIssues)
 	})
@@ -278,7 +278,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareUnreachable() {
 	n.transitionToUnreachable(func() {
-		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
+		n.lfcLog.Warnw("RPC Node is unreachable", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.unreachableLoop()
 	})
@@ -346,7 +346,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareSyncing() {
 	n.transitionToSyncing(func() {
-		n.lfcLog.Errorw("RPC Node is syncing", "nodeState", n.state)
+		n.lfcLog.Warnw("RPC Node is syncing", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.syncingLoop()
 	})

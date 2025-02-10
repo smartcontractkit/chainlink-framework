@@ -160,7 +160,7 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) SendTransaction(ct
 		}
 
 		txSender.wg.Add(1)
-		go txSender.reportSendTxAnomalies(tx, txResultsToReport)
+		go txSender.reportSendTxAnomalies(ctx, tx, txResultsToReport)
 
 		result, code, err = txSender.collectTxResults(ctx, tx, healthyNodesNum, txResults)
 	}) {
@@ -183,7 +183,7 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) broadcastTxAsync(c
 	return sendTxResult[RESULT]{res: res, code: code, error: err}
 }
 
-func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult[RESULT]) {
+func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomalies(ctx context.Context, tx TX, txResults <-chan sendTxResult[RESULT]) {
 	defer txSender.wg.Done()
 	resultsByCode := sendTxResults[RESULT]{}
 	// txResults eventually will be closed
@@ -201,8 +201,8 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 	}
 
 	_, criticalErr := aggregateTxResults(resultsByCode)
-	if criticalErr != nil {
-		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
+	if criticalErr != nil && ctx.Err() == nil {
+		txSender.lggr.Errorw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
 		PromMultiNodeInvariantViolations.WithLabelValues(txSender.chainFamily, txSender.chainID.String(), criticalErr.Error()).Inc()
 	}
 }

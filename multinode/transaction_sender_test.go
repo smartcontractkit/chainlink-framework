@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -136,6 +137,26 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		cancel()
 		_, _, err := txSender.SendTransaction(requestContext, nil)
 		require.EqualError(t, err, "context canceled")
+	})
+
+	t.Run("Context cancelled while sending results does not cause invariant violation", func(t *testing.T) {
+		requestContext, cancel := context.WithCancel(tests.Context(t))
+		mainNode := newNode(t, nil, func(_ mock.Arguments) {
+			cancel()
+		})
+
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+
+		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
+			[]Node[ID, TestSendTxRPCClient]{mainNode}, nil)
+
+		_, _, err := txSender.SendTransaction(requestContext, nil)
+		require.EqualError(t, err, "context canceled")
+
+		// Insure no invariant violation occurred
+		require.Never(t, func() bool {
+			return observedLogs.FilterMessage("observed invariant violation on SendTransaction").Len() > 0
+		}, tests.WaitTimeout(t), 100*time.Millisecond)
 	})
 
 	t.Run("Soft timeout stops results collection", func(t *testing.T) {
