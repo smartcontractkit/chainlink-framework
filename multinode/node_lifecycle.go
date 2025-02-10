@@ -417,7 +417,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 	headsSub, err := n.registerNewSubscription(ctx, lggr.With("subscriptionType", "heads"),
 		noNewHeadsTimeoutThreshold, n.rpc.SubscribeToHeads)
 	if err != nil {
-		lggr.Warnw("Failed to subscribe heads on out-of-sync RPC node", "err", err)
+		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "err", err)
 		n.declareUnreachable()
 		return
 	}
@@ -432,7 +432,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		finalizedHeadsSub, err = n.registerNewSubscription(ctx, lggr.With("subscriptionType", "finalizedHeads"),
 			noNewFinalizedBlocksTimeoutThreshold, n.rpc.SubscribeToFinalizedHeads)
 		if err != nil {
-			lggr.Warnw("Subscribe to finalized heads failed on out-of-sync RPC node", "err", err)
+			lggr.Errorw("Subscribe to finalized heads failed on out-of-sync RPC node", "err", err)
 			n.declareUnreachable()
 			return
 		}
