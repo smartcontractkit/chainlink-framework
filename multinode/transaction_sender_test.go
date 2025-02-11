@@ -146,11 +146,15 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 
-		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
-			[]Node[ID, TestSendTxRPCClient]{mainNode}, nil)
+		chainID := RandomID()
+		mn := sendTxMultiNode{NewMultiNode[ID, TestSendTxRPCClient](
+			lggr, NodeSelectionModeRoundRobin, 0, []Node[ID, TestSendTxRPCClient]{mainNode}, nil, chainID, "chainFamily", 0)}
+		txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
+		require.NoError(t, txSender.Start(tests.Context(t)))
 
 		_, _, err := txSender.SendTransaction(requestContext, nil)
 		require.EqualError(t, err, "context canceled")
+		require.NoError(t, txSender.Close())
 		require.Empty(t, observedLogs.FilterMessage("observed invariant violation on SendTransaction").Len())
 	})
 
