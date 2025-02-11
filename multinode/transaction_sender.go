@@ -191,13 +191,9 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 		resultsByCode[txResult.code] = append(resultsByCode[txResult.code], txResult)
 	}
 
-	select {
-	case <-txSender.chStop:
-		// it's ok to receive no results if txSender is closing. Return early to prevent false reporting of invariant violation.
-		if len(resultsByCode) == 0 {
-			return
-		}
-	default:
+	// We can receive no results if context was cancelled too early or txSender is closing.
+	if len(resultsByCode) == 0 {
+		return
 	}
 
 	_, criticalErr := aggregateTxResults(resultsByCode)
