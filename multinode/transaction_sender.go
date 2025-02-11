@@ -160,7 +160,7 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) SendTransaction(ct
 		}
 
 		txSender.wg.Add(1)
-		go txSender.reportSendTxAnomalies(ctx, tx, txResultsToReport)
+		go txSender.reportSendTxAnomalies(tx, txResultsToReport)
 
 		result, code, err = txSender.collectTxResults(ctx, tx, healthyNodesNum, txResults)
 	}) {
@@ -183,7 +183,7 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) broadcastTxAsync(c
 	return sendTxResult[RESULT]{res: res, code: code, error: err}
 }
 
-func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomalies(ctx context.Context, tx TX, txResults <-chan sendTxResult[RESULT]) {
+func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomalies(tx TX, txResults <-chan sendTxResult[RESULT]) {
 	defer txSender.wg.Done()
 	resultsByCode := sendTxResults[RESULT]{}
 	// txResults eventually will be closed
@@ -191,22 +191,13 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 		resultsByCode[txResult.code] = append(resultsByCode[txResult.code], txResult)
 	}
 
-	select {
-	case <-txSender.chStop:
-		// it's ok to receive no results if txSender is closing. Return early to prevent false reporting of invariant violation.
-		if len(resultsByCode) == 0 {
-			return
-		}
-	default:
+	// We can receive no results if context was cancelled too early or txSender is closing.
+	if len(resultsByCode) == 0 {
+		return
 	}
 
 	_, criticalErr := aggregateTxResults(resultsByCode)
 	if criticalErr != nil {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
 		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
 		PromMultiNodeInvariantViolations.WithLabelValues(txSender.chainFamily, txSender.chainID.String(), criticalErr.Error()).Inc()
 	}
