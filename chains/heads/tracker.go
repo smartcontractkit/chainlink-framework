@@ -202,9 +202,6 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
 
 // verifyFinalizedBlockHashes returns finality violated error if a mismatch is found in finalized block hashes
 func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(latestFinalizedHeadWithChain HTH, prevHeadWithChain HTH) error {
-	if prevHeadWithChain == nil {
-		return nil
-	}
 	if !t.config.FinalityTagEnabled() {
 		return nil // Bypass if using finality depth
 	}
