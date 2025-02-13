@@ -111,7 +111,7 @@ func NewTracker[
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
 		htConfig:        htConfig,
-		backfillMB:      mailbox.NewSingle[headPair[HTH, ID, BLOCK_HASH]](),
+		backfillMB:      mailbox.NewSingle[headPair[HTH]](),
 		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
