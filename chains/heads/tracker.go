@@ -209,10 +209,8 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(latestFinal
 	latestFinalizedBlockNum := latestFinalizedHeadWithChain.BlockNumber()
 	prevFinalizedBlockNum := prevHeadWithChain.LatestFinalizedHead().BlockNumber()
 	if latestFinalizedBlockNum < prevFinalizedBlockNum {
-		return fmt.Errorf(
-			"latest finalized block (%d) is behind previously seen finalized block (%d): %w",
-			latestFinalizedBlockNum, prevFinalizedBlockNum, types.ErrFinalityViolated,
-		)
+		return fmt.Errorf("latest finalized block (%d) is behind previously seen finalized block (%d): %w",
+			latestFinalizedBlockNum, prevFinalizedBlockNum, types.ErrFinalityViolated)
 	}
 
 	for blockNum := prevFinalizedBlockNum; blockNum >= 0; blockNum-- {
