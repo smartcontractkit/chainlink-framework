@@ -299,7 +299,6 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 			promOldHead.WithLabelValues(t.chainID.String()).Inc()
 			err := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
 			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
-			t.eng.EmitHealthErr(err)
 
 			var finalityErr error
 			if prevLatestFinalized.BlockNumber() == head.BlockNumber() {
@@ -308,9 +307,11 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 				finalityErr = fmt.Errorf("latest finalized block is behind previously seen finalized block: %w", types.ErrFinalityViolated)
 			}
 			if finalityErr != nil {
-				t.eng.EmitHealthErr(finalityErr)
-				return finalityErr
+				err = fmt.Errorf("%w: %w", finalityErr, err)
+				t.eng.EmitHealthErr(err)
+				return err
 			}
+			t.eng.EmitHealthErr(err)
 		}
 	}
 	return nil
