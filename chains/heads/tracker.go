@@ -202,6 +202,10 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
 
 // verifyBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
 func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyBlockHashes(headWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
+	if prevHeadWithChain == nil {
+		return nil
+	}
+
 	// Verify hashes from previous finalized chain until reaching the corresponding chain length
 	prevBlockNum := prevHeadWithChain.BlockNumber()
 	chainLength := int64(prevHeadWithChain.ChainLength())
