@@ -217,6 +217,10 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyBlockHashes(headWithChain chains
 	return nil
 }
 
+func (t *tracker[HTH, S, ID, BLOCK_HASH]) isInstantFinality() bool {
+	return !t.config.FinalityTagEnabled() && t.config.FinalityDepth() == 0 && t.config.FinalizedBlockOffset() == 0
+}
+
 func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH, prevHeadWithChain HTH) (err error) {
 	latestFinalized, err := t.calculateLatestFinalized(ctx, headWithChain, t.htConfig.FinalityTagBypass())
 	if err != nil {
@@ -240,8 +244,12 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 			latestFinalized.BlockNumber(), headWithChain.BlockNumber(), t.htConfig.MaxAllowedFinalityDepth())
 	}
 
-	if err = t.verifyBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead()); err != nil {
-		return err
+	if !t.isInstantFinality() {
+		// verify block hashes since calculateLatestFinalized made an additional RPC call
+		err = t.verifyBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead())
+		if err != nil {
+			return err
+		}
 	}
 
 	return t.backfill(ctx, headWithChain, latestFinalized)
@@ -435,7 +443,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.C
 		return t.getHeadAtHeight(ctx, latestFinalized.BlockHash(), finalizedBlockNumber)
 	}
 	// no need to make an additional RPC call on chains with instant finality
-	if t.config.FinalityDepth() == 0 && t.config.FinalizedBlockOffset() == 0 {
+	if t.isInstantFinality() {
 		return currentHead, nil
 	}
 	finalizedBlockNumber := currentHead.BlockNumber() - int64(t.config.FinalityDepth()) - int64(t.config.FinalizedBlockOffset())
