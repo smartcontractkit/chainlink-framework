@@ -200,26 +200,13 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
 	return t.broadcastMB.Close()
 }
 
-// verifyFinalizedBlockHashes returns finality violated error if a mismatch is found in finalized block hashes
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(latestFinalizedHeadWithChain HTH, prevHeadWithChain HTH) error {
-	if !t.config.FinalityTagEnabled() {
-		return nil // Bypass if using finality depth
-	}
-
-	prevLatestFinalized := prevHeadWithChain.LatestFinalizedHead()
-	if prevLatestFinalized == nil {
-		return nil
-	}
-
-	latestFinalizedBlockNum := latestFinalizedHeadWithChain.BlockNumber()
-	prevFinalizedBlockNum := prevLatestFinalized.BlockNumber()
-	if latestFinalizedBlockNum < prevFinalizedBlockNum {
-		return fmt.Errorf("latest finalized block (%d) is behind previously seen finalized block (%d): %w",
-			latestFinalizedBlockNum, prevFinalizedBlockNum, types.ErrFinalityViolated)
-	}
-
-	for blockNum := prevFinalizedBlockNum; blockNum >= 0; blockNum-- {
-		if latestFinalizedHeadWithChain.HashAtHeight(blockNum) != prevHeadWithChain.HashAtHeight(blockNum) {
+// verifyBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
+func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyBlockHashes(headWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
+	// Verify hashes from previous finalized chain until reaching the corresponding chain length
+	prevBlockNum := prevHeadWithChain.BlockNumber()
+	chainLength := int64(prevHeadWithChain.ChainLength())
+	for blockNum := prevBlockNum; blockNum > prevBlockNum-chainLength; blockNum-- {
+		if headWithChain.HashAtHeight(blockNum) != prevHeadWithChain.HashAtHeight(blockNum) {
 			return fmt.Errorf("block hash mismatch at height %d: %w", blockNum, types.ErrFinalityViolated)
 		}
 	}
@@ -249,7 +236,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 			latestFinalized.BlockNumber(), headWithChain.BlockNumber(), t.htConfig.MaxAllowedFinalityDepth())
 	}
 
-	if err = t.verifyFinalizedBlockHashes(latestFinalized, prevHeadWithChain); err != nil {
+	if err = t.verifyBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead()); err != nil {
 		return err
 	}
 
@@ -301,7 +288,15 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 			err := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
 			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
 			t.eng.EmitHealthErr(err)
-			return types.ErrFinalityViolated
+			if prevLatestFinalized.BlockNumber() == head.BlockNumber() {
+				err = t.verifyBlockHashes(head, prevLatestFinalized)
+				if err == nil {
+					return nil // Hashes match, no need to return finality violation error
+				}
+			}
+			finalityErr := fmt.Errorf("%w: %w", types.ErrFinalityViolated, err)
+			t.eng.EmitHealthErr(finalityErr)
+			return finalityErr
 		}
 	}
 	return nil
