@@ -309,20 +309,8 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		if prevLatestFinalized == nil {
 			return nil
 		}
-
 		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
 		promOldHead.WithLabelValues(t.chainID.String()).Inc()
-		if head.BlockNumber() != prevLatestFinalized.BlockNumber() {
-			if !t.config.FinalityTagEnabled() && prevLatestFinalized.BlockNumber() < int64(t.config.FinalityDepth()) {
-				return nil // Re-org occurred before reaching finality depth
-			}
-
-			// This should never happen since we verified block hashes before storing new head
-			err := fmt.Errorf("head is behind previously seen latest finalized head: %w", types.ErrFinalityViolated)
-			t.log.Critical(err)
-			t.eng.EmitHealthErr(err)
-			return err
-		}
 	}
 	return nil
 }
