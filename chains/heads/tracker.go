@@ -305,10 +305,6 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 			t.log.Debugw("Head already in the database", "head", head.BlockHash())
 		}
 	} else {
-		prevLatestFinalized := prevHead.LatestFinalizedHead()
-		if prevLatestFinalized == nil {
-			return nil
-		}
 		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
 		promOldHead.WithLabelValues(t.chainID.String()).Inc()
 	}
