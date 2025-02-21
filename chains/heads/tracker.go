@@ -200,19 +200,20 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
 	return t.broadcastMB.Close()
 }
 
-// verifyBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyBlockHashes(headWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
+// verifyFinalizedBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
+func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(finalizedHeadWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
 	if prevHeadWithChain == nil {
 		return nil
 	}
 
-	// Verify hashes from previous finalized chain until reaching the corresponding chain length
-	prevBlockNum := prevHeadWithChain.BlockNumber()
-	chainLength := int64(prevHeadWithChain.ChainLength())
-	for blockNum := prevBlockNum; blockNum > prevBlockNum-chainLength; blockNum-- {
-		if headWithChain.HashAtHeight(blockNum) != prevHeadWithChain.HashAtHeight(blockNum) {
-			return fmt.Errorf("block hash mismatch at height %d: %w", blockNum, types.ErrFinalityViolated)
-		}
+	prevLatestFinalized := prevHeadWithChain.LatestFinalizedHead()
+	if prevLatestFinalized == nil {
+		return nil
+	}
+
+	prevLatestFinalizedBlockNum := prevLatestFinalized.BlockNumber()
+	if finalizedHeadWithChain.HashAtHeight(prevLatestFinalizedBlockNum) != prevLatestFinalized.BlockHash() {
+		return fmt.Errorf("block hash mismatch at height %d: %w", prevLatestFinalizedBlockNum, types.ErrFinalityViolated)
 	}
 	return nil
 }
@@ -246,8 +247,9 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 
 	if !t.instantFinality() {
 		// verify block hashes since calculateLatestFinalized made an additional RPC call
-		err = t.verifyBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead())
+		err = t.verifyFinalizedBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead())
 		if err != nil {
+			t.eng.EmitHealthErr(err)
 			return err
 		}
 	}
@@ -269,6 +271,17 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		"blockTsUnix", head.GetTimestamp().Unix(),
 		"blockDifficulty", head.BlockDifficulty(),
 	)
+
+	if err := t.verifyFinalizedBlockHashes(head, prevHead); err != nil {
+		if head.BlockNumber() < prevHead.LatestFinalizedHead().BlockNumber() {
+			promOldHead.WithLabelValues(t.chainID.String()).Inc()
+			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
+			oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
+			err = fmt.Errorf("%w: %w", oldBlockErr, err)
+		}
+		t.eng.EmitHealthErr(err)
+		return err
+	}
 
 	if err := t.headSaver.Save(ctx, head); ctx.Err() != nil {
 		return nil
@@ -292,26 +305,19 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 			t.log.Debugw("Head already in the database", "head", head.BlockHash())
 		}
 	} else {
-		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
 		prevLatestFinalized := prevHead.LatestFinalizedHead()
+		if prevLatestFinalized == nil {
+			return nil
+		}
 
-		if prevLatestFinalized != nil && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
-			promOldHead.WithLabelValues(t.chainID.String()).Inc()
-			err := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
-			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
-
-			var finalityErr error
-			if prevLatestFinalized.BlockNumber() == head.BlockNumber() {
-				finalityErr = t.verifyBlockHashes(head, prevLatestFinalized)
-			} else {
-				finalityErr = fmt.Errorf("latest finalized block is behind previously seen finalized block: %w", types.ErrFinalityViolated)
-			}
-			if finalityErr != nil {
-				err = fmt.Errorf("%w: %w", finalityErr, err)
-				t.eng.EmitHealthErr(err)
-				return err
-			}
+		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
+		promOldHead.WithLabelValues(t.chainID.String()).Inc()
+		if head.BlockNumber() != prevLatestFinalized.BlockNumber() {
+			// This should never happen since we verified finalized block hashes before saving the head
+			err := fmt.Errorf("head is behind previously seen latest finalized head: %w", types.ErrFinalityViolated)
+			t.log.Critical(err)
 			t.eng.EmitHealthErr(err)
+			return err
 		}
 	}
 	return nil
