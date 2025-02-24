@@ -36,20 +36,12 @@ const (
 // Previously we relied on the bumper to do this for us implicitly but there
 // can occasionally be problems with this (e.g. abnormally long block times, or
 // if gas bumping is disabled)
-type Resender[
-	CHAIN_ID chains.ID,
-	ADDR chains.Hashable,
-	TX_HASH chains.Hashable,
-	BLOCK_HASH chains.Hashable,
-	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-] struct {
-	txStore             txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	client              txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	tracker             *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	ks                  txmgrtypes.KeyStore[ADDR, CHAIN_ID]
-	chainID             CHAIN_ID
+type Resender[CID chains.ID, ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, R txmgrtypes.ChainReceipt[THASH, BHASH], SEQ chains.Sequence, FEE fees.Fee] struct {
+	txStore             txmgrtypes.TransactionStore[ADDR, CID, THASH, BHASH, SEQ, FEE]
+	client              txmgrtypes.TransactionClient[CID, ADDR, THASH, BHASH, SEQ, FEE]
+	tracker             *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
+	ks                  txmgrtypes.KeyStore[ADDR]
+	chainID             CID
 	interval            time.Duration
 	config              txmgrtypes.ResenderChainConfig
 	txConfig            txmgrtypes.ResenderTransactionsConfig
@@ -73,7 +65,7 @@ func NewResender[
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	client txmgrtypes.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	tracker *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	ks txmgrtypes.KeyStore[ADDR, CHAIN_ID],
+	ks txmgrtypes.KeyStore[ADDR],
 	pollInterval time.Duration,
 	config txmgrtypes.ResenderChainConfig,
 	txConfig txmgrtypes.ResenderTransactionsConfig,
@@ -99,18 +91,18 @@ func NewResender[
 }
 
 // Start is a comment which satisfies the linter
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) {
+func (er *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Start(ctx context.Context) {
 	er.logger.Debugf("Enabled with poll interval of %s and age threshold of %s", er.interval, er.txConfig.ResendAfterThreshold())
 	go er.runLoop()
 }
 
 // Stop is a comment which satisfies the linter
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Stop() {
+func (er *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Stop() {
 	close(er.stopCh)
 	<-er.chDone
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
+func (er *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 	defer close(er.chDone)
 	ctx, cancel := er.stopCh.NewCtx()
 	defer cancel()
@@ -133,22 +125,22 @@ func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 	}
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
+func (er *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) resendUnconfirmed(ctx context.Context) error {
 	var cancel func()
 	ctx, cancel = er.stopCh.Ctx(ctx)
 	defer cancel()
-	resendAddresses, err := er.ks.EnabledAddressesForChain(ctx, er.chainID)
+	resendAddresses, err := er.ks.EnabledAddresses(ctx)
 	if err != nil {
-		return fmt.Errorf("Resender failed getting enabled keys for chain %s: %w", er.chainID.String(), err)
+		return fmt.Errorf("resender failed getting enabled keys: %w", err)
 	}
 
 	ageThreshold := er.txConfig.ResendAfterThreshold()
 	maxInFlightTransactions := er.txConfig.MaxInFlight()
 	olderThan := time.Now().Add(-ageThreshold)
-	var allAttempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	var allAttempts []txmgrtypes.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]
 
 	for _, k := range resendAddresses {
-		var attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		var attempts []txmgrtypes.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]
 		attempts, err = er.txStore.FindTxAttemptsRequiringResend(ctx, olderThan, maxInFlightTransactions, er.chainID, k)
 		if err != nil {
 			return fmt.Errorf("failed to FindTxAttemptsRequiringResend: %w", err)
@@ -198,7 +190,7 @@ func logResendResult(lggr logger.Logger, codes []multinode.SendTxReturnCode) {
 	lggr.Debugw("Completed", "n", len(codes), "nNew", nNew, "nFatal", nFatal)
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) logStuckAttempts(attempts []txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], fromAddress ADDR) {
+func (er *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) logStuckAttempts(attempts []txmgrtypes.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE], fromAddress ADDR) {
 	if time.Since(er.lastAlertTimestamps[fromAddress.String()]) >= unconfirmedTxAlertLogFrequency {
 		oldestAttempt, exists := findOldestUnconfirmedAttempt(attempts)
 		if exists {
