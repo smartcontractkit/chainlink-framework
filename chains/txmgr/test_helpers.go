@@ -10,46 +10,46 @@ import (
 // TEST ONLY FUNCTIONS
 // these need to be exported for the txmgr tests to continue to work
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestSetClient(client types.TxmClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) {
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXTestSetClient(client types.TxmClient[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) {
 	ec.client = client
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestSetTTL(ttl time.Duration) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXTestSetTTL(ttl time.Duration) {
 	tr.ttl = ttl
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXDeliverBlock(blockHeight int64) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXDeliverBlock(blockHeight int64) {
 	tr.mb.Deliver(blockHeight)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) XXXTestStartInternal(ctx context.Context) error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) XXXTestStartInternal(ctx context.Context) error {
 	return eb.startInternal(ctx)
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) XXXTestCloseInternal() error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) XXXTestCloseInternal() error {
 	return eb.closeInternal()
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) XXXTestDisableUnstartedTxAutoProcessing() {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) XXXTestDisableUnstartedTxAutoProcessing() {
 	eb.processUnstartedTxsImpl = func(ctx context.Context, fromAddress ADDR) (retryable bool, err error) { return false, nil }
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestStartInternal() error {
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXTestStartInternal() error {
 	ctx, cancel := ec.stopCh.NewCtx()
 	defer cancel()
 	return ec.startInternal(ctx)
 }
 
-func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestCloseInternal() error {
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXTestCloseInternal() error {
 	return ec.closeInternal()
 }
 
-func (er *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestResendUnconfirmed() error {
+func (er *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXTestResendUnconfirmed() error {
 	ctx, cancel := er.stopCh.NewCtx()
 	defer cancel()
 	return er.resendUnconfirmed(ctx)
 }
 
-func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) XXXTestAbandon(addr ADDR) (err error) {
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) XXXTestAbandon(addr ADDR) (err error) {
 	return b.abandon(addr)
 }
