@@ -276,24 +276,21 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 	)
 
 	if err := t.verifyFinalizedBlockHashes(head.LatestFinalizedHead(), prevHead); err != nil {
+		if head.BlockNumber() < prevHead.LatestFinalizedHead().BlockNumber() {
+			promOldHead.WithLabelValues(t.chainID.String()).Inc()
+			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", types.ErrFinalityViolated)
+			oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
+			err = fmt.Errorf("%w: %w", oldBlockErr, err)
+		}
 		t.eng.EmitHealthErr(err)
 		return err
 	}
 
-	if prevHead.IsValid() {
-		if prevHead.LatestFinalizedHead() == nil {
-			finalityDepth := int64(t.config.FinalityDepth())
-			if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
-				promOldHead.WithLabelValues(t.chainID.String()).Inc()
-				t.log.Warnf("Received old block at height %d past finality depth of %d. Either a re-org occurred, one of the RPC nodes has gotten out of sync, or the chain went backwards in block numbers.", head.BlockNumber(), finalityDepth)
-			}
-		} else if head.BlockNumber() < prevHead.LatestFinalizedHead().BlockNumber() {
+	if prevHead.IsValid() && prevHead.LatestFinalizedHead() == nil {
+		finalityDepth := int64(t.config.FinalityDepth())
+		if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
 			promOldHead.WithLabelValues(t.chainID.String()).Inc()
-			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", types.ErrFinalityViolated)
-			oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
-			err := fmt.Errorf("%w: %w", oldBlockErr, types.ErrFinalityViolated)
-			t.eng.EmitHealthErr(err)
-			return err
+			t.log.Warnf("Received old block at height %d past finality depth of %d. Either a re-org occurred, one of the RPC nodes has gotten out of sync, or the chain went backwards in block numbers.", head.BlockNumber(), finalityDepth)
 		}
 	}
 
