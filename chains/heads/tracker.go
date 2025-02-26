@@ -330,7 +330,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 	} else {
 		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
 		promOldHead.WithLabelValues(t.chainID.String()).Inc()
-		if prevHead.IsValid() && prevLatestFinalized == nil {
+		if prevLatestFinalized == nil {
 			// sanity check
 			finalityDepth := int64(t.config.FinalityDepth())
 			if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
