@@ -247,11 +247,11 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 	}
 
 	if headWithChain.BlockNumber() < latestFinalized.BlockNumber() {
-		const errMsg = "invariant violation: expected head of canonical chain to be ahead of the latestFinalized"
+		const warnMsg = "expected head of canonical chain to be ahead of the latestFinalized, but this may be normal on chains with fast finality due to RPC fetch timing"
 		t.log.With("head_block_num", headWithChain.BlockNumber(),
 			"latest_finalized_block_number", latestFinalized.BlockNumber()).
-			Criticalf(errMsg)
-		return errors.New(errMsg)
+			Warnf(warnMsg)
+		return errors.New(warnMsg)
 	}
 
 	if headWithChain.BlockNumber()-latestFinalized.BlockNumber() > int64(t.htConfig.MaxAllowedFinalityDepth()) {
@@ -297,20 +297,13 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
 		err := fmt.Errorf("%w: %w", oldBlockErr, types.ErrFinalityViolated)
 		t.eng.EmitHealthErr(err)
-	}
-
-	if err := t.verifyFinalizedBlockHashes(head.LatestFinalizedHead(), prevHead); err != nil {
-		t.eng.EmitHealthErr(err)
 		return err
 	}
 
-	if prevHead.IsValid() && prevLatestFinalized == nil {
-		// sanity check
-		finalityDepth := int64(t.config.FinalityDepth())
-		if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
-			promOldHead.WithLabelValues(t.chainID.String()).Inc()
-			t.log.Warnf("Received old block at height %d past finality depth of %d. Either a re-org occurred, one of the RPC nodes has gotten out of sync, or the chain went backwards in block numbers.", head.BlockNumber(), finalityDepth)
-		}
+	if err := t.verifyFinalizedBlockHashes(head.LatestFinalizedHead(), prevHead); err != nil {
+		t.log.Critical(err)
+		t.eng.EmitHealthErr(err)
+		return err
 	}
 
 	if err := t.headSaver.Save(ctx, head); ctx.Err() != nil {
@@ -337,6 +330,13 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 	} else {
 		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
 		promOldHead.WithLabelValues(t.chainID.String()).Inc()
+		if prevHead.IsValid() && prevLatestFinalized == nil {
+			// sanity check
+			finalityDepth := int64(t.config.FinalityDepth())
+			if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
+				t.log.Warnf("Received old block at height %d past finality depth of %d. Either a re-org occurred, one of the RPC nodes has gotten out of sync, or the chain went backwards in block numbers.", head.BlockNumber(), finalityDepth)
+			}
+		}
 	}
 	return nil
 }
