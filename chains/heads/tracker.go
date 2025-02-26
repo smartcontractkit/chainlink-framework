@@ -247,7 +247,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 	}
 
 	if headWithChain.BlockNumber() < latestFinalized.BlockNumber() {
-		const warnMsg = "expected head of canonical chain to be ahead of the latestFinalized, but this may be normal on chains with fast finality due to RPC fetch timing"
+		const warnMsg = "expected head of canonical chain to be ahead of the latestFinalized, but this may be normal on chains with fast finality due to fetch timing"
 		t.log.With("head_block_num", headWithChain.BlockNumber(),
 			"latest_finalized_block_number", latestFinalized.BlockNumber()).
 			Warnf(warnMsg)
