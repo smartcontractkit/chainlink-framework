@@ -202,7 +202,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
 
 // verifyFinalizedBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
 func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(finalizedHeadWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
-	if prevHeadWithChain == nil {
+	if finalizedHeadWithChain == nil || prevHeadWithChain == nil {
 		return nil
 	}
 
@@ -212,8 +212,11 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(finalizedHe
 	}
 
 	prevLatestFinalizedBlockNum := prevLatestFinalized.BlockNumber()
-	if finalizedHeadWithChain.HashAtHeight(prevLatestFinalizedBlockNum) != prevLatestFinalized.BlockHash() {
-		return fmt.Errorf("block hash mismatch at height %d: %w", prevLatestFinalizedBlockNum, types.ErrFinalityViolated)
+	prevLatestFinalizedHash := prevLatestFinalized.BlockHash()
+	finalizedHash := finalizedHeadWithChain.HashAtHeight(prevLatestFinalizedBlockNum)
+	if finalizedHash != prevLatestFinalizedHash {
+		return fmt.Errorf("block hash mismatch at height %d: expected %s, got %s: %w",
+			prevLatestFinalizedBlockNum, prevLatestFinalizedHash, finalizedHash, types.ErrFinalityViolated)
 	}
 	return nil
 }
@@ -272,15 +275,23 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		"blockDifficulty", head.BlockDifficulty(),
 	)
 
-	if err := t.verifyFinalizedBlockHashes(head, prevHead); err != nil {
-		if head.BlockNumber() < prevHead.LatestFinalizedHead().BlockNumber() {
-			promOldHead.WithLabelValues(t.chainID.String()).Inc()
-			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
-			oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
-			err = fmt.Errorf("%w: %w", oldBlockErr, err)
-		}
+	if err := t.verifyFinalizedBlockHashes(head.LatestFinalizedHead(), prevHead); err != nil {
 		t.eng.EmitHealthErr(err)
 		return err
+	}
+
+	prevLatestFinalized := prevHead.LatestFinalizedHead()
+	if prevLatestFinalized == nil {
+		finalityDepth := int64(t.config.FinalityDepth())
+		if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
+			promOldHead.WithLabelValues(t.chainID.String()).Inc()
+			t.log.Warnf("Recieved old block past finality depth of %d. Either a re-org occurred, one of the RPC nodes has gotten out of sync, or the chain went backwards in block numbers.", finalityDepth)
+		}
+	} else if head.BlockNumber() < prevLatestFinalized.BlockNumber() {
+		promOldHead.WithLabelValues(t.chainID.String()).Inc()
+		t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", types.ErrFinalityViolated)
+		oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
+		return fmt.Errorf("%w: %w", oldBlockErr, types.ErrFinalityViolated)
 	}
 
 	if err := t.headSaver.Save(ctx, head); ctx.Err() != nil {
