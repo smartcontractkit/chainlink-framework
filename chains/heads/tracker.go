@@ -287,7 +287,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 	)
 
 	var prevLatestFinalized chains.Head[BLOCK_HASH]
-	if prevHead != nil {
+	if prevHead.IsValid() {
 		prevLatestFinalized = prevHead.LatestFinalizedHead()
 	}
 
@@ -304,7 +304,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		return err
 	}
 
-	if prevHead != nil && prevHead.IsValid() && prevLatestFinalized == nil {
+	if prevHead.IsValid() && prevLatestFinalized == nil {
 		// sanity check
 		finalityDepth := int64(t.config.FinalityDepth())
 		if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
