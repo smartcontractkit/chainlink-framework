@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
 	"github.com/smartcontractkit/chainlink-framework/chains"
@@ -36,7 +37,7 @@ const HeadsBufferSize = 10
 type Tracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	services.Service
 	// Backfill given a head will fill in any missing heads up to latestFinalized
-	Backfill(ctx context.Context, headWithChain H) (err error)
+	Backfill(ctx context.Context, headWithChain H, prevHeadWithChain H) (err error)
 	LatestChain() H
 	// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
 	// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
@@ -59,6 +60,11 @@ type TrackerConfig interface {
 	PersistenceEnabled() bool
 }
 
+type headPair[HTH any] struct {
+	head     HTH
+	prevHead HTH
+}
+
 type tracker[
 	HTH Head[BLOCK_HASH, ID],
 	S chains.Subscription,
@@ -77,7 +83,7 @@ type tracker[
 	config          ChainConfig
 	htConfig        TrackerConfig
 
-	backfillMB   *mailbox.Mailbox[HTH]
+	backfillMB   *mailbox.Mailbox[headPair[HTH]]
 	broadcastMB  *mailbox.Mailbox[HTH]
 	headListener Listener[HTH, BLOCK_HASH]
 	getNilHead   func() HTH
@@ -105,7 +111,7 @@ func NewTracker[
 		chainID:         client.ConfiguredChainID(),
 		config:          config,
 		htConfig:        htConfig,
-		backfillMB:      mailbox.NewSingle[HTH](),
+		backfillMB:      mailbox.NewSingle[headPair[HTH]](),
 		broadcastMB:     mailbox.New[HTH](HeadsBufferSize),
 		headSaver:       headSaver,
 		mailMon:         mailMon,
@@ -194,7 +200,43 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
 	return t.broadcastMB.Close()
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH) (err error) {
+// verifyFinalizedBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
+func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(finalizedHeadWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
+	if finalizedHeadWithChain == nil || prevHeadWithChain == nil {
+		return nil
+	}
+
+	prevLatestFinalized := prevHeadWithChain.LatestFinalizedHead()
+	if prevLatestFinalized == nil {
+		return nil
+	}
+
+	prevLatestFinalizedBlockNum := prevLatestFinalized.BlockNumber()
+	prevLatestFinalizedHash := prevLatestFinalized.BlockHash()
+	finalizedHead, err := finalizedHeadWithChain.HeadAtHeight(prevLatestFinalizedBlockNum)
+	if err != nil {
+		return nil
+	}
+
+	finalizedBlockNum := finalizedHead.BlockNumber()
+	if finalizedBlockNum < prevLatestFinalizedBlockNum {
+		return fmt.Errorf("latest finalized head at height %d is behind previously seen finalized head at height %d: %w",
+			finalizedBlockNum, prevLatestFinalizedBlockNum, types.ErrFinalityViolated)
+	}
+
+	finalizedHash := finalizedHead.BlockHash()
+	if finalizedHash != prevLatestFinalizedHash {
+		return fmt.Errorf("block hash mismatch at height %d: expected %s, got %s: %w",
+			prevLatestFinalizedBlockNum, prevLatestFinalizedHash, finalizedHash, types.ErrFinalityViolated)
+	}
+	return nil
+}
+
+func (t *tracker[HTH, S, ID, BLOCK_HASH]) instantFinality() bool {
+	return !t.config.FinalityTagEnabled() && t.config.FinalityDepth() == 0 && t.config.FinalizedBlockOffset() == 0
+}
+
+func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH, prevHeadWithChain HTH) (err error) {
 	latestFinalized, err := t.calculateLatestFinalized(ctx, headWithChain, t.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate finalized block: %w", err)
@@ -205,16 +247,25 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 	}
 
 	if headWithChain.BlockNumber() < latestFinalized.BlockNumber() {
-		const errMsg = "invariant violation: expected head of canonical chain to be ahead of the latestFinalized"
+		const warnMsg = "expected head of canonical chain to be ahead of the latestFinalized, but this may be normal on chains with fast finality due to fetch timing"
 		t.log.With("head_block_num", headWithChain.BlockNumber(),
 			"latest_finalized_block_number", latestFinalized.BlockNumber()).
-			Criticalf(errMsg)
-		return errors.New(errMsg)
+			Warnf(warnMsg)
+		return errors.New(warnMsg)
 	}
 
 	if headWithChain.BlockNumber()-latestFinalized.BlockNumber() > int64(t.htConfig.MaxAllowedFinalityDepth()) {
 		return fmt.Errorf("gap between latest finalized block (%d) and current head (%d) is too large (> %d)",
 			latestFinalized.BlockNumber(), headWithChain.BlockNumber(), t.htConfig.MaxAllowedFinalityDepth())
+	}
+
+	if !t.instantFinality() {
+		// verify block hashes since calculateLatestFinalized made an additional RPC call
+		err = t.verifyFinalizedBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead())
+		if err != nil {
+			t.eng.EmitHealthErr(err)
+			return err
+		}
 	}
 
 	return t.backfill(ctx, headWithChain, latestFinalized)
@@ -235,6 +286,26 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		"blockDifficulty", head.BlockDifficulty(),
 	)
 
+	var prevLatestFinalized chains.Head[BLOCK_HASH]
+	if prevHead.IsValid() {
+		prevLatestFinalized = prevHead.LatestFinalizedHead()
+	}
+
+	if prevLatestFinalized != nil && head.BlockNumber() < prevLatestFinalized.BlockNumber() {
+		promOldHead.WithLabelValues(t.chainID.String()).Inc()
+		t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", types.ErrFinalityViolated)
+		oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
+		err := fmt.Errorf("%w: %w", oldBlockErr, types.ErrFinalityViolated)
+		t.eng.EmitHealthErr(err)
+		return err
+	}
+
+	if err := t.verifyFinalizedBlockHashes(head.LatestFinalizedHead(), prevHead); err != nil {
+		t.log.Critical(err)
+		t.eng.EmitHealthErr(err)
+		return err
+	}
+
 	if err := t.headSaver.Save(ctx, head); ctx.Err() != nil {
 		return nil
 	} else if err != nil {
@@ -248,7 +319,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		if !headWithChain.IsValid() {
 			return fmt.Errorf("heads.tracker#handleNewHighestHead headWithChain was unexpectedly nil")
 		}
-		t.backfillMB.Deliver(headWithChain)
+		t.backfillMB.Deliver(headPair[HTH]{headWithChain, prevHead})
 		t.broadcastMB.Deliver(headWithChain)
 	} else if head.BlockNumber() == prevHead.BlockNumber() {
 		if head.BlockHash() != prevHead.BlockHash() {
@@ -258,13 +329,13 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		}
 	} else {
 		t.log.Debugw("Got out of order head", "blockNum", head.BlockNumber(), "head", head.BlockHash(), "prevHead", prevHead.BlockNumber())
-		prevLatestFinalized := prevHead.LatestFinalizedHead()
-
-		if prevLatestFinalized != nil && head.BlockNumber() <= prevLatestFinalized.BlockNumber() {
-			promOldHead.WithLabelValues(t.chainID.String()).Inc()
-			err := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
-			t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", err)
-			t.eng.EmitHealthErr(err)
+		promOldHead.WithLabelValues(t.chainID.String()).Inc()
+		if prevLatestFinalized == nil {
+			// sanity check
+			finalityDepth := int64(t.config.FinalityDepth())
+			if head.BlockNumber() < prevHead.BlockNumber()-finalityDepth {
+				t.log.Warnf("Received old block at height %d past finality depth of %d. Either a re-org occurred, one of the RPC nodes has gotten out of sync, or the chain went backwards in block numbers.", head.BlockNumber(), finalityDepth)
+			}
 		}
 	}
 	return nil
@@ -314,12 +385,12 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) backfillLoop(ctx context.Context) {
 			return
 		case <-t.backfillMB.Notify():
 			for {
-				head, exists := t.backfillMB.Retrieve()
+				backfillHeadPair, exists := t.backfillMB.Retrieve()
 				if !exists {
 					break
 				}
 				{
-					err := t.Backfill(ctx, head)
+					err := t.Backfill(ctx, backfillHeadPair.head, backfillHeadPair.prevHead)
 					if err != nil {
 						t.log.Warnw("Unexpected error while backfilling heads", "err", err)
 					} else if ctx.Err() != nil {
@@ -399,7 +470,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.C
 		return t.getHeadAtHeight(ctx, latestFinalized.BlockHash(), finalizedBlockNumber)
 	}
 	// no need to make an additional RPC call on chains with instant finality
-	if t.config.FinalityDepth() == 0 && t.config.FinalizedBlockOffset() == 0 {
+	if t.instantFinality() {
 		return currentHead, nil
 	}
 	finalizedBlockNumber := currentHead.BlockNumber() - int64(t.config.FinalityDepth()) - int64(t.config.FinalizedBlockOffset())
