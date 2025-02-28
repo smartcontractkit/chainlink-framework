@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -103,7 +105,7 @@ type Txm[
 	txStore                 txmgrtypes.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
 	config                  txmgrtypes.TransactionManagerChainConfig
 	txConfig                txmgrtypes.TransactionManagerTransactionsConfig
-	keyStore                txmgrtypes.KeyStore[ADDR, CHAIN_ID]
+	keyStore                txmgrtypes.KeyStore[ADDR]
 	chainID                 CHAIN_ID
 	checkerFactory          TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	pruneQueueAndCreateLock sync.Mutex
@@ -127,6 +129,8 @@ type Txm[
 	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	newErrorClassifier NewErrorClassifier
 	txmv2wrapper       TxmV2Wrapper[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+
+	enabledAddrs []ADDR // sorted as strings
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) RegisterResumeCallback(fn ResumeCallback) {
@@ -150,7 +154,7 @@ func NewTxm[
 	chainId CHAIN_ID,
 	cfg txmgrtypes.TransactionManagerChainConfig,
 	txCfg txmgrtypes.TransactionManagerTransactionsConfig,
-	keyStore txmgrtypes.KeyStore[ADDR, CHAIN_ID],
+	keyStore txmgrtypes.KeyStore[ADDR],
 	lggr logger.Logger,
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
@@ -219,6 +223,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
+		b.enabledAddrs = b.tracker.getEnabledAddresses()
+		slices.SortFunc(b.enabledAddrs, func(a, b ADDR) int { return strings.Compare(a.String(), b.String()) })
 
 		if err := ms.Start(ctx, b.finalizer); err != nil {
 			return fmt.Errorf("Txm: Finalizer failed to start: %w", err)
@@ -338,6 +344,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 	return report
 }
 
+// setEnabled sets enabled addresses in the broadcaster, tracker, and confirmer.
+// Must only be called before starting, or after closing (during a reset).
+func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabled(addrs []ADDR) {
+	b.broadcaster.enabledAddresses = addrs
+	b.tracker.setEnabledAddresses(addrs)
+	b.confirmer.enabledAddresses = addrs
+}
+
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() {
 	ctx, cancel := b.chStop.NewCtx()
 	defer cancel()
@@ -345,8 +359,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 	// eb, ec and keyStates can all be modified by the runloop.
 	// This is concurrent-safe because the runloop ensures serial access.
 	defer b.wg.Done()
-	keysChanged, unsub := b.keyStore.SubscribeToKeyChanges(ctx)
-	defer unsub()
 
 	close(b.chSubbed)
 
@@ -355,7 +367,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 
 	// execReset is defined as an inline function here because it closes over
 	// eb, ec and stopped
-	execReset := func(ctx context.Context, r *reset) {
+	execReset := func(ctx context.Context, f func()) {
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
@@ -368,9 +380,8 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		if err := b.confirmer.closeInternal(); err != nil {
 			b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
 		}
-		if r != nil {
-			r.f()
-			close(r.done)
+		if f != nil {
+			f()
 		}
 		var wg sync.WaitGroup
 		// three goroutines to handle independent backoff retries starting:
@@ -445,6 +456,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 		wg.Wait()
 	}
 
+	pollEnabledAddresses := services.NewTicker(time.Minute)
+	defer pollEnabledAddresses.Stop()
+
 	for {
 		select {
 		case address := <-b.trigger:
@@ -463,7 +477,10 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				reset.done <- errors.New("Txm was stopped")
 				continue
 			}
-			execReset(ctx, &reset)
+			execReset(ctx, func() {
+				reset.f()
+				close(reset.done)
+			})
 		case <-b.chStop:
 			// close and exit
 			//
@@ -495,7 +512,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 				}
 			}
 			return
-		case <-keysChanged:
+		case <-pollEnabledAddresses.C:
 			// This check prevents the weird edge-case where you can select
 			// into this block after chStop has already been closed and the
 			// previous reset exited early.
@@ -504,15 +521,21 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop() 
 			if stopped {
 				continue
 			}
-			enabledAddresses, err := b.keyStore.EnabledAddressesForChain(ctx, b.chainID)
+			enabledAddresses, err := b.keyStore.EnabledAddresses(ctx)
 			if err != nil {
-				b.logger.Critical("Failed to reload key states after key change")
+				b.logger.Critical("Failed to reload key states")
 				b.SvcErrBuffer.Append(err)
 				continue
 			}
+			slices.SortFunc(enabledAddresses, func(a, b ADDR) int {
+				return strings.Compare(a.String(), b.String())
+			})
+			if slices.Equal(b.enabledAddrs, enabledAddresses) {
+				continue // no change
+			}
 			b.logger.Debugw("Keys changed, reloading", "enabledAddresses", enabledAddresses)
 
-			execReset(ctx, nil)
+			execReset(ctx, func() { b.setEnabled(enabledAddresses) })
 		}
 	}
 }
@@ -619,7 +642,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForward
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabled(ctx context.Context, addr ADDR) error {
-	if err := b.keyStore.CheckEnabled(ctx, addr, b.chainID); err != nil {
+	if err := b.keyStore.CheckEnabled(ctx, addr); err != nil {
 		return fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", addr, b.chainID.String(), err)
 	}
 	return nil
