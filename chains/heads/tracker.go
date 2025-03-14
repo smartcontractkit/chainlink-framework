@@ -260,12 +260,14 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 	}
 
 	if !t.instantFinality() {
+		finalityViolationCondition := fmt.Sprintf("backfill %v", types.ErrFinalityViolated)
 		// verify block hashes since calculateLatestFinalized made an additional RPC call
 		err = t.verifyFinalizedBlockHashes(latestFinalized, prevHeadWithChain.LatestFinalizedHead())
 		if err != nil {
-			t.eng.EmitHealthErr(err)
+			t.eng.SetHealthCond(finalityViolationCondition, err)
 			return err
 		}
+		t.eng.ClearHealthCond(finalityViolationCondition)
 	}
 
 	return t.backfill(ctx, headWithChain, latestFinalized)
@@ -291,20 +293,22 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		prevLatestFinalized = prevHead.LatestFinalizedHead()
 	}
 
+	finalityViolationCondition := fmt.Sprintf("handleNewHead %v", types.ErrFinalityViolated)
 	if prevLatestFinalized != nil && head.BlockNumber() < prevLatestFinalized.BlockNumber() {
 		promOldHead.WithLabelValues(t.chainID.String()).Inc()
 		t.log.Critical("Got very old block. Either a very deep re-org occurred, one of the RPC nodes has gotten far out of sync, or the chain went backwards in block numbers. This node may not function correctly without manual intervention.", "err", types.ErrFinalityViolated)
 		oldBlockErr := fmt.Errorf("got very old block with number %d (highest seen was %d)", head.BlockNumber(), prevHead.BlockNumber())
 		err := fmt.Errorf("%w: %w", oldBlockErr, types.ErrFinalityViolated)
-		t.eng.EmitHealthErr(err)
+		t.eng.SetHealthCond(finalityViolationCondition, err)
 		return err
 	}
 
 	if err := t.verifyFinalizedBlockHashes(head.LatestFinalizedHead(), prevHead); err != nil {
 		t.log.Critical(err)
-		t.eng.EmitHealthErr(err)
+		t.eng.SetHealthCond(finalityViolationCondition, err)
 		return err
 	}
+	t.eng.ClearHealthCond(finalityViolationCondition)
 
 	if err := t.headSaver.Save(ctx, head); ctx.Err() != nil {
 		return nil
