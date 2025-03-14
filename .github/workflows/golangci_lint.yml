@@ -34,7 +34,7 @@ jobs:
           go-version-file: ${{ matrix.module }}/go.mod
 
       - name: Run golangci-lint for ${{ matrix.module }}
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           args: --config=${{ github.workspace }}/.golangci.yml
           only-new-issues: true

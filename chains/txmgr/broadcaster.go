@@ -64,31 +64,19 @@ var ErrTxRemoved = errors.New("tx removed")
 type ProcessUnstartedTxs[ADDR chains.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
 
 // TransmitCheckerFactory creates a transmit checker based on a spec.
-type TransmitCheckerFactory[
-	CHAIN_ID chains.ID,
-	ADDR chains.Hashable,
-	TX_HASH, BLOCK_HASH chains.Hashable,
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-] interface {
+type TransmitCheckerFactory[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
-	BuildChecker(spec types.TransmitCheckerSpec[ADDR]) (TransmitChecker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)
+	BuildChecker(spec types.TransmitCheckerSpec[ADDR]) (TransmitChecker[CID, ADDR, THASH, BHASH, SEQ, FEE], error)
 }
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
-type TransmitChecker[
-	CHAIN_ID chains.ID,
-	ADDR chains.Hashable,
-	TX_HASH, BLOCK_HASH chains.Hashable,
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-] interface {
+type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
 
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
 	// should not be sent, other errors (for example connection or other unexpected errors) should
 	// be logged and swallowed.
-	Check(ctx context.Context, l logger.SugaredLogger, tx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], a types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
+	Check(ctx context.Context, l logger.SugaredLogger, tx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], a types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) error
 }
 
 // Broadcaster monitors txes for transactions that need to
@@ -104,23 +92,15 @@ type TransmitChecker[
 // - a monotonic series of increasing sequences for txes that can all eventually be confirmed if you retry enough times
 // - transition of txes out of unstarted into either fatal_error or unconfirmed
 // - existence of a saved tx_attempt
-type Broadcaster[
-	CHAIN_ID chains.ID,
-	HEAD chains.Head[BLOCK_HASH],
-	ADDR chains.Hashable,
-	TX_HASH chains.Hashable,
-	BLOCK_HASH chains.Hashable,
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-] struct {
+type Broadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] struct {
 	services.StateMachine
 	lggr    logger.SugaredLogger
-	txStore types.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	client  types.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-	types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	txStore types.TransactionStore[ADDR, CID, THASH, BHASH, SEQ, FEE]
+	client  types.TransactionClient[CID, ADDR, THASH, BHASH, SEQ, FEE]
+	types.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
 	sequenceTracker types.SequenceTracker[ADDR, SEQ]
 	resumeCallback  ResumeCallback
-	chainID         CHAIN_ID
+	chainID         CID
 	chainType       string
 	config          types.BroadcasterChainConfig
 	feeConfig       types.BroadcasterFeeConfig
@@ -133,10 +113,10 @@ type Broadcaster[
 
 	processUnstartedTxsImpl ProcessUnstartedTxs[ADDR]
 
-	ks               types.KeyStore[ADDR, CHAIN_ID]
+	ks               types.KeyStore[ADDR]
 	enabledAddresses []ADDR
 
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+	checkerFactory TransmitCheckerFactory[CID, ADDR, THASH, BHASH, SEQ, FEE]
 
 	// triggers allow other goroutines to force Broadcaster to rescan the
 	// database early (before the next poll interval)
@@ -150,31 +130,23 @@ type Broadcaster[
 	isStarted bool
 }
 
-func NewBroadcaster[
-	CHAIN_ID chains.ID,
-	HEAD chains.Head[BLOCK_HASH],
-	ADDR chains.Hashable,
-	TX_HASH chains.Hashable,
-	BLOCK_HASH chains.Hashable,
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-](
-	txStore types.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	client types.TransactionClient[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+func NewBroadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee](
+	txStore types.TransactionStore[ADDR, CID, THASH, BHASH, SEQ, FEE],
+	client types.TransactionClient[CID, ADDR, THASH, BHASH, SEQ, FEE],
 	config types.BroadcasterChainConfig,
 	feeConfig types.BroadcasterFeeConfig,
 	txConfig types.BroadcasterTransactionsConfig,
 	listenerConfig types.BroadcasterListenerConfig,
-	keystore types.KeyStore[ADDR, CHAIN_ID],
-	txAttemptBuilder types.TxAttemptBuilder[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	keystore types.KeyStore[ADDR],
+	txAttemptBuilder types.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE],
 	sequenceTracker types.SequenceTracker[ADDR, SEQ],
 	lggr logger.Logger,
-	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	checkerFactory TransmitCheckerFactory[CID, ADDR, THASH, BHASH, SEQ, FEE],
 	autoSyncSequence bool,
 	chainType string,
-) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
+) *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Broadcaster")
-	b := &Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
+	b := &Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{
 		lggr:             logger.Sugared(lggr),
 		txStore:          txStore,
 		client:           client,
@@ -197,23 +169,25 @@ func NewBroadcaster[
 
 // Start starts Broadcaster service.
 // The provided context can be used to terminate Start sequence.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Start(ctx context.Context) error {
-	return eb.StartOnce("Broadcaster", func() (err error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Start(ctx context.Context) error {
+	return eb.StartOnce("Broadcaster", func() error {
 		return eb.startInternal(ctx)
 	})
 }
 
 // startInternal can be called multiple times, in conjunction with closeInternal. The TxMgr uses this functionality to reset broadcaster multiple times in its own lifetime.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) startInternal(ctx context.Context) error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) startInternal(ctx context.Context) error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
 	if eb.isStarted {
 		return errors.New("Broadcaster is already started")
 	}
-	var err error
-	eb.enabledAddresses, err = eb.ks.EnabledAddressesForChain(ctx, eb.chainID)
-	if err != nil {
-		return fmt.Errorf("Broadcaster: failed to load EnabledAddressesForChain: %w", err)
+	if eb.enabledAddresses == nil {
+		var err error
+		eb.enabledAddresses, err = eb.ks.EnabledAddresses(ctx)
+		if err != nil {
+			return fmt.Errorf("Broadcaster: failed to load EnabledAddresses: %w", err)
+		}
 	}
 
 	if len(eb.enabledAddresses) > 0 {
@@ -231,7 +205,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 	return nil
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) loadAndMonitor() {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) loadAndMonitor() {
 	defer eb.wg.Done()
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
@@ -245,13 +219,13 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) load
 }
 
 // Close closes the Broadcaster
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close() error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Close() error {
 	return eb.StopOnce("Broadcaster", func() error {
 		return eb.closeInternal()
 	})
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) closeInternal() error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) closeInternal() error {
 	eb.initSync.Lock()
 	defer eb.initSync.Unlock()
 	if !eb.isStarted {
@@ -260,24 +234,25 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) clos
 	close(eb.chStop)
 	eb.wg.Wait()
 	eb.isStarted = false
+	eb.enabledAddresses = nil
 	return nil
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
 	eb.resumeCallback = callback
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name() string {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Name() string {
 	return eb.lggr.Name()
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) HealthReport() map[string]error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) HealthReport() map[string]error {
 	return map[string]error{eb.Name(): eb.Healthy()}
 }
 
 // Trigger forces the monitor for a particular address to recheck for new txes
 // Logs error and does nothing if address was not registered on startup
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trigger(addr ADDR) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Trigger(addr ADDR) {
 	if eb.isStarted {
 		triggerCh, exists := eb.triggers[addr]
 		if !exists {
@@ -293,7 +268,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Trig
 	}
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) newResendBackoff() backoff.Backoff {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) newResendBackoff() backoff.Backoff {
 	return backoff.Backoff{
 		Min:    1 * time.Second,
 		Max:    15 * time.Second,
@@ -301,7 +276,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) newR
 	}
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) monitorTxs(addr ADDR, triggerCh chan struct{}) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) monitorTxs(addr ADDR, triggerCh chan struct{}) {
 	defer eb.wg.Done()
 
 	ctx, cancel := eb.chStop.NewCtx()
@@ -364,7 +339,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 
 // ProcessUnstartedTxs picks up and handles all txes in the queue
 // revive:disable:error-return
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) ProcessUnstartedTxs(ctx context.Context, addr ADDR) (retryable bool, err error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) ProcessUnstartedTxs(ctx context.Context, addr ADDR) (retryable bool, err error) {
 	return eb.processUnstartedTxs(ctx, addr)
 }
 
@@ -372,7 +347,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Proc
 // result in undefined state or deadlocks.
 // First handle any in_progress transactions left over from last time.
 // Then keep looking up unstarted transactions and processing them until there are none remaining.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) processUnstartedTxs(ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) processUnstartedTxs(ctx context.Context, fromAddress ADDR) (retryable bool, err error) {
 	var n uint
 	mark := time.Now()
 	defer func() {
@@ -423,7 +398,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) proc
 
 // handleInProgressTx checks if there is any transaction
 // in_progress and if so, finishes the job
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleAnyInProgressTx(ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleAnyInProgressTx(ctx context.Context, fromAddress ADDR) (err error, retryable bool) {
 	etx, err := eb.txStore.GetTxInProgress(ctx, fromAddress)
 	if err != nil {
 		return fmt.Errorf("handleAnyInProgressTx failed: %w", err), true
@@ -436,7 +411,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	return nil, false
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleUnstartedTx(ctx context.Context, etx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (error, bool) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleUnstartedTx(ctx context.Context, etx *types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE]) (error, bool) {
 	if etx.State != TxUnstarted {
 		return fmt.Errorf("invariant violation: expected transaction %v to be unstarted, it was %s", etx.ID, etx.State), false
 	}
@@ -491,7 +466,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 
 // There can be at most one in_progress transaction per address.
 // Here we complete the job that we didn't finish last time.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) handleInProgressTx(ctx context.Context, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], initialBroadcastAt time.Time, retryCount int) (error, bool) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgressTx(ctx context.Context, etx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], attempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE], initialBroadcastAt time.Time, retryCount int) (error, bool) {
 	if etx.State != TxInProgress {
 		return fmt.Errorf("invariant violation: expected transaction %v to be in_progress, it was %s", etx.ID, etx.State), false
 	}
@@ -639,7 +614,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 	}
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType multinode.SendTxReturnCode, err error, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryCount int) (multinode.SendTxReturnCode, error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType multinode.SendTxReturnCode, err error, etx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], retryCount int) (multinode.SendTxReturnCode, error) {
 	// Only check if sequence was incremented if broadcast was successful, otherwise return the existing err type
 	if errType != multinode.Successful {
 		return errType, err
@@ -679,7 +654,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) vali
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.
 // Returns nil if no transactions are in queue
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) nextUnstartedTransactionWithSequence(fromAddress ADDR) (*types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) nextUnstartedTransactionWithSequence(fromAddress ADDR) (*types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], error) {
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 	etx, err := eb.txStore.FindNextUnstartedTransactionFromAddress(ctx, fromAddress, eb.chainID)
@@ -700,7 +675,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) next
 }
 
 // replaceAttemptWithBumpedGas performs the replacement of the existing tx attempt with a new bumped fee attempt.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (replacedAttempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], attempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) (replacedAttempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE], retryable bool, err error) {
 	// This log error is not applicable to Hedera since the action required would not be needed for its gas estimator
 	if eb.chainType != hederaChainType {
 		logger.With(lgr,
@@ -728,7 +703,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 }
 
 // replaceAttemptWithNewEstimation performs the replacement of the existing tx attempt with a new estimated fee attempt.
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) (updatedAttempt *types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], retryable bool, err error) {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) replaceAttemptWithNewEstimation(ctx context.Context, lgr logger.Logger, etx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], attempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) (updatedAttempt *types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE], retryable bool, err error) {
 	newEstimatedAttempt, fee, feeLimit, retryable, err := eb.NewTxAttemptWithType(ctx, etx, lgr, attempt.TxType, fees.OptForceRefetch)
 	if err != nil {
 		return &newEstimatedAttempt, retryable, err
@@ -742,7 +717,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) repl
 	return &newEstimatedAttempt, true, err
 }
 
-func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error {
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) saveFatallyErroredTransaction(lgr logger.Logger, etx *types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE]) error {
 	ctx, cancel := eb.chStop.NewCtx()
 	defer cancel()
 	if etx.State != TxInProgress && etx.State != TxUnstarted {

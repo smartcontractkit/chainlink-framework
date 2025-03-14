@@ -3,6 +3,8 @@ package txmgr
 import (
 	"context"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -32,23 +34,15 @@ const (
 // existing in-flight transactions for these fromAddresses are considered abandoned too.
 // Since such Txs can still have attempts on chain's mempool, these could still be confirmed.
 // This tracker just tracks such Txs for some time, in case they get confirmed as-is.
-type Tracker[
-	CHAIN_ID chains.ID,
-	ADDR chains.Hashable,
-	TX_HASH chains.Hashable,
-	BLOCK_HASH chains.Hashable,
-	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-] struct {
+type Tracker[CID chains.ID, ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, R types.ChainReceipt[THASH, BHASH], SEQ chains.Sequence, FEE fees.Fee] struct {
 	services.StateMachine
-	txStore  types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
-	keyStore types.KeyStore[ADDR, CHAIN_ID]
-	chainID  CHAIN_ID
+	txStore  types.TxStore[ADDR, CID, THASH, BHASH, R, SEQ, FEE]
+	keyStore types.KeyStore[ADDR]
+	chainID  CID
 	lggr     logger.Logger
 
-	lock         sync.Mutex
-	enabledAddrs map[ADDR]bool
+	lock         sync.RWMutex
+	enabledAddrs map[ADDR]bool  // nil means unset, different from empty
 	txCache      map[int64]ADDR // cache tx fromAddress by txID
 
 	ttl time.Duration
@@ -60,49 +54,38 @@ type Tracker[
 	isStarted bool
 }
 
-func NewTracker[
-	CHAIN_ID chains.ID,
-	ADDR chains.Hashable,
-	TX_HASH chains.Hashable,
-	BLOCK_HASH chains.Hashable,
-	R types.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ chains.Sequence,
-	FEE fees.Fee,
-](
-	txStore types.TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE],
-	keyStore types.KeyStore[ADDR, CHAIN_ID],
-	chainID CHAIN_ID,
+func NewTracker[CID chains.ID, ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, R types.ChainReceipt[THASH, BHASH], SEQ chains.Sequence, FEE fees.Fee](
+	txStore types.TxStore[ADDR, CID, THASH, BHASH, R, SEQ, FEE],
+	keyStore types.KeyStore[ADDR],
+	chainID CID,
 	lggr logger.Logger,
-) *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
-	return &Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
-		txStore:      txStore,
-		keyStore:     keyStore,
-		chainID:      chainID,
-		lggr:         logger.Named(lggr, "TxMgrTracker"),
-		enabledAddrs: map[ADDR]bool{},
-		txCache:      map[int64]ADDR{},
-		ttl:          defaultTTL,
-		mb:           mailbox.NewSingle[int64](),
-		lock:         sync.Mutex{},
-		wg:           sync.WaitGroup{},
+) *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE] {
+	return &Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]{
+		txStore:  txStore,
+		keyStore: keyStore,
+		chainID:  chainID,
+		lggr:     logger.Named(lggr, "TxMgrTracker"),
+		txCache:  map[int64]ADDR{},
+		ttl:      defaultTTL,
+		mb:       mailbox.NewSingle[int64](),
 	}
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx context.Context) (err error) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Start(ctx context.Context) error {
 	tr.lggr.Info("Abandoned transaction tracking enabled")
 	return tr.StartOnce("Tracker", func() error {
 		return tr.startInternal(ctx)
 	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startInternal(ctx context.Context) (err error) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) startInternal(ctx context.Context) error {
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
 
-	if err := tr.setEnabledAddresses(ctx); err != nil {
+	if err := tr.ensureEnabledAddresses(ctx); err != nil {
 		return fmt.Errorf("failed to set enabled addresses: %w", err)
 	}
-	tr.lggr.Infof("enabled addresses set for chainID %v", tr.chainID)
+	tr.lggr.Info("Enabled addresses set", "addresses", tr.enabledAddrs)
 
 	tr.chStop = make(chan struct{})
 	tr.wg.Add(1)
@@ -111,13 +94,13 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) startIntern
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() error {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Close() error {
 	return tr.StopOnce("Tracker", func() error {
 		return tr.closeInternal()
 	})
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeInternal() error {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) closeInternal() error {
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
 
@@ -129,10 +112,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) closeIntern
 	close(tr.chStop)
 	tr.wg.Wait()
 	tr.isStarted = false
+	tr.enabledAddrs = nil
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx context.Context, cancel context.CancelFunc) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop(ctx context.Context, cancel context.CancelFunc) {
 	defer tr.wg.Done()
 	defer cancel()
 
@@ -179,11 +163,11 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) runLoop(ctx
 	}
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 
-	abandonedAddrs := make([]ADDR, len(tr.txCache))
+	abandonedAddrs := make([]ADDR, 0, len(tr.txCache))
 	for _, fromAddress := range tr.txCache {
 		abandonedAddrs = append(abandonedAddrs, fromAddress)
 	}
@@ -191,40 +175,56 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetAbandone
 }
 
 // AbandonedTxCount returns the number of abandoned txes currently being tracked
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) AbandonedTxCount() int {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) AbandonedTxCount() int {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	return len(tr.txCache)
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) IsStarted() bool {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) IsStarted() bool {
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
 	return tr.isStarted
 }
 
-// setEnabledAddresses is called on startup to set the enabled addresses for the chain
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) setEnabledAddresses(ctx context.Context) error {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) getEnabledAddresses() []ADDR {
+	tr.lock.RLock()
+	defer tr.lock.RUnlock()
+	return slices.Collect(maps.Keys(tr.enabledAddrs))
+}
+
+// ensureEnabledAddresses is called on startup to initialize the enabled addresses for the chain if necessary.
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) ensureEnabledAddresses(ctx context.Context) error {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 
-	enabledAddrs, err := tr.keyStore.EnabledAddressesForChain(ctx, tr.chainID)
+	if tr.enabledAddrs != nil {
+		return nil
+	}
+
+	enabledAddrs, err := tr.keyStore.EnabledAddresses(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get enabled addresses for chain: %w", err)
 	}
+	tr.setEnabledAddresses(enabledAddrs)
+	return nil
+}
 
+// setEnabledAddresses sets enabled addresses. Caller must hold tr.lock, or the Tracker must be unstarted (pre-startInternal, or post-closeInternal).
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) setEnabledAddresses(enabledAddrs []ADDR) {
 	if len(enabledAddrs) == 0 {
 		tr.lggr.Warnf("enabled address list is empty")
 	}
 
+	tr.enabledAddrs = make(map[ADDR]bool, len(enabledAddrs))
+
 	for _, addr := range enabledAddrs {
 		tr.enabledAddrs[addr] = true
 	}
-	return nil
 }
 
 // trackAbandonedTxes called on startup to find and insert all abandoned txes into the tracker.
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) trackAbandonedTxes(ctx context.Context) (err error) {
 	return sqlutil.Batch(func(offset, limit uint) (count uint, err error) {
 		var enabledAddrs []ADDR
 		for addr := range tr.enabledAddrs {
@@ -250,7 +250,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) trackAbando
 
 // handleTxesByState handles all txes in the txCache by their state
 // It's called on every new blockHeight and also on startup to handle all txes in the txCache
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context) error {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) handleTxesByState(ctx context.Context) error {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 	ctx, cancel := context.WithTimeout(ctx, handleTxesTimeout)
@@ -297,8 +297,8 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) handleTxesB
 	return nil
 }
 
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal(ctx context.Context,
-	tx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) markTxFatal(ctx context.Context,
+	tx *types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE],
 	errMsg string) error {
 	tx.Error.SetValid(errMsg)
 
@@ -311,7 +311,7 @@ func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markTxFatal
 }
 
 // markAllTxesFatal tries to mark all txes in the txCache as fatal and removes them from the cache
-func (tr *Tracker[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) markAllTxesFatal(ctx context.Context) {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) markAllTxesFatal(ctx context.Context) {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
 

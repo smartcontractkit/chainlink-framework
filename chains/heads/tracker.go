@@ -65,47 +65,37 @@ type headPair[HTH any] struct {
 	prevHead HTH
 }
 
-type tracker[
-	HTH Head[BLOCK_HASH, ID],
-	S chains.Subscription,
-	ID chains.ID,
-	BLOCK_HASH chains.Hashable,
-] struct {
+type tracker[HTH Head[BHASH, ID], S chains.Subscription, ID chains.ID, BHASH chains.Hashable] struct {
 	services.Service
 	eng *services.Engine
 
 	log             logger.SugaredLogger
-	headBroadcaster Broadcaster[HTH, BLOCK_HASH]
-	headSaver       Saver[HTH, BLOCK_HASH]
+	headBroadcaster Broadcaster[HTH, BHASH]
+	headSaver       Saver[HTH, BHASH]
 	mailMon         *mailbox.Monitor
-	client          Client[HTH, S, ID, BLOCK_HASH]
+	client          Client[HTH, S, ID, BHASH]
 	chainID         chains.ID
 	config          ChainConfig
 	htConfig        TrackerConfig
 
 	backfillMB   *mailbox.Mailbox[headPair[HTH]]
 	broadcastMB  *mailbox.Mailbox[HTH]
-	headListener Listener[HTH, BLOCK_HASH]
+	headListener Listener[HTH, BHASH]
 	getNilHead   func() HTH
 }
 
 // NewTracker instantiates a new Tracker using Saver to persist new block numbers.
-func NewTracker[
-	HTH Head[BLOCK_HASH, ID],
-	S chains.Subscription,
-	ID chains.ID,
-	BLOCK_HASH chains.Hashable,
-](
+func NewTracker[HTH Head[BHASH, ID], S chains.Subscription, ID chains.ID, BHASH chains.Hashable](
 	lggr logger.Logger,
-	client Client[HTH, S, ID, BLOCK_HASH],
+	client Client[HTH, S, ID, BHASH],
 	config ChainConfig,
 	htConfig TrackerConfig,
-	headBroadcaster Broadcaster[HTH, BLOCK_HASH],
-	headSaver Saver[HTH, BLOCK_HASH],
+	headBroadcaster Broadcaster[HTH, BHASH],
+	headSaver Saver[HTH, BHASH],
 	mailMon *mailbox.Monitor,
 	getNilHead func() HTH,
-) Tracker[HTH, BLOCK_HASH] {
-	ht := &tracker[HTH, S, ID, BLOCK_HASH]{
+) Tracker[HTH, BHASH] {
+	ht := &tracker[HTH, S, ID, BHASH]{
 		headBroadcaster: headBroadcaster,
 		client:          client,
 		chainID:         client.ConfiguredChainID(),
@@ -120,7 +110,7 @@ func NewTracker[
 	ht.Service, ht.eng = services.Config{
 		Name: "HeadTracker",
 		NewSubServices: func(lggr logger.Logger) []services.Service {
-			ht.headListener = NewListener[HTH, S, ID, BLOCK_HASH](lggr, client, config,
+			ht.headListener = NewListener[HTH, S, ID, BHASH](lggr, client, config,
 				// NOTE: Always try to start the head tracker off with whatever the
 				// latest head is, without waiting for the subscription to send us one.
 				//
@@ -144,7 +134,7 @@ func NewTracker[
 }
 
 // Start starts Tracker service.
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) start(context.Context) error {
+func (t *tracker[HTH, S, ID, BHASH]) start(context.Context) error {
 	t.eng.Go(t.backfillLoop)
 	t.eng.Go(t.broadcastLoop)
 
@@ -153,7 +143,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) start(context.Context) error {
 	return nil
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Context) error {
+func (t *tracker[HTH, S, ID, BHASH]) handleInitialHead(ctx context.Context) error {
 	initialHead, err := t.client.HeadByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("failed to fetch initial head: %w", err)
@@ -196,12 +186,12 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleInitialHead(ctx context.Context)
 	return nil
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) close() error {
+func (t *tracker[HTH, S, ID, BHASH]) close() error {
 	return t.broadcastMB.Close()
 }
 
 // verifyFinalizedBlockHashes returns finality violated error if a block hash mismatch is found in provided chains
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(finalizedHeadWithChain chains.Head[BLOCK_HASH], prevHeadWithChain chains.Head[BLOCK_HASH]) error {
+func (t *tracker[HTH, S, ID, BHASH]) verifyFinalizedBlockHashes(finalizedHeadWithChain chains.Head[BHASH], prevHeadWithChain chains.Head[BHASH]) error {
 	if finalizedHeadWithChain == nil || prevHeadWithChain == nil {
 		return nil
 	}
@@ -232,11 +222,11 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) verifyFinalizedBlockHashes(finalizedHe
 	return nil
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) instantFinality() bool {
+func (t *tracker[HTH, S, ID, BHASH]) instantFinality() bool {
 	return !t.config.FinalityTagEnabled() && t.config.FinalityDepth() == 0 && t.config.FinalizedBlockOffset() == 0
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWithChain HTH, prevHeadWithChain HTH) (err error) {
+func (t *tracker[HTH, S, ID, BHASH]) Backfill(ctx context.Context, headWithChain HTH, prevHeadWithChain HTH) (err error) {
 	latestFinalized, err := t.calculateLatestFinalized(ctx, headWithChain, t.htConfig.FinalityTagBypass())
 	if err != nil {
 		return fmt.Errorf("failed to calculate finalized block: %w", err)
@@ -273,11 +263,11 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) Backfill(ctx context.Context, headWith
 	return t.backfill(ctx, headWithChain, latestFinalized)
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) LatestChain() HTH {
+func (t *tracker[HTH, S, ID, BHASH]) LatestChain() HTH {
 	return t.headSaver.LatestChain()
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, head HTH) error {
+func (t *tracker[HTH, S, ID, BHASH]) handleNewHead(ctx context.Context, head HTH) error {
 	prevHead := t.headSaver.LatestChain()
 
 	t.log.Debugw(fmt.Sprintf("Received new head %v", head.BlockNumber()),
@@ -288,7 +278,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 		"blockDifficulty", head.BlockDifficulty(),
 	)
 
-	var prevLatestFinalized chains.Head[BLOCK_HASH]
+	var prevLatestFinalized chains.Head[BHASH]
 	if prevHead.IsValid() {
 		prevLatestFinalized = prevHead.LatestFinalizedHead()
 	}
@@ -345,7 +335,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) handleNewHead(ctx context.Context, hea
 	return nil
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop(ctx context.Context) {
+func (t *tracker[HTH, S, ID, BHASH]) broadcastLoop(ctx context.Context) {
 	samplingInterval := t.htConfig.SamplingInterval()
 	if samplingInterval > 0 {
 		t.log.Debugf("Head sampling is enabled - sampling interval is set to: %v", samplingInterval)
@@ -382,7 +372,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) broadcastLoop(ctx context.Context) {
 	}
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) backfillLoop(ctx context.Context) {
+func (t *tracker[HTH, S, ID, BHASH]) backfillLoop(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -409,7 +399,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) backfillLoop(ctx context.Context) {
 // LatestAndFinalizedBlock - returns latest and latest finalized blocks.
 // NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
 // TODO: BCI-3321 use cached values instead of making RPC requests
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HTH, err error) {
+func (t *tracker[HTH, S, ID, BHASH]) LatestAndFinalizedBlock(ctx context.Context) (latest, finalized HTH, err error) {
 	latest, err = t.client.HeadByNumber(ctx, nil)
 	if err != nil {
 		err = fmt.Errorf("failed to get latest block: %w", err)
@@ -434,7 +424,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) LatestAndFinalizedBlock(ctx context.Co
 	return
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) getHeadAtHeight(ctx context.Context, chainHeadHash BLOCK_HASH, blockHeight int64) (HTH, error) {
+func (t *tracker[HTH, S, ID, BHASH]) getHeadAtHeight(ctx context.Context, chainHeadHash BHASH, blockHeight int64) (HTH, error) {
 	chainHead := t.headSaver.Chain(chainHeadHash)
 	if chainHead.IsValid() {
 		// check if provided chain contains a block of specified height
@@ -455,7 +445,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) getHeadAtHeight(ctx context.Context, c
 // calculateLatestFinalized - returns latest finalized block. It's expected that currentHeadNumber - is the head of
 // canonical chain. There is no guaranties that returned block belongs to the canonical chain. Additional verification
 // must be performed before usage.
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH, finalityTagBypass bool) (HTH, error) {
+func (t *tracker[HTH, S, ID, BHASH]) calculateLatestFinalized(ctx context.Context, currentHead HTH, finalityTagBypass bool) (HTH, error) {
 	if t.config.FinalityTagEnabled() && !finalityTagBypass {
 		latestFinalized, err := t.client.LatestFinalizedBlock(ctx)
 		if err != nil {
@@ -485,7 +475,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) calculateLatestFinalized(ctx context.C
 }
 
 // backfill fetches all missing heads up until the latestFinalizedHead
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head, latestFinalizedHead HTH) (err error) {
+func (t *tracker[HTH, S, ID, BHASH]) backfill(ctx context.Context, head, latestFinalizedHead HTH) (err error) {
 	headBlockNumber := head.BlockNumber()
 	mark := time.Now()
 	fetched := 0
@@ -527,7 +517,7 @@ func (t *tracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, head, la
 		t.log.Criticalw("Finalized block missing from conical chain",
 			"finalized_block_number", latestFinalizedHead.BlockNumber(), "finalized_hash", latestFinalizedHead.BlockHash(),
 			"canonical_chain_block_number", head.BlockNumber(), "canonical_chain_hash", head.BlockHash())
-		return FinalizedMissingError[BLOCK_HASH]{latestFinalizedHead.BlockHash(), head.BlockHash()}
+		return FinalizedMissingError[BHASH]{latestFinalizedHead.BlockHash(), head.BlockHash()}
 	}
 
 	l = l.With("latest_finalized_block_hash", latestFinalizedHead.BlockHash(),
@@ -552,7 +542,7 @@ func (e FinalizedMissingError[BLOCK_HASH]) Error() string {
 	return fmt.Sprintf("finalized block %s missing from canonical chain %s", e.Finalized, e.Canonical)
 }
 
-func (t *tracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64, hash BLOCK_HASH) (HTH, error) {
+func (t *tracker[HTH, S, ID, BHASH]) fetchAndSaveHead(ctx context.Context, n int64, hash BHASH) (HTH, error) {
 	t.log.Debugw("Fetching head", "blockHeight", n, "blockHash", hash)
 	head, err := t.client.HeadByHash(ctx, hash)
 	if err != nil {

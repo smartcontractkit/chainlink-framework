@@ -10,10 +10,7 @@ import (
 type KeyStore[
 	// Account Address type.
 	ADDR chains.Hashable,
-	// Chain ID type
-	CHAIN_ID chains.ID,
 ] interface {
-	CheckEnabled(ctx context.Context, address ADDR, chainID CHAIN_ID) error
-	EnabledAddressesForChain(ctx context.Context, chainID CHAIN_ID) ([]ADDR, error)
-	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
+	CheckEnabled(ctx context.Context, address ADDR) error
+	EnabledAddresses(ctx context.Context) ([]ADDR, error)
 }
