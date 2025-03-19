@@ -4,11 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"math/rand/v2"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/cometbft/cometbft/libs/rand"
 	prom "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -368,7 +369,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
 			go writeHeads(t, ch, head{BlockNumber: blockNumber - 1}, head{BlockNumber: blockNumber}, head{BlockNumber: blockNumber - 1})
 		}).Return((<-chan Head)(ch), sub, nil).Once()
-		name := "node-" + rand.Str(5)
+		name := "node-" + strconv.Itoa(rand.IntN(1_000_000)) //nolint:gosec // G404 just test data
 		node := newDialedNode(t, testNodeOpts{
 			config:      testNodeConfig{},
 			chainConfig: clientMocks.ChainConfig{FinalityDepthVal: finalityDepth},
@@ -444,7 +445,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		ch := make(chan Head)
 		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return((<-chan Head)(ch), newSub(t), nil).Once()
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
-		name := "node-" + rand.Str(5)
+		name := "node-" + strconv.Itoa(rand.IntN(1_000_000)) //nolint:gosec // G404 just test data
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{},
 			chainConfig: clientMocks.ChainConfig{
