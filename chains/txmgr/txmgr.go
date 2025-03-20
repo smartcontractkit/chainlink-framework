@@ -559,11 +559,12 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) CreateTransaction(ctx 
 		fwdPayload, fwdErr := b.fwdMgr.ConvertPayload(txRequest.ToAddress, txRequest.EncodedPayload)
 		if fwdErr == nil {
 			// Handling meta not set at caller.
+			toAddressCopy := txRequest.ToAddress
 			if txRequest.Meta != nil {
-				txRequest.Meta.FwdrDestAddress = &txRequest.ToAddress
+				txRequest.Meta.FwdrDestAddress = &toAddressCopy
 			} else {
 				txRequest.Meta = &txmgrtypes.TxMeta[ADDR, THASH]{
-					FwdrDestAddress: &txRequest.ToAddress,
+					FwdrDestAddress: &toAddressCopy,
 				}
 			}
 			txRequest.ToAddress = txRequest.ForwarderAddress
