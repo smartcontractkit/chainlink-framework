@@ -10,7 +10,7 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chainlink-common v0.5.1-0.20250324171109-7566f3b73857
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250115203616-a2ea5e50b260
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250324185917-b8aef95d42f8
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/multierr v1.11.0
 	gopkg.in/guregu/null.v4 v4.0.0
