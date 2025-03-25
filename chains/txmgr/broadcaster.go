@@ -253,18 +253,19 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) HealthReport() m
 // Trigger forces the monitor for a particular address to recheck for new txes
 // Logs error and does nothing if address was not registered on startup
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Trigger(addr ADDR) {
-	if eb.isStarted {
-		triggerCh, exists := eb.triggers[addr]
-		if !exists {
-			// ignoring trigger for address which is not registered with this Broadcaster
-			return
-		}
-		select {
-		case triggerCh <- struct{}{}:
-		default:
-		}
-	} else {
+	eb.initSync.Lock()
+	defer eb.initSync.Unlock()
+	if !eb.isStarted {
 		eb.lggr.Debugf("Unstarted; ignoring trigger for %s", addr)
+	}
+	triggerCh, exists := eb.triggers[addr]
+	if !exists {
+		// ignoring trigger for address which is not registered with this Broadcaster
+		return
+	}
+	select {
+	case triggerCh <- struct{}{}:
+	default:
 	}
 }
 

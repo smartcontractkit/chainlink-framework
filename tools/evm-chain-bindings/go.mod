@@ -4,7 +4,10 @@ go 1.22.5
 
 require github.com/stretchr/testify v1.9.0
 
-require github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20240903151153-2a21b170f38d
+require (
+	github.com/ethereum/go-ethereum v1.13.8
+	github.com/smartcontractkit/chainlink/v2 v2.14.0-mercury-20240807.0.20240903151153-2a21b170f38d
+)
 
 require (
 	github.com/DataDog/zstd v1.5.2 // indirect
@@ -13,6 +16,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.10.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
@@ -69,6 +73,7 @@ require (
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240830180817-6a0f3d1e0f9e // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20240717100443-f6226e09bee7 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
 	github.com/supranational/blst v0.3.11 // indirect
@@ -98,12 +103,6 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
-)
-
-require (
-	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
-	github.com/ethereum/go-ethereum v1.13.8
-	github.com/smartcontractkit/chainlink-common v0.2.2-0.20240830180817-6a0f3d1e0f9e // indirect
 )
 
 replace github.com/gogo/protobuf => github.com/regen-network/protobuf v1.3.3-alpha.regen.1
