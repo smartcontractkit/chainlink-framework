@@ -10,8 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
 	commonhex "github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
@@ -33,48 +31,13 @@ const (
 	processHeadTimeout = 10 * time.Minute
 )
 
-var (
-	promNumGasBumps = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_num_gas_bumps",
-		Help: "Number of gas bumps",
-	}, []string{"chainID"})
-
-	promGasBumpExceedsLimit = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_gas_bump_exceeds_limit",
-		Help: "Number of times gas bumping failed from exceeding the configured limit. Any counts of this type indicate a serious problem.",
-	}, []string{"chainID"})
-	promNumConfirmedTxs = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_num_confirmed_transactions",
-		Help: "Total number of confirmed transactions. Note that this can err to be too high since transactions are counted on each confirmation, which can happen multiple times per transaction in the case of re-orgs",
-	}, []string{"chainID"})
-	promTimeUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "tx_manager_time_until_tx_confirmed",
-		Help: "The amount of time elapsed from a transaction being broadcast to being included in a block.",
-		Buckets: []float64{
-			float64(500 * time.Millisecond),
-			float64(time.Second),
-			float64(5 * time.Second),
-			float64(15 * time.Second),
-			float64(30 * time.Second),
-			float64(time.Minute),
-			float64(2 * time.Minute),
-			float64(5 * time.Minute),
-			float64(10 * time.Minute),
-		},
-	}, []string{"chainID"})
-	promBlocksUntilTxConfirmed = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "tx_manager_blocks_until_tx_confirmed",
-		Help: "The amount of blocks that have been mined from a transaction being broadcast to being included in a block.",
-		Buckets: []float64{
-			float64(1),
-			float64(5),
-			float64(10),
-			float64(20),
-			float64(50),
-			float64(100),
-		},
-	}, []string{"chainID"})
-)
+type ConfimerMetrics interface {
+	IncrementNumGasBumps(ctx context.Context)
+	IncrementGasBumpExceedsLimit(ctx context.Context)
+	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
+	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
+	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
+}
 
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
 // Step 1: Mark that all currently pending transaction attempts were broadcast before this block
@@ -95,6 +58,7 @@ type Confirmer[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	txConfig        types.ConfirmerTransactionsConfig
 	dbConfig        types.ConfirmerDatabaseConfig
 	chainID         CID
+	metrics         ConfimerMetrics
 
 	ks               types.KeyStore[ADDR]
 	enabledAddresses []ADDR
@@ -127,6 +91,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector types.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
+	metrics ConfimerMetrics,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -143,6 +108,7 @@ func NewConfirmer[
 		mb:               mailbox.NewSingle[HEAD](),
 		isReceiptNil:     isReceiptNil,
 		stuckTxDetector:  stuckTxDetector,
+		metrics:          metrics,
 	}
 }
 
@@ -368,7 +334,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 		return nil
 	}
 	// Add newly confirmed transactions to the prom metric
-	promNumConfirmedTxs.WithLabelValues(ec.chainID.String()).Add(float64(len(includedTxs)))
+	ec.metrics.IncrementNumConfirmedTxs(ctx, len(includedTxs))
 
 	purgeTxIDs := make([]int64, 0, len(includedTxs))
 	confirmedTxIDs := make([]int64, 0, len(includedTxs))
@@ -381,7 +347,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 			continue
 		}
 		confirmedTxIDs = append(confirmedTxIDs, tx.ID)
-		observeUntilTxConfirmed(ec.chainID, tx.TxAttempts, head)
+		observeUntilTxConfirmed(ctx, ec.metrics, tx.TxAttempts, head)
 	}
 	// Mark the transactions included on-chain with a purge attempt as fatal error with the terminally stuck error message
 	if err := ec.txStore.UpdateTxFatalError(ctx, purgeTxIDs, ec.stuckTxDetector.StuckTxFatalError()); err != nil {
@@ -667,13 +633,13 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) bumpGas(ctx con
 	// if no error, return attempt
 	// if err, continue below
 	if err == nil {
-		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+		ec.metrics.IncrementNumGasBumps(ctx)
 		ec.lggr.Debugw("Rebroadcast bumping fee for tx", append(logFields, "bumpedFee", bumpedFee.String(), "bumpedFeeLimit", bumpedFeeLimit)...)
 		return bumpedAttempt, err
 	}
 
 	if errors.Is(err, fees.ErrBumpFeeExceedsLimit) {
-		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
+		ec.metrics.IncrementGasBumpExceedsLimit(ctx)
 	}
 
 	return bumpedAttempt, fmt.Errorf("error bumping gas: %w", err)
@@ -712,7 +678,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) handleInProgres
 		if err != nil {
 			return fmt.Errorf("could not bump gas for terminally underpriced transaction: %w", err)
 		}
-		promNumGasBumps.WithLabelValues(ec.chainID.String()).Inc()
+		ec.metrics.IncrementNumGasBumps(ctx)
 		lggr.With(
 			"sendError", sendError,
 			"maxGasPriceConfig", ec.feeConfig.MaxFeePrice(),
@@ -861,16 +827,14 @@ func observeUntilTxConfirmed[
 	TX_HASH, BLOCK_HASH chains.Hashable,
 	SEQ chains.Sequence,
 	FEE fees.Fee,
-](chainID CHAIN_ID, attempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
+](ctx context.Context, metrics ConfimerMetrics, attempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
 	for _, attempt := range attempts {
 		// We estimate the time until confirmation by subtracting from the time the tx (not the attempt)
 		// was created. We want to measure the amount of time taken from when a transaction is created
 		// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
 		// were needed to achieve this.
 		duration := time.Since(attempt.Tx.CreatedAt)
-		promTimeUntilTxConfirmed.
-			WithLabelValues(chainID.String()).
-			Observe(float64(duration))
+		metrics.RecordTimeUntilTxConfirmed(ctx, float64(duration))
 
 		// Since a tx can have many attempts, we take the number of blocks to confirm as the block number
 		// of the receipt minus the block number of the first ever broadcast for this transaction.
@@ -882,9 +846,7 @@ func observeUntilTxConfirmed[
 		}
 		if minBroadcastBefore > 0 {
 			blocksElapsed := head.BlockNumber() - minBroadcastBefore
-			promBlocksUntilTxConfirmed.
-				WithLabelValues(chainID.String()).
-				Observe(float64(blocksElapsed))
+			metrics.RecordBlocksUntilTxConfirmed(ctx, float64(blocksElapsed))
 		}
 	}
 }
