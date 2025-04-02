@@ -3,15 +3,14 @@ package txmgr
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 )
 
 var (
@@ -74,9 +73,18 @@ var (
 	}, []string{"chainID"})
 )
 
+type GenericTXMMetrics interface {
+	IncrementNumBroadcastedTxs(ctx context.Context)
+	RecordTimeUntilTxBroadcast(ctx context.Context, duration float64)
+	IncrementNumGasBumps(ctx context.Context)
+	IncrementGasBumpExceedsLimit(ctx context.Context)
+	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
+	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
+	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
+}
+
 type txmMetrics struct {
-	metrics.Labeler
-	chainID                *big.Int
+	chainID                string
 	numBroadcastedTxs      metric.Int64Counter
 	timeUntilBroadcast     metric.Float64Histogram
 	numGasBumps            metric.Int64Counter
@@ -86,7 +94,7 @@ type txmMetrics struct {
 	blocksUntilTxConfirmed metric.Float64Histogram
 }
 
-func NewGenericTxmMetrics(chainID *big.Int) (*txmMetrics, error) {
+func NewGenericTxmMetrics(chainID string) (*txmMetrics, error) {
 	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("tx_manager_num_broadcasted")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register broadcasted txs number metric: %w", err)
@@ -124,7 +132,6 @@ func NewGenericTxmMetrics(chainID *big.Int) (*txmMetrics, error) {
 
 	return &txmMetrics{
 		chainID:                chainID,
-		Labeler:                metrics.NewLabeler().With("chainID", chainID.String()),
 		numBroadcastedTxs:      numBroadcastedTxs,
 		timeUntilBroadcast:     timeUntilBroadcast,
 		numGasBumps:            numGasBumps,
@@ -136,36 +143,36 @@ func NewGenericTxmMetrics(chainID *big.Int) (*txmMetrics, error) {
 }
 
 func (m *txmMetrics) IncrementNumBroadcastedTxs(ctx context.Context) {
-	promNumBroadcasted.WithLabelValues(m.chainID.String()).Add(float64(1))
-	m.numBroadcastedTxs.Add(ctx, 1)
+	promNumBroadcasted.WithLabelValues(m.chainID).Add(float64(1))
+	m.numBroadcastedTxs.Add(ctx, 1, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
 func (m *txmMetrics) RecordTimeUntilTxBroadcast(ctx context.Context, duration float64) {
-	promTimeUntilBroadcast.WithLabelValues(m.chainID.String()).Observe(duration)
-	m.timeUntilBroadcast.Record(ctx, duration)
+	promTimeUntilBroadcast.WithLabelValues(m.chainID).Observe(duration)
+	m.timeUntilBroadcast.Record(ctx, duration, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
 func (m *txmMetrics) IncrementNumGasBumps(ctx context.Context) {
-	promNumGasBumps.WithLabelValues(m.chainID.String()).Add(float64(1))
-	m.numGasBumps.Add(ctx, 1)
+	promNumGasBumps.WithLabelValues(m.chainID).Add(float64(1))
+	m.numGasBumps.Add(ctx, 1, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
 func (m *txmMetrics) IncrementGasBumpExceedsLimit(ctx context.Context) {
-	promGasBumpExceedsLimit.WithLabelValues(m.chainID.String()).Add(float64(1))
-	m.gasBumpExceedsLimit.Add(ctx, 1)
+	promGasBumpExceedsLimit.WithLabelValues(m.chainID).Add(float64(1))
+	m.gasBumpExceedsLimit.Add(ctx, 1, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
 func (m *txmMetrics) IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int) {
-	promNumConfirmedTxs.WithLabelValues(m.chainID.String()).Add(float64(confirmedTransactions))
-	m.numConfirmedTxs.Add(ctx, int64(confirmedTransactions))
+	promNumConfirmedTxs.WithLabelValues(m.chainID).Add(float64(confirmedTransactions))
+	m.numConfirmedTxs.Add(ctx, int64(confirmedTransactions), metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
 func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration float64) {
-	promTimeUntilTxConfirmed.WithLabelValues(m.chainID.String()).Observe(duration)
-	m.timeUntilTxConfirmed.Record(ctx, duration)
+	promTimeUntilTxConfirmed.WithLabelValues(m.chainID).Observe(duration)
+	m.timeUntilTxConfirmed.Record(ctx, duration, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
 func (m *txmMetrics) RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64) {
-	promBlocksUntilTxConfirmed.WithLabelValues(m.chainID.String()).Observe(blocksElapsed)
-	m.blocksUntilTxConfirmed.Record(ctx, blocksElapsed)
+	promBlocksUntilTxConfirmed.WithLabelValues(m.chainID).Observe(blocksElapsed)
+	m.blocksUntilTxConfirmed.Record(ctx, blocksElapsed, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }

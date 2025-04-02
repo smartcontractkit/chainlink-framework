@@ -61,7 +61,7 @@ type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Ha
 	Check(ctx context.Context, l logger.SugaredLogger, tx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], a types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) error
 }
 
-type BroadcasterMetrics interface {
+type broadcasterMetrics interface {
 	IncrementNumBroadcastedTxs(ctx context.Context)
 	RecordTimeUntilTxBroadcast(ctx context.Context, duration float64)
 }
@@ -93,7 +93,7 @@ type Broadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, T
 	feeConfig       types.BroadcasterFeeConfig
 	txConfig        types.BroadcasterTransactionsConfig
 	listenerConfig  types.BroadcasterListenerConfig
-	metrics         BroadcasterMetrics
+	metrics         broadcasterMetrics
 
 	// autoSyncSequence, if set, will cause Broadcaster to fast-forward the sequence
 	// when Start is called
@@ -132,7 +132,7 @@ func NewBroadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable
 	checkerFactory TransmitCheckerFactory[CID, ADDR, THASH, BHASH, SEQ, FEE],
 	autoSyncSequence bool,
 	chainType string,
-	metrics BroadcasterMetrics,
+	metrics broadcasterMetrics,
 ) *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Broadcaster")
 	b := &Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{
@@ -747,7 +747,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) saveFatallyError
 	return eb.txStore.UpdateTxFatalErrorAndDeleteAttempts(ctx, etx)
 }
 
-func observeTimeUntilBroadcast(ctx context.Context, metrics BroadcasterMetrics, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast(ctx context.Context, metrics broadcasterMetrics, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
 	metrics.RecordTimeUntilTxBroadcast(ctx, duration)
 }

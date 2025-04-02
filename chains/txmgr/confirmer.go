@@ -31,7 +31,7 @@ const (
 	processHeadTimeout = 10 * time.Minute
 )
 
-type ConfimerMetrics interface {
+type confimerMetrics interface {
 	IncrementNumGasBumps(ctx context.Context)
 	IncrementGasBumpExceedsLimit(ctx context.Context)
 	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
@@ -58,7 +58,7 @@ type Confirmer[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	txConfig        types.ConfirmerTransactionsConfig
 	dbConfig        types.ConfirmerDatabaseConfig
 	chainID         CID
-	metrics         ConfimerMetrics
+	metrics         confimerMetrics
 
 	ks               types.KeyStore[ADDR]
 	enabledAddresses []ADDR
@@ -91,7 +91,7 @@ func NewConfirmer[
 	lggr logger.Logger,
 	isReceiptNil func(R) bool,
 	stuckTxDetector types.StuckTxDetector[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
-	metrics ConfimerMetrics,
+	metrics confimerMetrics,
 ) *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Confirmer")
 	return &Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]{
@@ -827,7 +827,7 @@ func observeUntilTxConfirmed[
 	TX_HASH, BLOCK_HASH chains.Hashable,
 	SEQ chains.Sequence,
 	FEE fees.Fee,
-](ctx context.Context, metrics ConfimerMetrics, attempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
+](ctx context.Context, metrics confimerMetrics, attempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
 	for _, attempt := range attempts {
 		// We estimate the time until confirmation by subtracting from the time the tx (not the attempt)
 		// was created. We want to measure the amount of time taken from when a transaction is created
