@@ -58,6 +58,10 @@ func (n testNodeConfig) DeathDeclarationDelay() time.Duration {
 	return n.deathDeclarationDelay
 }
 
+func (n testNodeConfig) VerifyChainID() bool {
+	return true
+}
+
 type testNode struct {
 	*node[ID, Head, RPCClient[ID, Head]]
 }
