@@ -44,6 +44,7 @@ type NodeConfig interface {
 	EnforceRepeatableRead() bool
 	DeathDeclarationDelay() time.Duration
 	NewHeadsPollInterval() time.Duration
+	VerifyChainID() bool
 }
 
 type ChainConfig interface {
@@ -306,9 +307,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) createVerifiedConn(ctx context.Context, lggr
 // verifyConn - verifies that current connection is valid: chainID matches, and it's not syncing.
 // Returns desired state if one of the verifications fails. Otherwise, returns nodeStateAlive.
 func (n *node[CHAIN_ID, HEAD, RPC]) verifyConn(ctx context.Context, lggr logger.Logger) nodeState {
-	state := n.verifyChainID(ctx, lggr)
-	if state != nodeStateAlive {
-		return state
+	if n.nodePoolCfg.VerifyChainID() {
+		state := n.verifyChainID(ctx, lggr)
+		if state != nodeStateAlive {
+			return state
+		}
 	}
 
 	if n.nodePoolCfg.NodeIsSyncingEnabled() {

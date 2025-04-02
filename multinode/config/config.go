@@ -26,6 +26,7 @@ type MultiNode struct {
 	FinalizedBlockPollInterval *config.Duration
 	EnforceRepeatableRead      *bool
 	DeathDeclarationDelay      *config.Duration
+	VerifyChainID              *bool
 
 	// Chain Configs
 	NodeNoNewHeadsThreshold      *config.Duration
@@ -73,6 +74,10 @@ func (c *MultiNodeConfig) EnforceRepeatableRead() bool { return *c.MultiNode.Enf
 
 func (c *MultiNodeConfig) DeathDeclarationDelay() time.Duration {
 	return c.MultiNode.DeathDeclarationDelay.Duration()
+}
+
+func (c *MultiNodeConfig) VerifyChainID() bool {
+	return *c.MultiNode.VerifyChainID
 }
 
 func (c *MultiNodeConfig) NodeNoNewHeadsThreshold() time.Duration {
@@ -124,6 +129,9 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	}
 	if f.MultiNode.DeathDeclarationDelay != nil {
 		c.MultiNode.DeathDeclarationDelay = f.MultiNode.DeathDeclarationDelay
+	}
+	if f.MultiNode.VerifyChainID != nil {
+		c.MultiNode.VerifyChainID = f.MultiNode.VerifyChainID
 	}
 
 	// Chain Configs
