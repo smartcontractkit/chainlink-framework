@@ -5,28 +5,21 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder/monitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	wt "github.com/smartcontractkit/chainlink-common/pkg/beholder/capabilities/write_target/pb/platform/write-target"
+	wt "github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform"
 )
-
-// ChainInfo contains the chain information (used as execution context)
-type ChainInfo struct {
-	ChainFamilyName string
-	ChainID         string
-	NetworkName     string
-	NetworkNameFull string
-}
 
 // messageBuilder is a helper component to build monitoring messages
 type messageBuilder struct {
-	ChainInfo ChainInfo
+	ChainInfo monitor.ChainInfo
 	CapInfo   capabilities.CapabilityInfo
 }
 
 // NewMessageBuilder creates a new message builder
-func NewMessageBuilder(chainInfo ChainInfo, capInfo capabilities.CapabilityInfo) *messageBuilder {
+func NewMessageBuilder(chainInfo monitor.ChainInfo, capInfo capabilities.CapabilityInfo) *messageBuilder {
 	return &messageBuilder{
 		ChainInfo: chainInfo,
 		CapInfo:   capInfo,
