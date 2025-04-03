@@ -1,6 +1,5 @@
-// NOTE: file is based on the generic write target capability, but we're slightly modifying it until the two implementations can be merged
-// in particular, we need to invert the calling flow for Aptos so receiver is the entrypoint
-package write_target
+//nolint:gosec,revive // disable G115,revive
+package writetarget
 
 import (
 	"context"
@@ -227,12 +226,19 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	// Source the report ID from the input
 	info.reportInfo.reportID = binary.BigEndian.Uint16(inputs.ID)
 
-	c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteInitiated(info))
+	// TODO: Not sure if I should be returning the error here or just logging it as I am now.
+	err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteInitiated(info))
+	if err != nil {
+		c.lggr.Errorw("failed to emit write initiated", "err", err)
+	}
 
 	// Check whether the report is valid (e.g., not empty)
 	if len(inputs.Report) == 0 {
 		// We received any empty report -- this means we should skip transmission.
-		c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteSkipped(info, "empty report"))
+		err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteSkipped(info, "empty report"))
+		if err != nil {
+			c.lggr.Errorw("failed to emit write skipped", "err", err)
+		}
 		return success(), nil
 	}
 
@@ -290,7 +296,10 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 		// Source the transmitter address from the on-chain state
 		info.reportTransmissionState = state
 
-		c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteConfirmed(info, head))
+		err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteConfirmed(info, head))
+		if err != nil {
+			c.lggr.Errorw("failed to emit write confirmed", "err", err)
+		}
 		return success(), nil
 	}
 
@@ -304,11 +313,15 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 
 	txID, err := c.targetStrategy.TransmitReport(ctx, info.receiver, inputs.Report, inputs.Context, inputs.Signatures, request.Metadata.WorkflowExecutionID)
 	c.lggr.Debugw("Transaction submitted", "request", request, "transaction-id", txID)
-	c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteSent(info, head, txID))
 	if err != nil {
 		msg := builder.buildWriteError(info, 0, "failed to transmit the report", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
+	err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteSent(info, head, txID))
+	if err != nil {
+		c.lggr.Errorw("failed to emit write sent", "err", err)
+	}
+
 	// TODO: implement a background WriteTxConfirmer to periodically source new events/transactions,
 	// relevant to this forwarder), and emit write-tx-accepted/confirmed events.
 
@@ -382,7 +395,10 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 		select {
 		case <-ctx.Done():
 			// We (eventually) failed to confirm the report was transmitted
-			c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteError(&info, 0, "write confirmation - failed", "timed out"))
+			err := c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteError(&info, 0, "write confirmation - failed", "timed out"))
+			if err != nil {
+				lggr.Errorw("failed to emit write error", "err", err)
+			}
 			return
 		case <-ticker.C:
 			// Fetch the latest head from the chain (timestamp)
@@ -394,9 +410,9 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 
 			if !accepted {
 				// Check acceptance status
-				status, accepted, err := checkAcceptedStatus(ctx)
-				if err != nil {
-					lggr.Errorw("failed to check accepted status", "txID", txID, "err", err)
+				status, accepted, statusErr := checkAcceptedStatus(ctx)
+				if statusErr != nil {
+					lggr.Errorw("failed to check accepted status", "txID", txID, "err", statusErr)
 					continue
 				}
 
@@ -413,7 +429,10 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 				// Notice: this functionality is not available in the current CW/TXM API
 				acceptedWithErr := false
 				if acceptedWithErr {
-					// TODO: [Beholder] Emit 'platform.write-target.WriteError' if accepted with an error (surface specific on-chain error)
+					err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteError(&info, 0, "write error", "accepted with error"))
+					if err != nil {
+						lggr.Errorw("failed to emit write error", "err", err)
+					}
 					// Notice: no return, we continue to check for confirmation (tx could be accepted by another node)
 				}
 			}
@@ -437,7 +456,10 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 			// Source the transmitter address from the on-chain state
 			info.reportTransmissionState = state
 
-			c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteConfirmed(&info, head))
+			err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteConfirmed(&info, head))
+			if err != nil {
+				lggr.Errorw("failed to emit write confirmed", "err", err)
+			}
 			return
 		}
 	}

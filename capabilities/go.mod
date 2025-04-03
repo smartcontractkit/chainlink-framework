@@ -3,7 +3,7 @@ module github.com/smartcontractkit/chainlink-framework/capabilities
 go 1.24.0
 
 require (
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250402175937-0977083b40c8
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250403193957-16ffa613b9da
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.30.0
 	go.opentelemetry.io/otel/trace v1.30.0

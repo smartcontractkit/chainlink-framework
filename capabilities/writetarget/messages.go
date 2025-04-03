@@ -1,4 +1,5 @@
-package write_target
+//nolint:gosec // disable G115
+package writetarget
 
 import (
 	"encoding/hex"
