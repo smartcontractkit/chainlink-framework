@@ -48,10 +48,10 @@ type TransmissionState struct {
 type TargetStrategy interface {
 	// QueryTransmissionState defines how the report should be queried
 	// via ChainReader, and how resulting errors should be classified.
-	QueryTransmissionState(ctx context.Context, rec string, workflowExecutionID string, reportID uint16) (*TransmissionState, error)
+	QueryTransmissionState(ctx context.Context, reportID uint16, request capabilities.CapabilityRequest) (*TransmissionState, error)
 	// TransmitReport constructs the tx to transmit the report, and defines
 	// any specific handling for sending the report via ChainWriter.
-	TransmitReport(ctx context.Context, receiver string, report []byte, reportContext []byte, signatures [][]byte, workflowExecutionID string) (string, error)
+	TransmitReport(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (string, error)
 }
 
 var (
@@ -80,7 +80,7 @@ type writeTarget struct {
 	cs               commontypes.ChainService
 	cr               commontypes.ContractReader
 	cw               commontypes.ContractWriter
-	configValidateFn func(config ReqConfig) error
+	configValidateFn func(request capabilities.CapabilityRequest) (string, error)
 
 	nodeAddress      string
 	forwarderAddress string
@@ -102,7 +102,7 @@ type WriteTargetOpts struct {
 	ChainService     commontypes.ChainService
 	ContractReader   commontypes.ContractReader
 	ChainWriter      commontypes.ContractWriter
-	ConfigValidateFn func(config ReqConfig) error
+	ConfigValidateFn func(request capabilities.CapabilityRequest) (string, error)
 
 	NodeAddress      string
 	ForwarderAddress string
@@ -190,23 +190,15 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	// Helper to build monitoring (Beholder) messages
 	builder := NewMessageBuilder(c.chainInfo, capInfo)
 
-	// Parse the request (WT-specific) config
-	var reqConfig ReqConfig
-	err := request.Config.UnwrapTo(&reqConfig)
-	if err != nil {
-		msg := builder.buildWriteError(info, 0, "failed to parse config", err.Error())
-		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
-	}
-
 	// Validate the config
-	err = c.configValidateFn(reqConfig)
+	receiver, err := c.configValidateFn(request)
 	if err != nil {
 		msg := builder.buildWriteError(info, 0, "failed to validate config", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
 	// Source the receiver address from the config
-	info.receiver = reqConfig.Address
+	info.receiver = receiver
 
 	// Source the signed report from the request
 	signedReport, ok := request.Inputs.Underlying[KeySignedReport]
@@ -285,7 +277,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 		"executionID", request.Metadata.WorkflowExecutionID,
 	)
 
-	state, err := c.targetStrategy.QueryTransmissionState(ctx, info.receiver, request.Metadata.WorkflowExecutionID, info.reportInfo.reportID)
+	state, err := c.targetStrategy.QueryTransmissionState(ctx, info.reportInfo.reportID, request)
 
 	if err != nil {
 		msg := builder.buildWriteError(info, 0, "failed to fetch [TransmissionState]", err.Error())
@@ -311,7 +303,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 		"executionID", request.Metadata.WorkflowExecutionID,
 	)
 
-	txID, err := c.targetStrategy.TransmitReport(ctx, info.receiver, inputs.Report, inputs.Context, inputs.Signatures, request.Metadata.WorkflowExecutionID)
+	txID, err := c.targetStrategy.TransmitReport(ctx, inputs.Report, inputs.Context, inputs.Signatures, request)
 	c.lggr.Debugw("Transaction submitted", "request", request, "transaction-id", txID)
 	if err != nil {
 		msg := builder.buildWriteError(info, 0, "failed to transmit the report", err.Error())
@@ -438,7 +430,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 			}
 
 			// Check confirmation status (transmission state)
-			state, err := c.targetStrategy.QueryTransmissionState(ctx, info.receiver, info.request.Metadata.WorkflowExecutionID, info.reportInfo.reportID)
+			state, err := c.targetStrategy.QueryTransmissionState(ctx, info.reportInfo.reportID, info.request)
 			if err != nil {
 				lggr.Errorw("failed to check confirmed status", "txID", txID, "err", err)
 				continue
