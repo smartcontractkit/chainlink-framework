@@ -38,7 +38,7 @@ jobs:
         with:
           args: --config=${{ github.workspace }}/.golangci.yml
           only-new-issues: true
-          version: v1.62.2
+          version: v1.64.2
           working-directory: ${{ matrix.module }}
 
   # Per https://github.com/orgs/community/discussions/4324, we need to capture a matrix-job result
