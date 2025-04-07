@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/monitor"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/monitor"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/data-feeds/on-chain/registry"
 	wt "github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform"

@@ -18,8 +18,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/monitor"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/report/platform"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/monitor"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/report/platform"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
 
 	wt "github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform"

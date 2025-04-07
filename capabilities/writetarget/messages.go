@@ -5,8 +5,8 @@ import (
 	"encoding/hex"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/monitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/monitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	wt "github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform"
