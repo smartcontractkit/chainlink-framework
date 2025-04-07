@@ -9,7 +9,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	beholdercommon "github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 )
 
 // ns returns a namespaced metric name
@@ -104,7 +105,7 @@ func NewMetrics() (*Metrics, error) {
 	// Define new metrics
 	m := &Metrics{}
 
-	meter := beholder.GetMeter()
+	meter := beholdercommon.GetMeter()
 
 	// Create new metrics
 	var err error

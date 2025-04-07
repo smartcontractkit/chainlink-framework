@@ -7,7 +7,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	beholdercommon "github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 )
 
 // TODO: move to another directory / repo
@@ -20,7 +21,7 @@ type GaugeAccBalance struct {
 func NewGaugeAccBalance(unitStr string) (*GaugeAccBalance, error) {
 	name := "account_balance"
 	description := "Balance for configured WT account"
-	gauge, err := beholder.GetMeter().Float64Gauge(name, metric.WithUnit(unitStr), metric.WithDescription(description))
+	gauge, err := beholdercommon.GetMeter().Float64Gauge(name, metric.WithUnit(unitStr), metric.WithDescription(description))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new gauge %s: %+w", name, err)
 	}
