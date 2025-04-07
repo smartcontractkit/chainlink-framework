@@ -10,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/utils"
 )
 
 // ns returns a namespaced metric name
@@ -22,52 +20,52 @@ func ns(name string) string {
 // Define metrics configuration
 var (
 	writeInitiated = struct {
-		basic utils.MetricsInfoCapBasic
+		basic beholder.MetricsInfoCapBasic
 	}{
-		basic: utils.NewMetricsInfoCapBasic(ns("write_initiated"), "platform.write-target.WriteInitiated"),
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_initiated"), "platform.write-target.WriteInitiated"),
 	}
 	writeError = struct {
-		basic utils.MetricsInfoCapBasic
+		basic beholder.MetricsInfoCapBasic
 	}{
-		basic: utils.NewMetricsInfoCapBasic(ns("write_error"), "platform.write-target.WriteError"),
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_error"), "platform.write-target.WriteError"),
 	}
 	writeSent = struct {
-		basic utils.MetricsInfoCapBasic
+		basic beholder.MetricsInfoCapBasic
 		// specific to WriteSent
-		blockTimestamp utils.MetricInfo
-		blockNumber    utils.MetricInfo
+		blockTimestamp beholder.MetricInfo
+		blockNumber    beholder.MetricInfo
 	}{
-		basic: utils.NewMetricsInfoCapBasic(ns("write_sent"), "platform.write-target.WriteSent"),
-		blockTimestamp: utils.MetricInfo{
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_sent"), "platform.write-target.WriteSent"),
+		blockTimestamp: beholder.MetricInfo{
 			Name:        ns("write_sent_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp at the latest sent write (as observed)",
 		},
-		blockNumber: utils.MetricInfo{
+		blockNumber: beholder.MetricInfo{
 			Name:        ns("write_sent_block_number"),
 			Unit:        "",
 			Description: "The block number at the latest sent write (as observed)",
 		},
 	}
 	writeConfirmed = struct {
-		basic utils.MetricsInfoCapBasic
+		basic beholder.MetricsInfoCapBasic
 		// specific to WriteSent
-		blockTimestamp utils.MetricInfo
-		blockNumber    utils.MetricInfo
-		signersNumber  utils.MetricInfo
+		blockTimestamp beholder.MetricInfo
+		blockNumber    beholder.MetricInfo
+		signersNumber  beholder.MetricInfo
 	}{
-		basic: utils.NewMetricsInfoCapBasic(ns("write_confirmed"), "platform.write-target.WriteConfirmed"),
-		blockTimestamp: utils.MetricInfo{
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_confirmed"), "platform.write-target.WriteConfirmed"),
+		blockTimestamp: beholder.MetricInfo{
 			Name:        ns("write_confirmed_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp for latest confirmed write (as observed)",
 		},
-		blockNumber: utils.MetricInfo{
+		blockNumber: beholder.MetricInfo{
 			Name:        ns("write_confirmed_block_number"),
 			Unit:        "",
 			Description: "The block number for latest confirmed write (as observed)",
 		},
-		signersNumber: utils.MetricInfo{
+		signersNumber: beholder.MetricInfo{
 			Name:        ns("write_confirmed_signers_number"),
 			Unit:        "",
 			Description: "The number of signers attached to the processed and confirmed write request",
@@ -79,22 +77,22 @@ var (
 type Metrics struct {
 	// Define on WriteInitiated metrics
 	writeInitiated struct {
-		basic utils.MetricsCapBasic
+		basic beholder.MetricsCapBasic
 	}
 	// Define on WriteError metrics
 	writeError struct {
-		basic utils.MetricsCapBasic
+		basic beholder.MetricsCapBasic
 	}
 	// Define on WriteSent metrics
 	writeSent struct {
-		basic utils.MetricsCapBasic
+		basic beholder.MetricsCapBasic
 		// specific to WriteSent
 		blockTimestamp metric.Int64Gauge
 		blockNumber    metric.Int64Gauge
 	}
 	// Define on WriteConfirmed metrics
 	writeConfirmed struct {
-		basic utils.MetricsCapBasic
+		basic beholder.MetricsCapBasic
 		// specific to WriteConfirmed
 		blockTimestamp metric.Int64Gauge
 		blockNumber    metric.Int64Gauge
@@ -112,19 +110,19 @@ func NewMetrics() (*Metrics, error) {
 	var err error
 
 	// WriteInitiated
-	m.writeInitiated.basic, err = utils.NewMetricsCapBasic(writeInitiated.basic)
+	m.writeInitiated.basic, err = beholder.NewMetricsCapBasic(writeInitiated.basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new basic metrics: %w", err)
 	}
 
 	// WriteError
-	m.writeError.basic, err = utils.NewMetricsCapBasic(writeError.basic)
+	m.writeError.basic, err = beholder.NewMetricsCapBasic(writeError.basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new basic metrics: %w", err)
 	}
 
 	// WriteSent
-	m.writeSent.basic, err = utils.NewMetricsCapBasic(writeSent.basic)
+	m.writeSent.basic, err = beholder.NewMetricsCapBasic(writeSent.basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new basic metrics: %w", err)
 	}
@@ -140,7 +138,7 @@ func NewMetrics() (*Metrics, error) {
 	}
 
 	// WriteConfirmed
-	m.writeConfirmed.basic, err = utils.NewMetricsCapBasic(writeConfirmed.basic)
+	m.writeConfirmed.basic, err = beholder.NewMetricsCapBasic(writeConfirmed.basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new basic metrics: %w", err)
 	}
@@ -222,7 +220,7 @@ func (m *Metrics) OnWriteConfirmed(ctx context.Context, msg *WriteConfirmed, att
 
 // Attributes returns the attributes for the WriteInitiated message to be used in metrics
 func (m *WriteInitiated) Attributes() []attribute.KeyValue {
-	context := utils.ExecutionMetadata{
+	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
 		SourceId: m.MetaSourceId,
 		// Execution Context - Chain
@@ -255,7 +253,7 @@ func (m *WriteInitiated) Attributes() []attribute.KeyValue {
 
 // Attributes returns the attributes for the WriteError message to be used in metrics
 func (m *WriteError) Attributes() []attribute.KeyValue {
-	context := utils.ExecutionMetadata{
+	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
 		SourceId: m.MetaSourceId,
 		// Execution Context - Chain
@@ -291,7 +289,7 @@ func (m *WriteError) Attributes() []attribute.KeyValue {
 
 // Attributes returns the attributes for the WriteSent message to be used in metrics
 func (m *WriteSent) Attributes() []attribute.KeyValue {
-	context := utils.ExecutionMetadata{
+	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
 		SourceId: m.MetaSourceId,
 		// Execution Context - Chain
@@ -324,7 +322,7 @@ func (m *WriteSent) Attributes() []attribute.KeyValue {
 
 // Attributes returns the attributes for the WriteConfirmed message to be used in metrics
 func (m *WriteConfirmed) Attributes() []attribute.KeyValue {
-	context := utils.ExecutionMetadata{
+	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
 		SourceId: m.MetaSourceId,
 		// Execution Context - Chain

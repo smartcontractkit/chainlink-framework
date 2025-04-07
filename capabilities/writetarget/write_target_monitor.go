@@ -23,14 +23,14 @@ const (
 	schemaBasePath     = repoCLLCommon + "/" + versionRefsDevelop + "/pkg/capabilities/writetarget/pb"
 )
 
-// NewWriteTargetMonitor initializes a Beholder client for the Write Target
+// NewMonitor initializes a Beholder client for the Write Target
 //
 // The client is initialized as a BeholderClient extension with a custom ProtoEmitter.
 // The ProtoEmitter is proxied with additional processing for emitted messages. This processing
 // includes decoding messages as specific types and deriving metrics based on the decoded messages.
 // TODO: Report decoding uses the same ABI for EVM and Aptos, however, future chains may need a different
 // decoding scheme. Generalize this in the future to support different chains and decoding schemes.
-func NewWriteTargetMonitor(ctx context.Context, lggr logger.Logger) (*monitor.BeholderClient, error) {
+func NewMonitor(ctx context.Context, lggr logger.Logger) (*monitor.BeholderClient, error) {
 	// Initialize the Beholder client with a local logger a custom Emitter
 	client := beholder.GetClient().ForPackage("write_target")
 

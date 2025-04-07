@@ -266,8 +266,8 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	}
 
 	// Fetch the latest head from the chain (timestamp), retry with a default backoff strategy
-	ctx = context.WithValue(ctx, retry.CtxKeyTracingID, info.request.Metadata.WorkflowExecutionID)
-	head, err := retry.WithRetry(ctx, c.lggr, c.cs.LatestHead)
+	ctx = context.WithValue(ctx, retry.CtxKeyRetryID, info.request.Metadata.WorkflowExecutionID)
+	head, err := retry.With(ctx, c.lggr, c.cs.LatestHead)
 	if err != nil {
 		msg := builder.buildWriteError(info, 0, "failed to fetch the latest head", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
@@ -473,7 +473,7 @@ func (c *writeTarget) asEmittedError(ctx context.Context, e *wt.WriteError, attr
 	// Notice: we always want to log the error
 	err := c.beholder.ProtoEmitter.EmitWithLog(ctx, e, attrKVs...)
 	if err != nil {
-		return errors.Join(fmt.Errorf("failed to emit error: %+w", err), e.AsError())
+		return errors.Join(fmt.Errorf("failed to emit error: %+w", err), e)
 	}
-	return e.AsError()
+	return e
 }

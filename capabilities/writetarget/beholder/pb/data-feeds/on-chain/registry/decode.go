@@ -15,8 +15,6 @@ import (
 	mercury_v4 "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/mercury/v4"
 )
 
-// DecodeAsFeedUpdated decodes a 'platform.write-target.WriteConfirmed' message
-// as a 'data-feeds.registry.ReportProcessed' message
 func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {
 	// Decode the confirmed report (WT -> DF contract event)
 	r, err := platform.Decode(m.Report)
@@ -35,20 +33,14 @@ func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {
 
 	// Iterate over the underlying Mercury reports
 	for _, rf := range *reports {
-		// Notice: we assume that Mercury will be the only source of reports used for Data Feeds,
-		// at least for the foreseeable future. If this assumption changes, we should check the
-		// the report type here (potentially encoded in the feed ID) and decode accordingly.
-
-		// Decode the common Mercury report
-		rm, err := mercury_vX.Decode(rf.Data)
+		// Decode the common Mercury report and get report type
+		rmCommon, err := mercury_vX.Decode(rf.Data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode Mercury report: %w", err)
 		}
 
-		// Parse the report type
-		t := mercury_vX.GetReportType(rm.FeedID)
-
-		// Notice: we publish the DataFeed FeedID, not the unrelying DataStream FeedID
+		// Parse the report type from the common header
+		t := mercury_vX.GetReportType(rmCommon.FeedID)
 		feedID := datafeeds.FeedID(rf.FeedID)
 
 		switch t {
@@ -57,105 +49,76 @@ func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode Mercury v%d report: %w", t, err)
 			}
-
-			msgs = append(msgs, &FeedUpdated{
-				// Event data
-				FeedId:                feedID.String(),
-				ObservationsTimestamp: rm.ObservationsTimestamp,
-				Benchmark:             rm.BenchmarkPrice.Bytes(), // Map big.Int as []byte
-				Report:                rf.Data,
-
-				// Notice: i192 will not fit if scaled number bigger than f64
-				BenchmarkVal: toBenchmarkVal(feedID, rm.BenchmarkPrice),
-
-				// Head data - when was the event produced on-chain
-				BlockHash:      m.BlockHash,
-				BlockHeight:    m.BlockHeight,
-				BlockTimestamp: m.BlockTimestamp,
-
-				// Transaction data - info about the tx that mained the event (optional)
-				// Notice: we skip SOME head/tx data here (unknown), as we map from 'platform.write-target.WriteConfirmed'
-				// and not from tx/event data (e.g., 'platform.write-target.WriteTxConfirmed')
-				TxSender:   m.Transmitter,
-				TxReceiver: m.Forwarder,
-
-				// Execution Context - Source
-				MetaSourceId: m.MetaSourceId,
-
-				// Execution Context - Chain
-				MetaChainFamilyName: m.MetaChainFamilyName,
-				MetaChainId:         m.MetaChainId,
-				MetaNetworkName:     m.MetaNetworkName,
-				MetaNetworkNameFull: m.MetaNetworkNameFull,
-
-				// Execution Context - Workflow (capabilities.RequestMetadata)
-				MetaWorkflowId:               m.MetaWorkflowId,
-				MetaWorkflowOwner:            m.MetaWorkflowOwner,
-				MetaWorkflowExecutionId:      m.MetaWorkflowExecutionId,
-				MetaWorkflowName:             m.MetaWorkflowName,
-				MetaWorkflowDonId:            m.MetaWorkflowDonId,
-				MetaWorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-				MetaReferenceId:              m.MetaReferenceId,
-
-				// Execution Context - Capability
-				MetaCapabilityType:           m.MetaCapabilityType,
-				MetaCapabilityId:             m.MetaCapabilityId,
-				MetaCapabilityTimestampStart: m.MetaCapabilityTimestampStart,
-				MetaCapabilityTimestampEmit:  m.MetaCapabilityTimestampEmit,
-			})
+			// For Mercury v3, include TxSender and TxReceiver
+			msgs = append(msgs, newFeedUpdated(m, feedID, rm.ObservationsTimestamp, rm.BenchmarkPrice, rf.Data, true))
 		case uint16(4):
 			rm, err := mercury_v4.Decode(rf.Data)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode Mercury v%d report: %w", t, err)
 			}
-
-			msgs = append(msgs, &FeedUpdated{
-				// Event data
-				FeedId:                feedID.String(),
-				ObservationsTimestamp: rm.ObservationsTimestamp,
-				Benchmark:             rm.BenchmarkPrice.Bytes(), // Map big.Int as []byte
-				Report:                rf.Data,
-
-				// Notice: i192 will not fit if scaled number bigger than f64
-				BenchmarkVal: toBenchmarkVal(feedID, rm.BenchmarkPrice),
-
-				// Notice: we skip head/tx data here (unknown), as we map from 'platform.write-target.WriteConfirmed'
-				// and not from tx/event data (e.g., 'platform.write-target.WriteTxConfirmed')
-
-				BlockHash:      m.BlockHash,
-				BlockHeight:    m.BlockHeight,
-				BlockTimestamp: m.BlockTimestamp,
-
-				// Execution Context - Source
-				MetaSourceId: m.MetaSourceId,
-
-				// Execution Context - Chain
-				MetaChainFamilyName: m.MetaChainFamilyName,
-				MetaChainId:         m.MetaChainId,
-				MetaNetworkName:     m.MetaNetworkName,
-				MetaNetworkNameFull: m.MetaNetworkNameFull,
-
-				// Execution Context - Workflow (capabilities.RequestMetadata)
-				MetaWorkflowId:               m.MetaWorkflowId,
-				MetaWorkflowOwner:            m.MetaWorkflowOwner,
-				MetaWorkflowExecutionId:      m.MetaWorkflowExecutionId,
-				MetaWorkflowName:             m.MetaWorkflowName,
-				MetaWorkflowDonId:            m.MetaWorkflowDonId,
-				MetaWorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-				MetaReferenceId:              m.MetaReferenceId,
-
-				// Execution Context - Capability
-				MetaCapabilityType:           m.MetaCapabilityType,
-				MetaCapabilityId:             m.MetaCapabilityId,
-				MetaCapabilityTimestampStart: m.MetaCapabilityTimestampStart,
-				MetaCapabilityTimestampEmit:  m.MetaCapabilityTimestampEmit,
-			})
+			// For Mercury v4, skip TxSender and TxReceiver (if not applicable)
+			msgs = append(msgs, newFeedUpdated(m, feedID, rm.ObservationsTimestamp, rm.BenchmarkPrice, rf.Data, false))
 		default:
 			return nil, fmt.Errorf("unsupported Mercury report type: %d", t)
 		}
 	}
 
 	return msgs, nil
+}
+
+// newFeedUpdated creates a FeedUpdated from the given common parameters.
+// If includeTxInfo is true, TxSender and TxReceiver are set.
+func newFeedUpdated(
+	m *wt_msg.WriteConfirmed,
+	feedID datafeeds.FeedID,
+	observationsTimestamp uint32,
+	benchmarkPrice *big.Int,
+	report []byte,
+	includeTxInfo bool,
+) *FeedUpdated {
+	fu := &FeedUpdated{
+		FeedId:                feedID.String(),
+		ObservationsTimestamp: observationsTimestamp,
+		Benchmark:             benchmarkPrice.Bytes(),
+		Report:                report,
+		BenchmarkVal:          toBenchmarkVal(feedID, benchmarkPrice),
+
+		// Head data - when was the event produced on-chain
+		BlockHash:      m.BlockHash,
+		BlockHeight:    m.BlockHeight,
+		BlockTimestamp: m.BlockTimestamp,
+
+		// Execution Context - Source
+		MetaSourceId: m.MetaSourceId,
+
+		// Execution Context - Chain
+		MetaChainFamilyName: m.MetaChainFamilyName,
+		MetaChainId:         m.MetaChainId,
+		MetaNetworkName:     m.MetaNetworkName,
+		MetaNetworkNameFull: m.MetaNetworkNameFull,
+
+		// Execution Context - Workflow (capabilities.RequestMetadata)
+		MetaWorkflowId:               m.MetaWorkflowId,
+		MetaWorkflowOwner:            m.MetaWorkflowOwner,
+		MetaWorkflowExecutionId:      m.MetaWorkflowExecutionId,
+		MetaWorkflowName:             m.MetaWorkflowName,
+		MetaWorkflowDonId:            m.MetaWorkflowDonId,
+		MetaWorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
+		MetaReferenceId:              m.MetaReferenceId,
+
+		// Execution Context - Capability
+		MetaCapabilityType:           m.MetaCapabilityType,
+		MetaCapabilityId:             m.MetaCapabilityId,
+		MetaCapabilityTimestampStart: m.MetaCapabilityTimestampStart,
+		MetaCapabilityTimestampEmit:  m.MetaCapabilityTimestampEmit,
+	}
+
+	if includeTxInfo {
+		fu.TxSender = m.Transmitter
+		fu.TxReceiver = m.Forwarder
+	}
+
+	return fu
 }
 
 // toBenchmarkVal returns the benchmark i192 on-chain value decoded as an double (float64), scaled by number of decimals (e.g., 1e-18)

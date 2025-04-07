@@ -8,8 +8,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/utils"
 )
 
 // TODO: move to another directory / repo
@@ -39,11 +37,11 @@ func (g *GaugeAccBalance) GetAttributes(account string, chainInfo ChainInfo) att
 		attribute.String("account", account),
 
 		// Execution Context - Source
-		attribute.String("source_id", utils.ValOrUnknown(account)), // reusing account as source_id
+		attribute.String("source_id", beholder.ValOrUnknown(account)), // reusing account as source_id
 		// Execution Context - Chain
-		attribute.String("chain_family_name", utils.ValOrUnknown(chainInfo.ChainFamilyName)),
-		attribute.String("chain_id", utils.ValOrUnknown(chainInfo.ChainID)),
-		attribute.String("network_name", utils.ValOrUnknown(chainInfo.NetworkName)),
-		attribute.String("network_name_full", utils.ValOrUnknown(chainInfo.NetworkNameFull)),
+		attribute.String("chain_family_name", beholder.ValOrUnknown(chainInfo.ChainFamilyName)),
+		attribute.String("chain_id", beholder.ValOrUnknown(chainInfo.ChainID)),
+		attribute.String("network_name", beholder.ValOrUnknown(chainInfo.NetworkName)),
+		attribute.String("network_name_full", beholder.ValOrUnknown(chainInfo.NetworkNameFull)),
 	)
 }

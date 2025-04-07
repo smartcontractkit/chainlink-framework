@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/ethereum/go-ethereum v1.14.11
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407190234-6aa49242696f
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407221007-b26aef17d389
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0

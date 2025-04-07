@@ -10,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/utils"
 )
 
 // ns returns a namespaced metric name
@@ -22,18 +20,18 @@ func ns(name string) string {
 // Define metrics configuration
 var (
 	reportProcessed = struct {
-		basic utils.MetricsInfoCapBasic
+		basic beholder.MetricsInfoCapBasic
 		// specific to ReportProcessed
-		blockTimestamp utils.MetricInfo
-		blockNumber    utils.MetricInfo
+		blockTimestamp beholder.MetricInfo
+		blockNumber    beholder.MetricInfo
 	}{
-		basic: utils.NewMetricsInfoCapBasic(ns("report_processed"), "platform.on-chain.forwarder.ReportProcessed"),
-		blockTimestamp: utils.MetricInfo{
+		basic: beholder.NewMetricsInfoCapBasic(ns("report_processed"), "platform.on-chain.forwarder.ReportProcessed"),
+		blockTimestamp: beholder.MetricInfo{
 			Name:        ns("report_processed_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp at the latest confirmed write (as observed)",
 		},
-		blockNumber: utils.MetricInfo{
+		blockNumber: beholder.MetricInfo{
 			Name:        ns("report_processed_block_number"),
 			Unit:        "",
 			Description: "The block number at the latest confirmed write (as observed)",
@@ -45,7 +43,7 @@ var (
 type Metrics struct {
 	// Define on ReportProcessed metrics
 	reportProcessed struct {
-		basic utils.MetricsCapBasic
+		basic beholder.MetricsCapBasic
 		// specific to ReportProcessed
 		blockTimestamp metric.Int64Gauge
 		blockNumber    metric.Int64Gauge
@@ -61,7 +59,7 @@ func NewMetrics() (*Metrics, error) {
 	// Create new metrics
 	var err error
 
-	m.reportProcessed.basic, err = utils.NewMetricsCapBasic(reportProcessed.basic)
+	m.reportProcessed.basic, err = beholder.NewMetricsCapBasic(reportProcessed.basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new basic metrics: %w", err)
 	}
@@ -102,7 +100,7 @@ func (m *Metrics) OnReportProcessed(ctx context.Context, msg *ReportProcessed, a
 
 // Attributes returns the attributes for the ReportProcessed message to be used in metrics
 func (m *ReportProcessed) Attributes() []attribute.KeyValue {
-	context := utils.ExecutionMetadata{
+	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
 		SourceId: m.MetaSourceId,
 		// Execution Context - Chain

@@ -10,8 +10,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/utils"
 )
 
 // ns returns a namespaced metric name
@@ -22,36 +20,36 @@ func ns(name string) string {
 // Define metrics configuration
 var (
 	feedUpdated = struct {
-		basic utils.MetricsInfoCapBasic
+		basic beholder.MetricsInfoCapBasic
 		// specific to FeedUpdated
-		observationsTimestamp utils.MetricInfo
-		duration              utils.MetricInfo // ts.emit - ts.observation
-		benchmark             utils.MetricInfo
-		blockTimestamp        utils.MetricInfo
-		blockNumber           utils.MetricInfo
+		observationsTimestamp beholder.MetricInfo
+		duration              beholder.MetricInfo // ts.emit - ts.observation
+		benchmark             beholder.MetricInfo
+		blockTimestamp        beholder.MetricInfo
+		blockNumber           beholder.MetricInfo
 	}{
-		basic: utils.NewMetricsInfoCapBasic(ns("feed_updated"), "data-feeds.on-chain.registry.FeedUpdated"),
-		observationsTimestamp: utils.MetricInfo{
+		basic: beholder.NewMetricsInfoCapBasic(ns("feed_updated"), "data-feeds.on-chain.registry.FeedUpdated"),
+		observationsTimestamp: beholder.MetricInfo{
 			Name:        ns("feed_updated_observations_timestamp"),
 			Unit:        "ms",
 			Description: "The observations timestamp for the latest confirmed update (as reported)",
 		},
-		duration: utils.MetricInfo{
+		duration: beholder.MetricInfo{
 			Name:        ns("feed_updated_duration"),
 			Unit:        "ms",
 			Description: "The duration (local) since observation to message: 'data-feeds.on-chain.registry.FeedUpdated' emit",
 		},
-		benchmark: utils.MetricInfo{
+		benchmark: beholder.MetricInfo{
 			Name:        ns("feed_updated_benchmark"),
 			Unit:        "",
 			Description: "The benchmark value for the latest confirmed update (as reported)",
 		},
-		blockTimestamp: utils.MetricInfo{
+		blockTimestamp: beholder.MetricInfo{
 			Name:        ns("feed_updated_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp at the latest confirmed update (as observed)",
 		},
-		blockNumber: utils.MetricInfo{
+		blockNumber: beholder.MetricInfo{
 			Name:        ns("feed_updated_block_number"),
 			Unit:        "",
 			Description: "The block number at the latest confirmed update (as observed)",
@@ -63,7 +61,7 @@ var (
 type Metrics struct {
 	// Define on FeedUpdated metrics
 	feedUpdated struct {
-		basic utils.MetricsCapBasic
+		basic beholder.MetricsCapBasic
 		// specific to FeedUpdated
 		observationsTimestamp metric.Int64Gauge
 		duration              metric.Int64Gauge // ts.emit - ts.observation
@@ -82,7 +80,7 @@ func NewMetrics() (*Metrics, error) {
 	// Create new metrics
 	var err error
 
-	m.feedUpdated.basic, err = utils.NewMetricsCapBasic(feedUpdated.basic)
+	m.feedUpdated.basic, err = beholder.NewMetricsCapBasic(feedUpdated.basic)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new basic metrics: %w", err)
 	}
@@ -146,7 +144,7 @@ func (m *Metrics) OnFeedUpdated(ctx context.Context, msg *FeedUpdated, attrKVs .
 
 // Attributes returns the attributes for the FeedUpdated message to be used in metrics
 func (m *FeedUpdated) Attributes() []attribute.KeyValue {
-	context := utils.ExecutionMetadata{
+	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
 		SourceId: m.MetaSourceId,
 		// Execution Context - Chain
