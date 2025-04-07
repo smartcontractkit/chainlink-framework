@@ -9,18 +9,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/monitor"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/data-feeds/on-chain/registry"
-	wt "github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform/on-chain/forwarder"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/data-feeds/on-chain/registry"
+	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform/on-chain/forwarder"
 )
 
 const (
 	repoCLLCommon = "https://raw.githubusercontent.com/smartcontractkit/chainlink-common"
 	// TODO: replace with main when merged
 	versionRefsDevelop = "refs/heads/generalized-monitoring-extraction"
-	schemaBasePath     = repoCLLCommon + "/" + versionRefsDevelop + "/pkg/capabilities/write_target/pb"
+	schemaBasePath     = repoCLLCommon + "/" + versionRefsDevelop + "/pkg/capabilities/writetarget/pb"
 )
 
 // NewWriteTargetMonitor initializes a Beholder client for the Write Target

@@ -6,10 +6,10 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/monitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 
-	wt "github.com/smartcontractkit/chainlink-common/pkg/capabilities/write_target/pb/platform"
+	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
 )
 
 // messageBuilder is a helper component to build monitoring messages
