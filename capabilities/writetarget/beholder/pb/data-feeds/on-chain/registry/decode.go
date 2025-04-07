@@ -7,12 +7,12 @@ import (
 
 	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
 
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/datafeeds"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/platform"
+	"github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/datafeeds"
+	"github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/platform"
 
-	mercury_vX "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/mercury/common"
-	mercury_v3 "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/mercury/v3"
-	mercury_v4 "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/mercury/v4"
+	mercury_vX "github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/mercury/common"
+	mercury_v3 "github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/mercury/v3"
+	mercury_v4 "github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/mercury/v4"
 )
 
 func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {

@@ -19,8 +19,8 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/retry"
+	"github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/platform"
 
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
 )
@@ -266,7 +266,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	}
 
 	// Fetch the latest head from the chain (timestamp), retry with a default backoff strategy
-	ctx = context.WithValue(ctx, retry.CtxKeyRetryID, info.request.Metadata.WorkflowExecutionID)
+	ctx = retry.CtxWithID(ctx, info.request.Metadata.WorkflowExecutionID)
 	head, err := retry.With(ctx, c.lggr, c.cs.LatestHead)
 	if err != nil {
 		msg := builder.buildWriteError(info, 0, "failed to fetch the latest head", err.Error())
