@@ -1,3 +1,4 @@
+//nolint:gosec, revive // disable G115, revive
 package forwarder
 
 import (

@@ -7,10 +7,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-// Report represents a simplified Mercury report which only contains the feedId
+// Report represents a simplified Mercury report which only contains the feedID
 // Used to extract the report type, and to choose the correct decoder
 type Report struct {
-	FeedId [32]byte
+	FeedID [32]byte
 }
 
 var schema = GetSchema()
@@ -24,7 +24,7 @@ func GetSchema() abi.Arguments {
 		return result
 	}
 	return abi.Arguments([]abi.Argument{
-		{Name: "feedId", Type: mustNewType("bytes32")},
+		{Name: "feedID", Type: mustNewType("bytes32")},
 	})
 }
 
@@ -41,9 +41,9 @@ func Decode(report []byte) (*Report, error) {
 	return decoded, nil
 }
 
-// GetReportType returns the report type sourced from the feedId
+// GetReportType returns the report type sourced from the feedID
 // Notice: Data Stream (Asset DON) feed ID and the Data Stream feed ID are separate type of IDs, with different schemas
-func GetReportType(feedId [32]byte) uint16 {
-	// Get the first 2 bytes of the feedId
-	return binary.BigEndian.Uint16(feedId[:2])
+func GetReportType(feedID [32]byte) uint16 {
+	// Get the first 2 bytes of the feedID
+	return binary.BigEndian.Uint16(feedID[:2])
 }

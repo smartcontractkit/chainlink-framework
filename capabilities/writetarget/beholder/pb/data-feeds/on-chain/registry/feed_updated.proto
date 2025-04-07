@@ -1,6 +1,6 @@
 syntax="proto3";
 
-package data_feeds.on_chain.registry;
+package datafeeds.on_chain.registry;
 option go_package = ".;registry";
 
 // The on-chain FeedUpdated event which is extracted from the tx/event data or

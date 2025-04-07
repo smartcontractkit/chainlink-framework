@@ -1,3 +1,4 @@
+//nolint:revive,staticcheck // disable revive, staticcheck
 package monitor
 
 import (

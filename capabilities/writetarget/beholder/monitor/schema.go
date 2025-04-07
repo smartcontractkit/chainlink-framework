@@ -1,3 +1,4 @@
+//nolint:gosimple // disable gosimple
 package monitor
 
 import (
@@ -51,8 +52,7 @@ func toSchemaPath(m proto.Message, basePath string) string {
 
 	// Split the path components (at least one component)
 	pp := strings.Split(protoPath, "/")
-	len := len(pp)
-	pp[len-1] = toSnakeCase(pp[len-1])
+	pp[len(pp)-1] = toSnakeCase(pp[len(pp)-1])
 
 	// Join the path components again
 	protoPath = strings.Join(pp, "/")

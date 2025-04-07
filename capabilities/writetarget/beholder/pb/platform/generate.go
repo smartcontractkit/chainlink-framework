@@ -1,4 +1,4 @@
-package write_target
+package writetarget
 
 //go:generate protoc -I=. --go_out=.  ./write_accepted.proto
 //go:generate protoc -I=. --go_out=.  ./write_confirmed.proto

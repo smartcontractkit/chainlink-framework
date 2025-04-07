@@ -1,4 +1,5 @@
-package write_target
+//nolint:gosec,revive // disable G115, revive
+package writetarget
 
 import (
 	"context"

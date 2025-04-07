@@ -7,7 +7,7 @@ import (
 
 	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
 
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/data_feeds"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/datafeeds"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/platform"
 
 	mercury_vX "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/mercury/common"
@@ -25,7 +25,7 @@ func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {
 	}
 
 	// Decode the underlying Data Feeds reports
-	reports, err := data_feeds.Decode(r.Data)
+	reports, err := datafeeds.Decode(r.Data)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode Data Feeds report: %w", err)
 	}
@@ -46,10 +46,10 @@ func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {
 		}
 
 		// Parse the report type
-		t := mercury_vX.GetReportType(rm.FeedId)
+		t := mercury_vX.GetReportType(rm.FeedID)
 
 		// Notice: we publish the DataFeed FeedID, not the unrelying DataStream FeedID
-		feedID := data_feeds.FeedID(rf.FeedId)
+		feedID := datafeeds.FeedID(rf.FeedID)
 
 		switch t {
 		case uint16(3):
@@ -165,7 +165,7 @@ func DecodeAsFeedUpdated(m *wt_msg.WriteConfirmed) ([]*FeedUpdated, error) {
 // for most use-cases. For big numbers, benchmark bytes should be used instead.
 //
 // Returns `math.NaN()` if report data type not a number, or `+/-Inf` if number doesn't fit in double.
-func toBenchmarkVal(feedID data_feeds.FeedID, val *big.Int) float64 {
+func toBenchmarkVal(feedID datafeeds.FeedID, val *big.Int) float64 {
 	// Return NaN if the value is nil
 	if val == nil {
 		return math.NaN()
@@ -173,7 +173,7 @@ func toBenchmarkVal(feedID data_feeds.FeedID, val *big.Int) float64 {
 
 	// Get the number of decimals from the feed ID
 	t := feedID.GetDataType()
-	decimals, isNumber := data_feeds.GetDecimals(t)
+	decimals, isNumber := datafeeds.GetDecimals(t)
 
 	// Return NaN if the value is not a number
 	if !isNumber {

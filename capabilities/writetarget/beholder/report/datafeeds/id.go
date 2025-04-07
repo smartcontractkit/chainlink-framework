@@ -1,4 +1,4 @@
-package data_feeds
+package datafeeds
 
 import (
 	"encoding/hex"
@@ -41,7 +41,7 @@ func (id FeedID) String() string {
 	return "0x" + hex.EncodeToString(id[:])
 }
 
-// GetReportType returns the report type sourced from the feedId
+// GetReportType returns the report type sourced from the feedID
 //
 // [DF2.0 | Data ID Final Specification](https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?usp=sharing)
 // Byte 0: ID Format - 256 options (base case)
@@ -52,11 +52,11 @@ func (id FeedID) String() string {
 //   - 0x03 = PoR from feeds team
 //   - 0xFF can extend ID format to subsequent bytes, so 0xFF00 is first, then 0xFF01, etc.
 func (id FeedID) GetReportType() uint8 {
-	// Get the first byte of the feedId
+	// Get the first byte of the feedID
 	return id[0]
 }
 
-// GetDecimals returns the number of decimals for the feed, derived from the feedId
+// GetDecimals returns the number of decimals for the feed, derived from the feedID
 //
 // [DF2.0 | Data ID Final Specification](https://docs.google.com/document/d/13ciwTx8lSUfyz1IdETwpxlIVSn1lwYzGtzOBBTpl5Vg/edit?usp=sharing)
 // Byte 7: Data Type - 256 options
@@ -77,7 +77,7 @@ func (id FeedID) GetReportType() uint8 {
 //   - 0x60 = Decimal64
 //   - 0x61-0xFF reserved
 func (id FeedID) GetDataType() uint8 {
-	// Get the 8th byte (index 7) of the feedId
+	// Get the 8th byte (index 7) of the feedID
 	return id[7]
 }
 

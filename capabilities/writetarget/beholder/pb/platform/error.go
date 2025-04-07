@@ -1,4 +1,4 @@
-package write_target
+package writetarget
 
 import (
 	"fmt"

@@ -19,7 +19,7 @@ func GetSchema() abi.Arguments {
 		return result
 	}
 	return abi.Arguments([]abi.Argument{
-		{Name: "feedId", Type: mustNewType("bytes32")},
+		{Name: "feedID", Type: mustNewType("bytes32")},
 		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
 		{Name: "nativeFee", Type: mustNewType("uint192")},
@@ -31,7 +31,7 @@ func GetSchema() abi.Arguments {
 }
 
 type Report struct {
-	FeedId                [32]byte
+	FeedID                [32]byte
 	ObservationsTimestamp uint32
 	BenchmarkPrice        *big.Int
 	ValidFromTimestamp    uint32

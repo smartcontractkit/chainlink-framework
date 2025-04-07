@@ -1,3 +1,4 @@
+//nolint:gosec, revive // disable G115, revive
 package registry
 
 import (
@@ -15,7 +16,7 @@ import (
 
 // ns returns a namespaced metric name
 func ns(name string) string {
-	return fmt.Sprintf("data_feeds_on_chain_registry_%s", name)
+	return fmt.Sprintf("datafeeds_on_chain_registry_%s", name)
 }
 
 // Define metrics configuration

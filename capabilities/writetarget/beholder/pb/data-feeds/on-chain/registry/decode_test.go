@@ -1,3 +1,4 @@
+//nolint:govet, testifylint // disable govet, testifylint
 package registry
 
 import (
@@ -9,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/data_feeds"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/report/datafeeds"
 )
 
 func TestDecodeAsReportProcessed(t *testing.T) {
@@ -220,10 +221,10 @@ func TestToBenchmarkVal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			feedID, err := data_feeds.NewFeedIDFromHex(tt.feedID)
+			feedID, err := datafeeds.NewFeedIDFromHex(tt.feedID)
 			require.NoError(t, err)
 
-			decimals, isNumber := data_feeds.GetDecimals(feedID.GetDataType())
+			decimals, isNumber := datafeeds.GetDecimals(feedID.GetDataType())
 
 			result := toBenchmarkVal(feedID, tt.val)
 			if math.IsNaN(tt.expected) {

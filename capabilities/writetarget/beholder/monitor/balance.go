@@ -117,7 +117,7 @@ func (m *balanceMonitor) HealthReport() map[string]error {
 	return map[string]error{m.Name(): m.Healthy()}
 }
 
-// monitor fn continously updates balances, until stop signal is received.
+// monitor fn continuously updates balances, until stop signal is received.
 func (m *balanceMonitor) start() {
 	defer close(m.done)
 	ctx, cancel := m.stop.NewCtx()

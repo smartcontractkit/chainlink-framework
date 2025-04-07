@@ -1,3 +1,4 @@
+//nolint:govet // disable govet
 package forwarder
 
 import (

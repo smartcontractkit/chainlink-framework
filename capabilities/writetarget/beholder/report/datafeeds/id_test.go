@@ -1,4 +1,4 @@
-package data_feeds
+package datafeeds
 
 import (
 	"testing"
@@ -67,61 +67,61 @@ func TestGetDecimals(t *testing.T) {
 func TestFeedIDGetDataTypeDecimals(t *testing.T) {
 	tests := []struct {
 		name     string
-		feedId   string
+		feedID   string
 		expected uint8
 		isNumber bool
 	}{
 		{
 			name:     "ETH/USD Benchmark Price with 18 decimals",
-			feedId:   "018e16c39e000032000000000000000000000000000000000000000000000000",
+			feedID:   "018e16c39e000032000000000000000000000000000000000000000000000000",
 			expected: 0x32,
 			isNumber: true,
 		},
 		{
 			name:     "BTC/USD Benchmark Price with 8 decimals",
-			feedId:   "01e880c2b3000028000000000000000000000000000000000000000000000000",
+			feedID:   "01e880c2b3000028000000000000000000000000000000000000000000000000",
 			expected: 0x28,
 			isNumber: true,
 		},
 		{
 			name:     "BTC/USD Best Bid Price with 18 decimals",
-			feedId:   "01e880c2b3000132000000000000000000000000000000000000000000000000",
+			feedID:   "01e880c2b3000132000000000000000000000000000000000000000000000000",
 			expected: 0x32,
 			isNumber: true,
 		},
 		{
 			name:     "BTC/USD 24-hour global volume as integer",
-			feedId:   "01e880c2b3000820000000000000000000000000000000000000000000000000",
+			feedID:   "01e880c2b3000820000000000000000000000000000000000000000000000000",
 			expected: 0x20,
 			isNumber: true,
 		},
 		{
 			name:     "ARK BTC NAV value with 18 decimals",
-			feedId:   "018933b5e4001032000000000000000000000000000000000000000000000000",
+			feedID:   "018933b5e4001032000000000000000000000000000000000000000000000000",
 			expected: 0x32,
 			isNumber: true,
 		},
 		{
 			name:     "ARK BTC NAV issuer name as a string",
-			feedId:   "018933b5e4001101000000000000000000000000000000000000000000000000",
+			feedID:   "018933b5e4001101000000000000000000000000000000000000000000000000",
 			expected: 0x01,
 			isNumber: false,
 		},
 		{
 			name:     "ARK BTC NAV registry location as an address",
-			feedId:   "018933b5e4001202000000000000000000000000000000000000000000000000",
+			feedID:   "018933b5e4001202000000000000000000000000000000000000000000000000",
 			expected: 0x02,
 			isNumber: false,
 		},
 		{
 			name:     "X/Y Price with 18 decimals",
-			feedId:   "011e22d6bf000332000000000000000000000000000000000000000000000000",
+			feedID:   "011e22d6bf000332000000000000000000000000000000000000000000000000",
 			expected: 0x32,
 			isNumber: true,
 		},
 		{
 			name:     "X/Y Price with 8 decimals",
-			feedId:   "01a80ff216000328000000000000000000000000000000000000000000000000",
+			feedID:   "01a80ff216000328000000000000000000000000000000000000000000000000",
 			expected: 0x28,
 			isNumber: true,
 		},
@@ -129,10 +129,10 @@ func TestFeedIDGetDataTypeDecimals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			feedId, err := NewFeedIDFromHex(tt.feedId)
+			feedID, err := NewFeedIDFromHex(tt.feedID)
 			require.NoError(t, err)
 
-			dataType := feedId.GetDataType()
+			dataType := feedID.GetDataType()
 			require.Equal(t, tt.expected, dataType)
 
 			decimals, isNumber := GetDecimals(dataType)

@@ -1,7 +1,7 @@
 syntax="proto3";
 
 package platform.write_target;
-option go_package = ".;write_target";
+option go_package = ".;writetarget";
 
 // WT skipped the write request
 message WriteSkipped {

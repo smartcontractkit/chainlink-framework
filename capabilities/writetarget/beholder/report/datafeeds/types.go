@@ -1,4 +1,4 @@
-package data_feeds
+package datafeeds
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 // This is ABI encoding - abi: "(bytes32 FeedID, bytes RawReport)[] Reports" (set in workflow)
 // Encoded with: https://github.com/smartcontractkit/chainlink/blob/develop/core/services/relay/evm/cap_encoder.go
 type FeedReport struct {
-	FeedId [32]byte
+	FeedID [32]byte
 	Data   []byte
 }
 
@@ -31,7 +31,7 @@ func GetSchema() abi.Arguments {
 		// TODO: why is the workflow encoder_config "(bytes32 FeedID, bytes RawReport)[] Reports"?
 		{
 			Type: mustNewType("tuple(bytes32, bytes)[]", "", []abi.ArgumentMarshaling{
-				{Name: "feedId", Type: "bytes32"},
+				{Name: "feedID", Type: "bytes32"},
 				{Name: "data", Type: "bytes"},
 			}),
 		},
