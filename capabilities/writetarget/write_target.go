@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/monitor"
@@ -118,8 +120,8 @@ type ReqConfig struct {
 // NewWriteTargetID returns the capability ID for the write target
 func NewWriteTargetID(chainFamilyName, networkName, chainID, version string) (string, error) {
 	// Input args should not be empty
-	if chainFamilyName == "" || version == "" {
-		return "", fmt.Errorf("invalid input: chainFamilyName, and version must not be empty")
+	if version == "" {
+		return "", fmt.Errorf("version must not be empty")
 	}
 
 	// Network ID: network name is optional, if not provided, use the chain ID
@@ -129,6 +131,11 @@ func NewWriteTargetID(chainFamilyName, networkName, chainID, version string) (st
 	}
 	if networkID == "" || networkID == "unknown" {
 		networkID = chainID
+	}
+
+	// allow for chain family to be empty
+	if chainFamilyName == "" {
+		return fmt.Sprintf("%s-%s@%s", CapabilityName, networkID, version), nil
 	}
 
 	return fmt.Sprintf("%s_%s-%s@%s", CapabilityName, chainFamilyName, networkID, version), nil
@@ -346,12 +353,12 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 
 	// Timeout for the confirmation process
 	timeout := c.config.ConfirmerTimeout.Duration()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), timeout)
 	defer cancel()
 
 	// Retry interval for the confirmation process
 	interval := c.config.ConfirmerPollPeriod.Duration()
-	ticker := time.NewTicker(interval)
+	ticker := services.NewTicker(interval)
 	defer ticker.Stop()
 
 	// Helper to build monitoring (Beholder) messages
@@ -380,9 +387,6 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 		return status, false, nil
 	}
 
-	// Store the acceptance status
-	accepted := false
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -400,34 +404,24 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 				continue
 			}
 
-			if !accepted {
-				// Check acceptance status
-				status, accepted, statusErr := checkAcceptedStatus(ctx)
-				if statusErr != nil {
-					lggr.Errorw("failed to check accepted status", "txID", txID, "err", statusErr)
-					continue
-				}
-
-				if !accepted {
-					lggr.Infow("not accepted yet", "txID", txID, "status", status)
-					continue
-				}
-
-				lggr.Infow("accepted", "txID", txID, "status", status)
-				// Notice: report write confirmation is only possible after a tx is accepted without an error
-				// TODO: [Beholder] Emit 'platform.write-target.WriteAccepted' (useful to source tx hash, block number, and tx status/error)
-
-				// TODO: check if accepted with an error (e.g., on-chain revert)
-				// Notice: this functionality is not available in the current CW/TXM API
-				acceptedWithErr := false
-				if acceptedWithErr {
-					err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteError(&info, 0, "write error", "accepted with error"))
-					if err != nil {
-						lggr.Errorw("failed to emit write error", "err", err)
-					}
-					// Notice: no return, we continue to check for confirmation (tx could be accepted by another node)
-				}
+			// Check acceptance status
+			status, accepted, statusErr := checkAcceptedStatus(ctx)
+			if statusErr != nil {
+				lggr.Errorw("failed to check accepted status", "txID", txID, "err", statusErr)
+				continue
 			}
+
+			if !accepted {
+				lggr.Infow("not accepted yet", "txID", txID, "status", status)
+				continue
+			}
+
+			lggr.Infow("accepted", "txID", txID, "status", status)
+			// Notice: report write confirmation is only possible after a tx is accepted without an error
+			// TODO: [Beholder] Emit 'platform.write-target.WriteAccepted' (useful to source tx hash, block number, and tx status/error)
+
+			// TODO: check if accepted with an error (e.g., on-chain revert)
+			// Notice: this functionality is not available in the current CW/TXM API
 
 			// Check confirmation status (transmission state)
 			state, err := c.targetStrategy.QueryTransmissionState(ctx, info.reportInfo.reportID, info.request)
@@ -471,7 +465,7 @@ func (c *writeTarget) asEmittedError(ctx context.Context, e *wt.WriteError, attr
 	// Notice: we always want to log the error
 	err := c.beholder.ProtoEmitter.EmitWithLog(ctx, e, attrKVs...)
 	if err != nil {
-		return fmt.Errorf("failed to emit error: %+w", err)
+		return errors.Join(fmt.Errorf("failed to emit error: %+w", err), e.AsError())
 	}
 	return e.AsError()
 }
