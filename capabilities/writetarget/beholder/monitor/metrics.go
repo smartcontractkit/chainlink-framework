@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder/utils"
 )
 
+// TODO: move to another directory / repo
 // Define a new gauge metric for account balance
 type GaugeAccBalance struct {
 	// account_balance

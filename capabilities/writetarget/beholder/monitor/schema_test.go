@@ -38,7 +38,7 @@ func TestToSchemaPath(t *testing.T) {
 		},
 		{
 			input:    &registry.FeedUpdated{},
-			expected: "/<base-path>/data-feeds/on-chain/registry/feed_updated.proto",
+			expected: "/<base-path>/datafeeds/on-chain/registry/feed_updated.proto",
 		},
 	}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 )
 
+// TODO: Move this package to a more appropriate location
 // ChainInfo contains the chain information (used as execution context)
 type ChainInfo struct {
 	ChainFamilyName string

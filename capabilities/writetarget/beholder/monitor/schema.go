@@ -11,6 +11,8 @@ import (
 	"google.golang.org/protobuf/runtime/protoimpl"
 )
 
+// TODO: move to another directory / repo
+
 const (
 	AttrKeyBeholderDataSchema = "beholder_data_schema"
 	AttrKeyBeholderEntity     = "beholder_entity"
