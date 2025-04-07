@@ -35,13 +35,13 @@ func TestNewWriteTargetID(t *testing.T) {
 			expectError:     false,
 		},
 		{
-			name:            "Invalid input with empty chainFamilyName",
+			name:            "Valid input with empty chainFamilyName",
 			chainFamilyName: "",
-			networkName:     "mainnet",
+			networkName:     "ethereum-mainnet",
 			chainID:         "1",
 			version:         "1.0.0",
-			expected:        "",
-			expectError:     true,
+			expected:        "write-ethereum-mainnet@1.0.0",
+			expectError:     false,
 		},
 		{
 			name:            "Invalid input with empty version",

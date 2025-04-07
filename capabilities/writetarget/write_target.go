@@ -171,7 +171,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 
 	// Trace the execution
 	attrs := c.traceAttributes(request.Metadata.WorkflowExecutionID)
-	_, span := c.beholder.Tracer.Start(ctx, "Execute", trace.WithAttributes(attrs...))
+	ctx, span := c.beholder.Tracer.Start(ctx, "Execute", trace.WithAttributes(attrs...))
 	defer span.End()
 
 	// Notice: error skipped as implementation always returns nil
@@ -291,7 +291,15 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
-	if state != nil {
+	switch state.Status {
+	case TransmissionStateNotAttempted:
+		c.lggr.Debugw("Transmission not attempted yet, retrying", "reportID", info.reportInfo.reportID)
+	case TransmissionStateFailed:
+		c.lggr.Debugw("Tranmissions previously failed, retrying", "reportID", info.reportInfo.reportID)
+	case TransmissionStateFatal:
+		msg := builder.buildWriteError(info, 0, "Transmission attempt fatal", state.Err.Error())
+		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
+	case TransmissionStateSucceeded:
 		// Source the transmitter address from the on-chain state
 		info.reportTransmissionState = state
 
