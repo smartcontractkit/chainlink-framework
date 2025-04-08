@@ -108,7 +108,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
 	}
 	s.setState(nodeStateDialed)
 
-	if s.chainID.String() == "0" {
+	if s.chainID.String() == fmt.Sprint(NullClientChainID) {
 		// Skip verification if chainID is zero
 		s.log.Warn("sendonly rpc ChainID verification skipped")
 	} else {
