@@ -9,7 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-evm/capabilities/writetarget/report/datafeeds"
+	"github.com/smartcontractkit/chainlink-evm/pkg/report/datafeeds"
 	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/pb/platform"
 )
 
