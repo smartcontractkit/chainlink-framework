@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 // exampleFunc is a function type used for testing retry strategies

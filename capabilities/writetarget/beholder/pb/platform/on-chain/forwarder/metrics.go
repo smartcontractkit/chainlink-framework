@@ -103,23 +103,23 @@ func (m *Metrics) OnReportProcessed(ctx context.Context, msg *ReportProcessed, a
 func (m *ReportProcessed) Attributes() []attribute.KeyValue {
 	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
-		SourceId: m.MetaSourceId,
+		SourceID: m.MetaSourceId,
 		// Execution Context - Chain
 		ChainFamilyName: m.MetaChainFamilyName,
-		ChainId:         m.MetaChainId,
+		ChainID:         m.MetaChainId,
 		NetworkName:     m.MetaNetworkName,
 		NetworkNameFull: m.MetaNetworkNameFull,
 		// Execution Context - Workflow (capabilities.RequestMetadata)
-		WorkflowId:               m.MetaWorkflowId,
+		WorkflowID:               m.MetaWorkflowId,
 		WorkflowOwner:            m.MetaWorkflowOwner,
-		WorkflowExecutionId:      m.MetaWorkflowExecutionId,
+		WorkflowExecutionID:      m.MetaWorkflowExecutionId,
 		WorkflowName:             m.MetaWorkflowName,
-		WorkflowDonId:            m.MetaWorkflowDonId,
+		WorkflowDonID:            m.MetaWorkflowDonId,
 		WorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		ReferenceId:              m.MetaReferenceId,
+		ReferenceID:              m.MetaReferenceId,
 		// Execution Context - Capability
 		CapabilityType: m.MetaCapabilityType,
-		CapabilityId:   m.MetaCapabilityId,
+		CapabilityID:   m.MetaCapabilityId,
 	}
 
 	attrs := []attribute.KeyValue{

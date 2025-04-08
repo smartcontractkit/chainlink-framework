@@ -1,12 +1,14 @@
+//nolint:gosec // disable G115
 package beholder
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 // MetricInfo is a struct for metrics information

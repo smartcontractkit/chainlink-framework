@@ -6,7 +6,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b
-	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250407230636-a68528440eb2
+	github.com/smartcontractkit/chainlink-evm/capabilities v0.0.0-20250408001113-f835ed8de109
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0
@@ -22,7 +22,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.3.0 // indirect
-	github.com/ethereum/go-ethereum v1.15.7 // indirect
+	github.com/ethereum/go-ethereum v1.15.3 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.13.0 // indirect
@@ -42,8 +42,8 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.21.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
-	github.com/prometheus/common v0.63.0 // indirect
-	github.com/prometheus/procfs v0.16.0 // indirect
+	github.com/prometheus/common v0.62.0 // indirect
+	github.com/prometheus/procfs v0.15.1 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
