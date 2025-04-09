@@ -7,6 +7,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
+type QueryType string
+
+const (
+	Create QueryType = "create"
+	Read   QueryType = "read"
+	Del    QueryType = "delete"
+)
+
 var (
 	SqlLatencyBuckets = []float64{
 		float64(1 * time.Millisecond),
