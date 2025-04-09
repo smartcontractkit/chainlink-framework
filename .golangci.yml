@@ -7,7 +7,6 @@ linters:
     - errname
     - errorlint
     - exhaustive
-    - exportloopref
     - fatcontext
     - ginkgolinter
     - gocritic
