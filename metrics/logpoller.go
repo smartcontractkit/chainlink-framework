@@ -34,13 +34,13 @@ var (
 		Name:    "log_poller_query_duration",
 		Help:    "Measures duration of Log Poller's queries fetching logs",
 		Buckets: SqlLatencyBuckets,
-	}, []string{"chainID", "query", "type"})
+	}, []string{"chainFamily", "chainID", "query", "type"})
 	LpQueryDataSets = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "log_poller_query_dataset_size",
 		Help: "Measures size of the datasets returned by Log Poller's queries",
-	}, []string{"chainID", "query", "type"})
+	}, []string{"chainFamily", "chainID", "query", "type"})
 	LpLogsInserted = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "log_poller_logs_inserted",
 		Help: "Counter to track number of logs inserted by Log Poller",
-	}, []string{"chainID"})
+	}, []string{"chainFamily", "chainID"})
 )
