@@ -6,8 +6,8 @@ import (
 )
 
 var (
-	AccountBalance = promauto.NewGaugeVec(
-		prometheus.GaugeOpts{Name: "account_balance", Help: "Account balances"},
-		[]string{"account", "chainID", "chainFamily", "denomination"},
+	NodeBalance = promauto.NewGaugeVec(
+		prometheus.GaugeOpts{Name: "node_balance", Help: "Account balances"},
+		[]string{"account", "chainID", "chainFamily"},
 	)
 )
