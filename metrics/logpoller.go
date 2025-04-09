@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	SqlLatencyBuckets = []float64{
+	sqlLatencyBuckets = []float64{
 		float64(1 * time.Millisecond),
 		float64(5 * time.Millisecond),
 		float64(10 * time.Millisecond),
@@ -41,7 +41,7 @@ var (
 	LpQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "log_poller_query_duration",
 		Help:    "Measures duration of Log Poller's queries fetching logs",
-		Buckets: SqlLatencyBuckets,
+		Buckets: sqlLatencyBuckets,
 	}, []string{"chainFamily", "chainID", "query", "type"})
 	LpQueryDataSets = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "log_poller_query_dataset_size",
