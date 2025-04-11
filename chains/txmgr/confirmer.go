@@ -347,7 +347,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 			continue
 		}
 		confirmedTxIDs = append(confirmedTxIDs, tx.ID)
-		observeUntilTxConfirmed(ctx, ec.metrics, tx.TxAttempts, head)
+		observeUntilTxConfirmed(ctx, ec.metrics, tx, head)
 	}
 	// Mark the transactions included on-chain with a purge attempt as fatal error with the terminally stuck error message
 	if err := ec.txStore.UpdateTxFatalError(ctx, purgeTxIDs, ec.stuckTxDetector.StuckTxFatalError()); err != nil {
@@ -819,34 +819,35 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) sendEmptyTransa
 	return txhash, nil
 }
 
-// observeUntilTxConfirmed observes the promBlocksUntilTxConfirmed metric for each confirmed
-// transaction.
+// observeUntilTxConfirmed observes the timeUntilTxConfirmed and blocksUntilTxConfirmed metrics for each confirmed transaction.
 func observeUntilTxConfirmed[
 	CHAIN_ID chains.ID,
 	ADDR chains.Hashable,
 	TX_HASH, BLOCK_HASH chains.Hashable,
 	SEQ chains.Sequence,
 	FEE fees.Fee,
-](ctx context.Context, metrics confimerMetrics, attempts []types.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
-	for _, attempt := range attempts {
-		// We estimate the time until confirmation by subtracting from the time the tx (not the attempt)
-		// was created. We want to measure the amount of time taken from when a transaction is created
-		// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
-		// were needed to achieve this.
-		duration := time.Since(attempt.Tx.CreatedAt)
-		metrics.RecordTimeUntilTxConfirmed(ctx, float64(duration))
+](ctx context.Context, metrics confimerMetrics, tx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
+	if tx == nil {
+		return
+	}
+	// We estimate the time until confirmation by subtracting from the time the tx (not the attempt)
+	// was created. We want to measure the amount of time taken from when a transaction is created
+	// via e.g Txm.CreateTransaction to when it is confirmed on-chain, regardless of how many attempts
+	// were needed to achieve this.
+	duration := time.Since(tx.CreatedAt)
+	metrics.RecordTimeUntilTxConfirmed(ctx, float64(duration))
 
-		// Since a tx can have many attempts, we take the number of blocks to confirm as the block number
-		// of the receipt minus the block number of the first ever broadcast for this transaction.
-		var minBroadcastBefore int64
-		for _, a := range attempt.Tx.TxAttempts {
-			if b := a.BroadcastBeforeBlockNum; b != nil && *b < minBroadcastBefore {
-				minBroadcastBefore = *b
-			}
+	// Since a tx can have many attempts, we take the number of blocks to confirm as the current block number
+	// minus the block number of the first ever broadcast for this transaction.
+	var minBroadcastBefore int64
+	for _, a := range tx.TxAttempts {
+		if b := a.BroadcastBeforeBlockNum; b != nil && *b < minBroadcastBefore {
+			minBroadcastBefore = *b
 		}
-		if minBroadcastBefore > 0 {
-			blocksElapsed := head.BlockNumber() - minBroadcastBefore
-			metrics.RecordBlocksUntilTxConfirmed(ctx, float64(blocksElapsed))
-		}
+	}
+
+	if minBroadcastBefore > 0 {
+		blocksElapsed := head.BlockNumber() - minBroadcastBefore
+		metrics.RecordBlocksUntilTxConfirmed(ctx, float64(blocksElapsed))
 	}
 }
