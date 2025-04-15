@@ -737,9 +737,9 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s: %w", transactionID, err)
 	}
 
-	gasUsed := receipt.GetFeeUsed()
+	gasUsed := new(big.Int).SetUint64(receipt.GetFeeUsed())
 	price := receipt.GetEffectiveGasPrice()
-	totalFee := new(big.Int).Mul(big.NewInt(int64(gasUsed)), price)
+	totalFee := new(big.Int).Mul(gasUsed, price)
 
 	status, err := b.GetTransactionStatus(ctx, transactionID)
 	if err != nil {
