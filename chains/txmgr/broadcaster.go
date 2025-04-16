@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"github.com/jpillora/backoff"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 	"gopkg.in/guregu/null.v4"
 
@@ -43,22 +41,6 @@ const (
 	hederaChainType = "hedera"
 )
 
-var (
-	promTimeUntilBroadcast = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: "tx_manager_time_until_tx_broadcast",
-		Help: "The amount of time elapsed from when a transaction is enqueued to until it is broadcast.",
-		Buckets: []float64{
-			float64(500 * time.Millisecond),
-			float64(time.Second),
-			float64(5 * time.Second),
-			float64(15 * time.Second),
-			float64(30 * time.Second),
-			float64(time.Minute),
-			float64(2 * time.Minute),
-		},
-	}, []string{"chainID"})
-)
-
 var ErrTxRemoved = errors.New("tx removed")
 
 type ProcessUnstartedTxs[ADDR chains.Hashable] func(ctx context.Context, fromAddress ADDR) (retryable bool, err error)
@@ -77,6 +59,11 @@ type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Ha
 	// should not be sent, other errors (for example connection or other unexpected errors) should
 	// be logged and swallowed.
 	Check(ctx context.Context, l logger.SugaredLogger, tx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], a types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) error
+}
+
+type broadcasterMetrics interface {
+	IncrementNumBroadcastedTxs(ctx context.Context)
+	RecordTimeUntilTxBroadcast(ctx context.Context, duration float64)
 }
 
 // Broadcaster monitors txes for transactions that need to
@@ -106,6 +93,7 @@ type Broadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, T
 	feeConfig       types.BroadcasterFeeConfig
 	txConfig        types.BroadcasterTransactionsConfig
 	listenerConfig  types.BroadcasterListenerConfig
+	metrics         broadcasterMetrics
 
 	// autoSyncSequence, if set, will cause Broadcaster to fast-forward the sequence
 	// when Start is called
@@ -144,6 +132,7 @@ func NewBroadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable
 	checkerFactory TransmitCheckerFactory[CID, ADDR, THASH, BHASH, SEQ, FEE],
 	autoSyncSequence bool,
 	chainType string,
+	metrics broadcasterMetrics,
 ) *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE] {
 	lggr = logger.Named(lggr, "Broadcaster")
 	b := &Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]{
@@ -161,6 +150,7 @@ func NewBroadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable
 		checkerFactory:   checkerFactory,
 		autoSyncSequence: autoSyncSequence,
 		sequenceTracker:  sequenceTracker,
+		metrics:          metrics,
 	}
 
 	b.processUnstartedTxsImpl = b.processUnstartedTxs
@@ -532,11 +522,12 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		// In all scenarios, the correct thing to do is assume success for now
 		// and hand off to the confirmer to get the receipt (or mark as
 		// failed).
-		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
+		observeTimeUntilBroadcast(ctx, eb.metrics, etx.CreatedAt, time.Now())
 		err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, types.TxAttemptBroadcast)
 		if err != nil {
 			return err, true
 		}
+		eb.metrics.IncrementNumBroadcastedTxs(ctx)
 		// Increment sequence if successfully broadcasted
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 		return err, true
@@ -601,6 +592,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 			if err != nil {
 				return err, true
 			}
+			eb.metrics.IncrementNumBroadcastedTxs(ctx)
 			// Increment sequence if successfully broadcasted
 			eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
 			return err, true
@@ -755,7 +747,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) saveFatallyError
 	return eb.txStore.UpdateTxFatalErrorAndDeleteAttempts(ctx, etx)
 }
 
-func observeTimeUntilBroadcast[CHAIN_ID chains.ID](chainID CHAIN_ID, createdAt, broadcastAt time.Time) {
+func observeTimeUntilBroadcast(ctx context.Context, metrics broadcasterMetrics, createdAt, broadcastAt time.Time) {
 	duration := float64(broadcastAt.Sub(createdAt))
-	promTimeUntilBroadcast.WithLabelValues(chainID.String()).Observe(duration)
+	metrics.RecordTimeUntilTxBroadcast(ctx, duration)
 }
