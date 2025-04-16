@@ -51,4 +51,8 @@ var (
 		Name: "log_poller_logs_inserted",
 		Help: "Counter to track number of logs inserted by Log Poller",
 	}, []string{"chainFamily", "chainID"})
+	LpBlocksInserted = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "log_poller_blocks_inserted",
+		Help: "Counter to track number of blocks inserted by Log Poller",
+	}, []string{"chainFamily", "chainID"})
 )

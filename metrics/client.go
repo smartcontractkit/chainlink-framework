@@ -10,7 +10,7 @@ import (
 var (
 	RPCCallLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "rpc_call_latency",
-		Help: "The duration of an RPC call in nanoseconds",
+		Help: "The duration of an RPC call in milliseconds",
 		Buckets: []float64{
 			float64(50 * time.Millisecond),
 			float64(100 * time.Millisecond),
@@ -21,5 +21,5 @@ var (
 			float64(4 * time.Second),
 			float64(8 * time.Second),
 		},
-	}, []string{"ChainFamily", "ChainID", "rpcUrl", "isSendOnly", "success", "rpcCallName"})
+	}, []string{"chainFamily", "chainID", "rpcUrl", "isSendOnly", "success", "rpcCallName"})
 )
