@@ -55,13 +55,13 @@ func TestStartSendOnlyNode(t *testing.T) {
 		tests.AssertEventually(t, func() bool { return s.State() == nodeStateUnusable })
 		tests.RequireLogMessage(t, observedLogs, "Dial failed: SendOnly Node is unusable")
 	})
-	t.Run("Default ChainID(0) produces warn and skips checks", func(t *testing.T) {
+	t.Run("Default ChainID(1399100) produces warn and skips checks", func(t *testing.T) {
 		t.Parallel()
 		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
 		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil).Once()
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), NewIDFromInt(0), client)
+		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), NewIDFromInt(1399100), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
