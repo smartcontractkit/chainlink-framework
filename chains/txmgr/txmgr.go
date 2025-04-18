@@ -57,6 +57,7 @@ type TxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
 	GetTransactionStatus(ctx context.Context, transactionID string) (state commontypes.TransactionStatus, err error)
+	GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error)
 }
 
 type TxmV2Wrapper[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
@@ -730,6 +731,37 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionStatus(c
 	}
 }
 
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error) {
+	receipt, err := b.txStore.FindReceiptWithIdempotencyKey(ctx, transactionID, b.chainID)
+	if err != nil {
+		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s: %w", transactionID, err)
+	}
+
+	// This check is required since a no-rows error returns nil err
+	if receipt == nil {
+		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s", transactionID)
+	}
+
+	gasUsed := new(big.Int).SetUint64(receipt.GetFeeUsed())
+	price := receipt.GetEffectiveGasPrice()
+	totalFee := new(big.Int).Mul(gasUsed, price)
+
+	status, err := b.GetTransactionStatus(ctx, transactionID)
+	if err != nil {
+		return fee, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID, err)
+	}
+
+	if status != commontypes.Finalized {
+		return fee, fmt.Errorf("tx status is not finalized")
+	}
+
+	fee = &commontypes.TransactionFee{
+		TransactionFee: totalFee,
+	}
+
+	return fee, nil
+}
+
 // Deprecated: use txmgrtest.ErrTxManager
 type NullTxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] struct {
 	ErrMsg string
@@ -808,6 +840,10 @@ func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) CountTransactio
 }
 
 func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionStatus(ctx context.Context, transactionID string) (status commontypes.TransactionStatus, err error) {
+	return
+}
+
+func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error) {
 	return
 }
 
