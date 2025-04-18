@@ -737,6 +737,11 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s: %w", transactionID, err)
 	}
 
+	// This check is required since a no-rows error returns nil err
+	if receipt == nil {
+		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s", transactionID)
+	}
+
 	gasUsed := new(big.Int).SetUint64(receipt.GetFeeUsed())
 	price := receipt.GetEffectiveGasPrice()
 	totalFee := new(big.Int).Mul(gasUsed, price)
