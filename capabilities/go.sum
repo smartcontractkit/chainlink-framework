@@ -41,6 +41,8 @@ github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b h1:a89rWexN5nUjJwH3X2ocEWTWEzz4/BDykPSFq2pYHMU=
 github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407100046-dfdf9600557b/go.mod h1:ASXpANdCfcKd+LF3Vhz37q4rmJ/XYQKEQ3La1k7idp0=
+github.com/smartcontractkit/chainlink-common v0.7.1-0.20250418171616-8578d7338b82 h1:x01n7AQhGpkU2gvGVXRCGUOf/R4Z0ZfVN5Fe0DKQCLc=
+github.com/smartcontractkit/chainlink-common v0.7.1-0.20250418171616-8578d7338b82/go.mod h1:vHs/mPpAztdKJtzRKLnmLinmpS78fBh9sAuyKqQrQ+I=
 github.com/smartcontractkit/libocr v0.0.0-20250328171017-609ec10a5510 h1:gm8Jli0sdkrZYnrWBngAkPSDzFDkdNCy1/Dj86kVtYk=
 github.com/smartcontractkit/libocr v0.0.0-20250328171017-609ec10a5510/go.mod h1:Mb7+/LC4edz7HyHxX4QkE42pSuov4AV68+AxBXAap0o=
 github.com/stretchr/objx v0.5.2 h1:xuMeJ0Sdp5ZMRXx/aWO6RZxdr3beISkG5/G/aIRr3pY=

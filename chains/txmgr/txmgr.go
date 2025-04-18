@@ -746,9 +746,12 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return fee, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID, err)
 	}
 
+	if status != commontypes.Finalized {
+		return fee, fmt.Errorf("tx status is not finalized")
+	}
+
 	fee = &commontypes.TransactionFee{
-		TransactionFee:    totalFee,
-		TransactionStatus: status,
+		TransactionFee: totalFee,
 	}
 
 	return fee, nil

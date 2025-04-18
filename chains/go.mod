@@ -9,7 +9,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/prometheus/client_golang v1.21.1
 	github.com/shopspring/decimal v1.4.0
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250415202430-83cf01a447d2
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250418171616-8578d7338b82
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250115203616-a2ea5e50b260
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/multierr v1.11.0
