@@ -90,8 +90,6 @@ github.com/sasha-s/go-deadlock v0.3.5 h1:tNCOEEDG6tBqrNDOX35j/7hL5FcFViG6awUGROb
 github.com/sasha-s/go-deadlock v0.3.5/go.mod h1:bugP6EGbdGYObIlx7pUZtWqlvo8k9H6vCBBsiChJQ5U=
 github.com/shopspring/decimal v1.4.0 h1:bxl37RwXBklmTi0C79JfXCEBD1cqqHt0bbgBAGFp81k=
 github.com/shopspring/decimal v1.4.0/go.mod h1:gawqmDU56v4yIKSwfBSFip1HdCCXN8/+DMd9qYNcwME=
-github.com/smartcontractkit/chainlink-common v0.6.1-0.20250415202430-83cf01a447d2 h1:YfDda+6eKRAbTLVbyEZKUqJeaCJrx1O99YgmHsrG9ZQ=
-github.com/smartcontractkit/chainlink-common v0.6.1-0.20250415202430-83cf01a447d2/go.mod h1:pptbsF6z90IGCewkCgDMBxNYjfSOyW9X9l2jzYyQgmk=
 github.com/smartcontractkit/chainlink-common v0.7.1-0.20250418171616-8578d7338b82 h1:x01n7AQhGpkU2gvGVXRCGUOf/R4Z0ZfVN5Fe0DKQCLc=
 github.com/smartcontractkit/chainlink-common v0.7.1-0.20250418171616-8578d7338b82/go.mod h1:vHs/mPpAztdKJtzRKLnmLinmpS78fBh9sAuyKqQrQ+I=
 github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250115203616-a2ea5e50b260 h1:See2isL6KdrTJDlVKWv8qiyYqWhYUcubU2e5yKXV1oY=
