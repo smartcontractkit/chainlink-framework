@@ -20,18 +20,7 @@ const QueryTimeout = 10 * time.Second
 var errInvalidChainID = errors.New("invalid chain id")
 
 var (
-	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_verifies",
-		Help: "The total number of chain ID verifications for the given RPC node",
-	}, []string{"network", "chainID", "nodeName"})
-	promPoolRPCNodeVerifiesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_verifies_failed",
-		Help: "The total number of failed chain ID verifications for the given RPC node",
-	}, []string{"network", "chainID", "nodeName"})
-	promPoolRPCNodeVerifiesSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_verifies_success",
-		Help: "The total number of successful chain ID verifications for the given RPC node",
-	}, []string{"network", "chainID", "nodeName"})
+)
 )
 
 type NodeConfig interface {

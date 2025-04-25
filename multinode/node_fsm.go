@@ -2,41 +2,9 @@ package multinode
 
 import (
 	"fmt"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
-var (
-	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_alive",
-		Help: transitionString(nodeStateAlive),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_in_sync",
-		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
-		Help: transitionString(nodeStateOutOfSync),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unreachable",
-		Help: transitionString(nodeStateUnreachable),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
-		Help: transitionString(nodeStateInvalidChainID),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unusable",
-		Help: transitionString(nodeStateUnusable),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_syncing",
-		Help: transitionString(nodeStateSyncing),
-	}, []string{"chainID", "nodeName"})
-)
+var ()
 
 // nodeState represents the current state of the node
 // Node is a FSM (finite state machine)

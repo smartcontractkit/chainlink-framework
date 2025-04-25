@@ -94,7 +94,7 @@ type txmMetrics struct {
 	blocksUntilTxConfirmed metric.Float64Histogram
 }
 
-func NewGenericTxmMetrics(chainID string) (*txmMetrics, error) {
+func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
 	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("tx_manager_num_broadcasted")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register broadcasted txs number metric: %w", err)
