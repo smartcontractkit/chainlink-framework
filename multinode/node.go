@@ -4,12 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 	"net/url"
 	"sync"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -18,10 +16,6 @@ import (
 const QueryTimeout = 10 * time.Second
 
 var errInvalidChainID = errors.New("invalid chain id")
-
-var (
-)
-)
 
 type NodeConfig interface {
 	PollFailureThreshold() uint32
@@ -87,6 +81,8 @@ type node[
 	order       int32
 	chainFamily string
 
+	metrics metrics.GenericMultiNodeMetrics
+
 	ws   *url.URL
 	http *url.URL
 
@@ -112,6 +108,7 @@ func NewNode[
 	nodeCfg NodeConfig,
 	chainCfg ChainConfig,
 	lggr logger.Logger,
+	metrics metrics.GenericMultiNodeMetrics,
 	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
@@ -128,6 +125,7 @@ func NewNode[
 	n.nodePoolCfg = nodeCfg
 	n.chainCfg = chainCfg
 	n.order = nodeOrder
+	n.metrics = metrics
 	if wsuri != nil {
 		n.ws = wsuri
 	}
@@ -242,9 +240,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) start() {
 // Not thread-safe
 // Pure verifyChainID: does not mutate node "state" field.
 func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lggr logger.Logger) nodeState {
-	promPoolRPCNodeVerifies.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
+	n.metrics.IncrementNodeVerifies(callerCtx, n.name)
 	promFailed := func() {
-		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
+		n.metrics.IncrementNodeVerifiesFailed(callerCtx, n.name)
 	}
 
 	st := n.getCachedState()
@@ -277,7 +275,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 		return nodeStateInvalidChainID
 	}
 
-	promPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
+	n.metrics.IncrementNodeVerifiesSuccess(callerCtx, n.name)
 
 	return nodeStateAlive
 }

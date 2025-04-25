@@ -3,11 +3,13 @@ package metrics
 import (
 	"context"
 	"fmt"
+
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 )
 
 var (
@@ -61,6 +63,12 @@ var (
 		Name: "pool_rpc_node_num_transitions_to_syncing",
 		Help: "Total number of times node has transitioned to Syncing",
 	}, []string{"chainID", "nodeName"})
+
+	// Transaction Sender
+	promMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "multi_node_invariant_violations",
+		Help: "The number of invariant violations",
+	}, []string{"network", "chainId", "invariant"})
 )
 
 type GenericMultiNodeMetrics interface {
@@ -75,6 +83,7 @@ type GenericMultiNodeMetrics interface {
 	IncrementNodeTransitionsToInvalidChainID(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
+	IncrementInvariantViolations(ctx context.Context, invariant string)
 }
 
 var _ GenericMultiNodeMetrics = &multiNodeMetrics{}
@@ -93,6 +102,7 @@ type multiNodeMetrics struct {
 	nodeTransitionsToInvalidChainID metric.Int64Counter
 	nodeTransitionsToUnusable       metric.Int64Counter
 	nodeTransitionsToSyncing        metric.Int64Counter
+	invariantViolations             metric.Int64Counter
 }
 
 func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNodeMetrics, error) {
@@ -151,6 +161,11 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		return nil, fmt.Errorf("failed to register node transitions to syncing metric: %w", err)
 	}
 
+	invariantViolations, err := beholder.GetMeter().Int64Counter("multi_node_invariant_violations")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register invariant violations metric: %w", err)
+	}
+
 	return &multiNodeMetrics{
 		network:                         network,
 		chainID:                         chainID,
@@ -165,6 +180,7 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		nodeTransitionsToInvalidChainID: nodeTransitionsToInvalidChainID,
 		nodeTransitionsToUnusable:       nodeTransitionsToUnusable,
 		nodeTransitionsToSyncing:        nodeTransitionsToSyncing,
+		invariantViolations:             invariantViolations,
 	}, nil
 }
 
@@ -254,4 +270,12 @@ func (m *multiNodeMetrics) IncrementNodeTransitionsToSyncing(ctx context.Context
 		attribute.String("network", m.network),
 		attribute.String("chainID", m.chainID),
 		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementInvariantViolations(ctx context.Context, invariant string) {
+	promMultiNodeInvariantViolations.WithLabelValues(m.network, m.chainID, invariant).Inc()
+	m.invariantViolations.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("invariant", invariant)))
 }
