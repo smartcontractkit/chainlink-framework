@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-framework/metrics"
 	"net/url"
 	"sync"
 	"time"
@@ -36,6 +35,19 @@ type ChainConfig interface {
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
+}
+
+type nodeMetrics interface {
+	IncrementNodeVerifies(ctx context.Context, nodeName string)
+	IncrementNodeVerifiesFailed(ctx context.Context, nodeName string)
+	IncrementNodeVerifiesSuccess(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToAlive(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToInSync(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToOutOfSync(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToUnreachable(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToInvalidChainID(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
 }
 
 type Node[
@@ -81,7 +93,7 @@ type node[
 	order       int32
 	chainFamily string
 
-	metrics metrics.GenericMultiNodeMetrics
+	metrics nodeMetrics
 
 	ws   *url.URL
 	http *url.URL
@@ -108,7 +120,7 @@ func NewNode[
 	nodeCfg NodeConfig,
 	chainCfg ChainConfig,
 	lggr logger.Logger,
-	metrics metrics.GenericMultiNodeMetrics,
+	metrics nodeMetrics,
 	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,

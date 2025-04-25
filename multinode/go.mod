@@ -10,7 +10,6 @@ require (
 	github.com/prometheus/client_golang v1.22.0
 	github.com/prometheus/client_model v0.6.1
 	github.com/smartcontractkit/chainlink-common v0.7.0
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250425163146-e2685f8677f7
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 )

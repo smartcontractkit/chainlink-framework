@@ -10,10 +10,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-framework/metrics"
 )
 
 var ErrNodeError = fmt.Errorf("no live nodes available")
+
+type multiNodeMetrics interface {
+	RecordNodeStates(ctx context.Context, state string, count int64)
+}
 
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
@@ -28,7 +31,7 @@ type MultiNode[
 	sendOnlyNodes         []SendOnlyNode[CHAIN_ID, RPC]
 	chainID               CHAIN_ID
 	lggr                  logger.SugaredLogger
-	metrics               metrics.GenericMultiNodeMetrics
+	metrics               multiNodeMetrics
 	selectionMode         string
 	nodeSelector          NodeSelector[CHAIN_ID, RPC]
 	leaseDuration         time.Duration
@@ -46,7 +49,7 @@ func NewMultiNode[
 	RPC any,
 ](
 	lggr logger.Logger,
-	metrics metrics.GenericMultiNodeMetrics,
+	metrics multiNodeMetrics,
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
 	primaryNodes []Node[CHAIN_ID, RPC],
