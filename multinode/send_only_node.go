@@ -45,6 +45,7 @@ type sendOnlyNode[
 ] struct {
 	services.StateMachine
 
+	metrics nodeMetrics
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
 
@@ -63,6 +64,7 @@ func NewSendOnlyNode[
 	RPC sendOnlyClient[CHAIN_ID],
 ](
 	lggr logger.Logger,
+	metrics nodeMetrics,
 	httpuri url.URL,
 	name string,
 	chainID CHAIN_ID,
@@ -74,6 +76,7 @@ func NewSendOnlyNode[
 	s.log = logger.With(s.log,
 		"nodeTier", "sendonly",
 	)
+	s.metrics = metrics
 	s.rpc = rpc
 	s.uri = httpuri
 	s.chainID = chainID
@@ -101,7 +104,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
 
 	err := s.rpc.Dial(ctx)
 	if err != nil {
-		promPoolRPCNodeTransitionsToUnusable.WithLabelValues(s.chainID.String(), s.name).Inc()
+		s.metrics.IncrementNodeTransitionsToUnusable(ctx, s.name)
 		s.log.Errorw("Dial failed: SendOnly Node is unusable", "err", err)
 		s.setState(nodeStateUnusable)
 		return
@@ -114,13 +117,13 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
 	} else {
 		chainID, err := s.rpc.ChainID(ctx)
 		if err != nil || chainID.String() != s.chainID.String() {
-			promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
+			s.metrics.IncrementNodeTransitionsToUnreachable(ctx, s.name)
 			if err != nil {
-				promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
+				s.metrics.IncrementNodeTransitionsToUnreachable(ctx, s.name)
 				s.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
 				s.setState(nodeStateUnreachable)
 			} else {
-				promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
+				s.metrics.IncrementNodeTransitionsToInvalidChainID(ctx, s.name)
 				s.log.Errorf(
 					"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
 					chainID.String(),
@@ -137,7 +140,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
 		}
 	}
 
-	promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
+	s.metrics.IncrementNodeTransitionsToAlive(ctx, s.name)
 	s.setState(nodeStateAlive)
 	s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
 }
