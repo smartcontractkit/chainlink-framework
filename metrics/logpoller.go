@@ -1,7 +1,10 @@
 package metrics
 
 import (
+	"context"
 	"time"
+
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -56,3 +59,19 @@ var (
 		Help: "Counter to track number of blocks inserted by Log Poller",
 	}, []string{"chainFamily", "chainID"})
 )
+
+type GenericLogPollerORMMetrics interface {
+	RecordQueryDuration(ctx context.Context, query QueryType, duration float64)
+	RecordQueryDataSetsSize(ctx context.Context, query QueryType, size int)
+	IncrementLogsInserted(ctx context.Context, numLogs int)
+	IncrementBlocksInserted(ctx context.Context, numBlocks int)
+}
+
+type logPollerORMMetrics struct {
+	chainID        string
+	chainFamily    string
+	queryDuration  metric.Float64Histogram
+	queryDataSets  metric.Int64Gauge
+	logsInserted   metric.Int64Counter
+	blocksInserted metric.Int64Counter
+}
