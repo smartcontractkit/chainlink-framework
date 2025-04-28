@@ -21,8 +21,10 @@ func TestMultiNodeMetrics_RecordNodeStates(t *testing.T) {
 
 	m.RecordNodeStates(ctx, "Alive", 5)
 
-	require.Equal(t, float64(5),
+	require.InEpsilon(t,
+		5.0,
 		testutil.ToFloat64(promMultiNodeRPCNodeStates.WithLabelValues("test-network", "1", "Alive")),
+		0.001,
 	)
 }
 
@@ -31,18 +33,24 @@ func TestMultiNodeMetrics_Verifies(t *testing.T) {
 	ctx := context.Background()
 
 	m.IncrementNodeVerifies(ctx, "node-1")
-	require.Equal(t, float64(1),
+	require.InEpsilon(t,
+		1.0,
 		testutil.ToFloat64(promPoolRPCNodeVerifies.WithLabelValues("test-network", "1", "node-1")),
+		0.001,
 	)
 
 	m.IncrementNodeVerifiesFailed(ctx, "node-1")
-	require.Equal(t, float64(1),
+	require.InEpsilon(t,
+		1.0,
 		testutil.ToFloat64(promPoolRPCNodeVerifiesFailed.WithLabelValues("test-network", "1", "node-1")),
+		0.001,
 	)
 
 	m.IncrementNodeVerifiesSuccess(ctx, "node-1")
-	require.Equal(t, float64(1),
+	require.InEpsilon(t,
+		1.0,
 		testutil.ToFloat64(promPoolRPCNodeVerifiesSuccess.WithLabelValues("test-network", "1", "node-1")),
+		0.001,
 	)
 }
 
@@ -110,8 +118,10 @@ func TestMultiNodeMetrics_NodeTransitions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.increment()
-			require.Equal(t, float64(1),
+			require.InEpsilon(t,
+				1.0,
 				testutil.ToFloat64(tt.promMetric.WithLabelValues("test-network", "1", nodeName)),
+				0.001,
 			)
 		})
 	}
@@ -123,7 +133,9 @@ func TestMultiNodeMetrics_IncrementInvariantViolations(t *testing.T) {
 
 	m.IncrementInvariantViolations(ctx, "wrong_nonce")
 
-	require.Equal(t, float64(1),
+	require.InEpsilon(t,
+		1.0,
 		testutil.ToFloat64(promMultiNodeInvariantViolations.WithLabelValues("test-network", "1", "wrong_nonce")),
+		0.001,
 	)
 }
