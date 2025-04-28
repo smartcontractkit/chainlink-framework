@@ -44,20 +44,20 @@ var (
 		float64(2 * time.Second),
 		float64(5 * time.Second),
 	}
-	promLpQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+	PromLpQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "log_poller_query_duration",
 		Help:    "Measures duration of Log Poller's queries fetching logs",
 		Buckets: sqlLatencyBuckets,
 	}, []string{"chainFamily", "chainID", "query", "type"})
-	promLpQueryDataSets = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	PromLpQueryDataSets = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "log_poller_query_dataset_size",
 		Help: "Measures size of the datasets returned by Log Poller's queries",
 	}, []string{"chainFamily", "chainID", "query", "type"})
-	promLpLogsInserted = promauto.NewCounterVec(prometheus.CounterOpts{
+	PromLpLogsInserted = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "log_poller_logs_inserted",
 		Help: "Counter to track number of logs inserted by Log Poller",
 	}, []string{"chainFamily", "chainID"})
-	promLpBlocksInserted = promauto.NewCounterVec(prometheus.CounterOpts{
+	PromLpBlocksInserted = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "log_poller_blocks_inserted",
 		Help: "Counter to track number of blocks inserted by Log Poller",
 	}, []string{"chainFamily", "chainID"})
@@ -113,7 +113,7 @@ func NewGenericLogPollerMetrics(chainID string, chainFamily string) (GenericLogP
 }
 
 func (m *logPollerMetrics) RecordQueryDuration(ctx context.Context, queryName string, queryType QueryType, duration float64) {
-	promLpQueryDuration.WithLabelValues(m.chainFamily, m.chainID, queryName, string(queryType)).Observe(duration)
+	PromLpQueryDuration.WithLabelValues(m.chainFamily, m.chainID, queryName, string(queryType)).Observe(duration)
 	m.queryDuration.Record(ctx, duration, metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID),
@@ -122,7 +122,7 @@ func (m *logPollerMetrics) RecordQueryDuration(ctx context.Context, queryName st
 }
 
 func (m *logPollerMetrics) RecordQueryDatasetSize(ctx context.Context, queryName string, queryType QueryType, size int64) {
-	promLpQueryDataSets.WithLabelValues(m.chainFamily, m.chainID, queryName, string(queryType)).Add(float64(size))
+	PromLpQueryDataSets.WithLabelValues(m.chainFamily, m.chainID, queryName, string(queryType)).Add(float64(size))
 	m.queryDatasetsSize.Record(ctx, size, metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID),
@@ -131,14 +131,14 @@ func (m *logPollerMetrics) RecordQueryDatasetSize(ctx context.Context, queryName
 }
 
 func (m *logPollerMetrics) IncrementLogsInserted(ctx context.Context, numLogs int64) {
-	promLpLogsInserted.WithLabelValues(m.chainFamily, m.chainID).Add(float64(numLogs))
+	PromLpLogsInserted.WithLabelValues(m.chainFamily, m.chainID).Add(float64(numLogs))
 	m.logsInserted.Add(ctx, numLogs, metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID)))
 }
 
 func (m *logPollerMetrics) IncrementBlocksInserted(ctx context.Context, numBlocks int64) {
-	promLpBlocksInserted.WithLabelValues(m.chainFamily, m.chainID).Add(float64(numBlocks))
+	PromLpBlocksInserted.WithLabelValues(m.chainFamily, m.chainID).Add(float64(numBlocks))
 	m.blocksInserted.Add(ctx, numBlocks, metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID)))
