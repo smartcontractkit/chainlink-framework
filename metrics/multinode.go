@@ -33,36 +33,35 @@ var (
 		Help: "The total number of successful chain ID verifications for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
 
-	// TODO: Should these all have network as well?
 	// Node State Transitions
 	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_alive",
 		Help: "Total number of times node has transitioned to Alive",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_in_sync",
 		Help: "Total number of times node has transitioned from OutOfSync to Alive",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
 		Help: "Total number of times node has transitioned to OutOfSync",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unreachable",
 		Help: "Total number of times node has transitioned to Unreachable",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: "Total number of times node has transitioned to InvalidChainID",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unusable",
 		Help: "Total number of times node has transitioned to Unusable",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_syncing",
 		Help: "Total number of times node has transitioned to Syncing",
-	}, []string{"chainID", "nodeName"})
+	}, []string{"network", "chainID", "nodeName"})
 
 	// Transaction Sender
 	promMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
