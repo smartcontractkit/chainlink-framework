@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"
@@ -101,10 +103,25 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 		opts.id = 42
 	}
 
-	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr,
+	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr, makeMockNodeMetrics(t),
 		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily)
 
 	return testNode{
 		nodeI.(*node[ID, Head, RPCClient[ID, Head]]),
 	}
+}
+
+func makeMockNodeMetrics(t *testing.T) *mockNodeMetrics {
+	mockMetrics := newMockNodeMetrics(t)
+	mockMetrics.On("IncrementNodeVerifies", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeVerifiesFailed", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeVerifiesSuccess", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToAlive", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToInSync", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToOutOfSync", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToUnreachable", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToInvalidChainID", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToUnusable", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToSyncing", mock.Anything, mock.Anything).Maybe()
+	return mockMetrics
 }
