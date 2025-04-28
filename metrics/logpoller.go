@@ -122,7 +122,7 @@ func (m *logPollerMetrics) RecordQueryDuration(ctx context.Context, queryName st
 }
 
 func (m *logPollerMetrics) RecordQueryDatasetSize(ctx context.Context, queryName string, queryType QueryType, size int64) {
-	PromLpQueryDataSets.WithLabelValues(m.chainFamily, m.chainID, queryName, string(queryType)).Add(float64(size))
+	PromLpQueryDataSets.WithLabelValues(m.chainFamily, m.chainID, queryName, string(queryType)).Set(float64(size))
 	m.queryDatasetsSize.Record(ctx, size, metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID),
