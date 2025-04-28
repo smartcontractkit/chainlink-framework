@@ -1,6 +1,6 @@
 package metrics
 
 const (
-	EVM    = "evm"
+	EVM    = "EVM"
 	Solana = "solana"
 )
