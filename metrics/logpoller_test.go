@@ -18,10 +18,8 @@ func TestLogPollerMetrics_RecordQueryDuration(t *testing.T) {
 	m := setupTestLogPollerMetrics(t)
 	ctx := context.Background()
 
-	m.RecordQueryDuration(ctx, "PollLogs", Read, 0.005) // 5ms
-
-	// Collect and make sure at least one sample was recorded
-	require.Greater(t, testutil.CollectAndCount(PromLpQueryDuration), 0)
+	m.RecordQueryDuration(ctx, "PollLogs", Read, 0.005)
+	require.Positive(t, testutil.CollectAndCount(PromLpQueryDuration))
 }
 
 func TestLogPollerMetrics_RecordQueryDatasetSize(t *testing.T) {
@@ -30,9 +28,10 @@ func TestLogPollerMetrics_RecordQueryDatasetSize(t *testing.T) {
 
 	m.RecordQueryDatasetSize(ctx, "PollLogs", Read, 10)
 
-	require.Equal(t,
-		float64(10),
+	require.InEpsilon(t,
+		10.0,
 		testutil.ToFloat64(PromLpQueryDataSets.WithLabelValues("test-network", "1", "PollLogs", "read")),
+		0.001,
 	)
 }
 
@@ -42,9 +41,10 @@ func TestLogPollerMetrics_IncrementLogsInserted(t *testing.T) {
 
 	m.IncrementLogsInserted(ctx, 5)
 
-	require.Equal(t,
-		float64(5),
+	require.InEpsilon(t,
+		5.0,
 		testutil.ToFloat64(PromLpLogsInserted.WithLabelValues("test-network", "1")),
+		0.001,
 	)
 }
 
@@ -54,8 +54,9 @@ func TestLogPollerMetrics_IncrementBlocksInserted(t *testing.T) {
 
 	m.IncrementBlocksInserted(ctx, 3)
 
-	require.Equal(t,
-		float64(3),
+	require.InEpsilon(t,
+		3.0,
 		testutil.ToFloat64(PromLpBlocksInserted.WithLabelValues("test-network", "1")),
+		0.001,
 	)
 }
