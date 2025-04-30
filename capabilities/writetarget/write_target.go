@@ -54,6 +54,8 @@ type TargetStrategy interface {
 	// TransmitReport constructs the tx to transmit the report, and defines
 	// any specific handling for sending the report via ChainWriter.
 	TransmitReport(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (string, error)
+	// Wrapper around the ChainWriter to get the transaction status
+	GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error)
 }
 
 var (
@@ -81,7 +83,6 @@ type writeTarget struct {
 
 	cs               commontypes.ChainService
 	cr               commontypes.ContractReader
-	cw               commontypes.ContractWriter
 	evm              commontypes.EVMService
 	configValidateFn func(request capabilities.CapabilityRequest) (string, error)
 
@@ -104,7 +105,6 @@ type WriteTargetOpts struct {
 
 	ChainService     commontypes.ChainService
 	ContractReader   commontypes.ContractReader
-	ChainWriter      commontypes.ContractWriter
 	EVMService       commontypes.EVMService
 	ConfigValidateFn func(request capabilities.CapabilityRequest) (string, error)
 
@@ -156,7 +156,6 @@ func NewWriteTarget(opts WriteTargetOpts) capabilities.TargetCapability {
 		opts.Beholder,
 		opts.ChainService,
 		opts.ContractReader,
-		opts.ChainWriter,
 		opts.EVMService,
 		opts.ConfigValidateFn,
 		opts.NodeAddress,
@@ -380,7 +379,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 	// Fn helpers
 	checkAcceptedStatus := func(ctx context.Context) (commontypes.TransactionStatus, bool, error) {
 		// Check TXM for status
-		status, err := c.cw.GetTransactionStatus(ctx, txID)
+		status, err := c.targetStrategy.GetTransactionStatus(ctx, txID)
 		if err != nil {
 			return commontypes.Unknown, false, fmt.Errorf("failed to get tx status: %w", err)
 		}
