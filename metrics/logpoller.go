@@ -82,22 +82,22 @@ type logPollerMetrics struct {
 }
 
 func NewGenericLogPollerMetrics(chainID string, chainFamily string) (GenericLogPollerMetrics, error) {
-	queryDuration, err := beholder.GetMeter().Float64Histogram("log_poller_query_duration")
+	queryDuration, err := beholder.GetMeter().Float64Histogram("beholder_log_poller_query_duration")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register logpoller query duration metric: %w", err)
 	}
 
-	queryDatasetSize, err := beholder.GetMeter().Int64Gauge("log_poller_query_dataset_size")
+	queryDatasetSize, err := beholder.GetMeter().Int64Gauge("beholder_log_poller_query_dataset_size")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register query dataset size metric: %w", err)
 	}
 
-	logsInserted, err := beholder.GetMeter().Int64Counter("log_poller_logs_inserted")
+	logsInserted, err := beholder.GetMeter().Int64Counter("beholder_log_poller_logs_inserted")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register logs inserted metric: %w", err)
 	}
 
-	blocksInserted, err := beholder.GetMeter().Int64Counter("log_poller_blocks_inserted")
+	blocksInserted, err := beholder.GetMeter().Int64Counter("beholder_log_poller_blocks_inserted")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register blocks inserted metric: %w", err)
 	}

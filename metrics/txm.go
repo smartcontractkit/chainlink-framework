@@ -95,37 +95,37 @@ type txmMetrics struct {
 }
 
 func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
-	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("tx_manager_num_broadcasted")
+	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("beholder_tx_manager_num_broadcasted")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register broadcasted txs number metric: %w", err)
 	}
 
-	timeUntilBroadcast, err := beholder.GetMeter().Float64Histogram("tx_manager_time_until_tx_broadcast")
+	timeUntilBroadcast, err := beholder.GetMeter().Float64Histogram("beholder_tx_manager_time_until_tx_broadcast")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register time until broadcast metric: %w", err)
 	}
 
-	numGasBumps, err := beholder.GetMeter().Int64Counter("tx_manager_num_gas_bumps")
+	numGasBumps, err := beholder.GetMeter().Int64Counter("beholder_tx_manager_num_gas_bumps")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register number of gas bumps metric: %w", err)
 	}
 
-	gasBumpExceedsLimit, err := beholder.GetMeter().Int64Counter("tx_manager_gas_bump_exceeds_limit")
+	gasBumpExceedsLimit, err := beholder.GetMeter().Int64Counter("beholder_tx_manager_gas_bump_exceeds_limit")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register gas bump exceeds limit metric: %w", err)
 	}
 
-	numConfirmedTxs, err := beholder.GetMeter().Int64Counter("tx_manager_num_confirmed_transactions")
+	numConfirmedTxs, err := beholder.GetMeter().Int64Counter("beholder_tx_manager_num_confirmed_transactions")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register confirmed txs number metric: %w", err)
 	}
 
-	timeUntilTxConfirmed, err := beholder.GetMeter().Float64Histogram("tx_manager_time_until_tx_confirmed")
+	timeUntilTxConfirmed, err := beholder.GetMeter().Float64Histogram("beholder_tx_manager_time_until_tx_confirmed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register time until tx confirmed metric: %w", err)
 	}
 
-	blocksUntilTxConfirmed, err := beholder.GetMeter().Float64Histogram("tx_manager_blocks_until_tx_confirmed")
+	blocksUntilTxConfirmed, err := beholder.GetMeter().Float64Histogram("beholder_tx_manager_blocks_until_tx_confirmed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register blocks until tx confirmed metric: %w", err)
 	}

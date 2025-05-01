@@ -105,62 +105,62 @@ type multiNodeMetrics struct {
 }
 
 func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNodeMetrics, error) {
-	nodeStates, err := beholder.GetMeter().Int64Gauge("multi_node_states")
+	nodeStates, err := beholder.GetMeter().Int64Gauge("beholder_multi_node_states")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register multinode states metric: %w", err)
 	}
 
-	nodeVerifies, err := beholder.GetMeter().Int64Counter("pool_rpc_node_verifies")
+	nodeVerifies, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_verifies")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node verifies metric: %w", err)
 	}
 
-	nodeVerifiesFailed, err := beholder.GetMeter().Int64Counter("pool_rpc_node_verifies_failed")
+	nodeVerifiesFailed, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_verifies_failed")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node verifies failed metric: %w", err)
 	}
 
-	nodeVerifiesSuccess, err := beholder.GetMeter().Int64Counter("pool_rpc_node_verifies_success")
+	nodeVerifiesSuccess, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_verifies_success")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node verifies success metric: %w", err)
 	}
 
-	nodeTransitionsToAlive, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_alive")
+	nodeTransitionsToAlive, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_alive")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to alive metric: %w", err)
 	}
 
-	nodeTransitionsToInSync, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_in_sync")
+	nodeTransitionsToInSync, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_in_sync")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to in sync metric: %w", err)
 	}
 
-	nodeTransitionsToOutOfSync, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_out_of_sync")
+	nodeTransitionsToOutOfSync, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_out_of_sync")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to out of sync metric: %w", err)
 	}
 
-	nodeTransitionsToUnreachable, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_unreachable")
+	nodeTransitionsToUnreachable, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_unreachable")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to unreachable metric: %w", err)
 	}
 
-	nodeTransitionsToInvalidChainID, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_invalid_chain_id")
+	nodeTransitionsToInvalidChainID, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_invalid_chain_id")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to invalid chain id metric: %w", err)
 	}
 
-	nodeTransitionsToUnusable, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_unusable")
+	nodeTransitionsToUnusable, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_unusable")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to unusable metric: %w", err)
 	}
 
-	nodeTransitionsToSyncing, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_syncing")
+	nodeTransitionsToSyncing, err := beholder.GetMeter().Int64Counter("beholder_pool_rpc_node_num_transitions_to_syncing")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register node transitions to syncing metric: %w", err)
 	}
 
-	invariantViolations, err := beholder.GetMeter().Int64Counter("multi_node_invariant_violations")
+	invariantViolations, err := beholder.GetMeter().Int64Counter("beholder_multi_node_invariant_violations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register invariant violations metric: %w", err)
 	}
