@@ -4,8 +4,6 @@ import (
 	"fmt"
 )
 
-var ()
-
 // nodeState represents the current state of the node
 // Node is a FSM (finite state machine)
 type nodeState int
