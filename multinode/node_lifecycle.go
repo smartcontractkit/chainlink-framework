@@ -110,15 +110,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			n.metrics.IncrementPolls(ctx, n.name)
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
 			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
-			version, err := n.RPC().PingClientVersion(pollCtx)
+			version, pingErr := n.RPC().PingClientVersion(pollCtx)
 			cancel()
-			if err != nil {
+			if pingErr != nil {
 				// prevent overflow
 				if pollFailures < math.MaxUint32 {
 					n.metrics.IncrementPollsFailed(ctx, n.name)
 					pollFailures++
 				}
-				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.getCachedState())
+				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", pingErr, "pollFailures", pollFailures, "nodeState", n.getCachedState())
 			} else {
 				lggr.Debugw("Ping successful", "nodeState", n.State())
 				n.metrics.RecordNodeClientVersion(ctx, n.name, version)

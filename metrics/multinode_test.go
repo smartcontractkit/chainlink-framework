@@ -41,7 +41,11 @@ func TestMultiNodeMetrics_RecordNodeClientVersion(t *testing.T) {
 		"rpc-1.2.3",
 	))
 
-	require.Equal(t, float64(1), value)
+	require.InEpsilon(t,
+		1.0,
+		value,
+		0.001,
+	)
 }
 
 func TestMultiNodeMetrics_Verifies(t *testing.T) {

@@ -1,16 +1,16 @@
 package multinode
 
 import (
-	"github.com/smartcontractkit/chainlink-framework/metrics"
-	"github.com/stretchr/testify/require"
 	"net/url"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 	"github.com/smartcontractkit/chainlink-framework/multinode/mocks"
 )
 
