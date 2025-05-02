@@ -58,8 +58,8 @@ type RPCClient[
 	SubscribeToHeads(ctx context.Context) (<-chan HEAD, Subscription, error)
 	// SubscribeToFinalizedHeads - returns channel and subscription for finalized heads.
 	SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error)
-	// Ping - returns error if RPC is not reachable
-	Ping(context.Context) error
+	// PingClientVersion - returns error if RPC is not reachable
+	PingClientVersion(context.Context) (string, error)
 	// IsSyncing - returns true if the RPC is in Syncing state and can not process calls
 	IsSyncing(ctx context.Context) (bool, error)
 	// UnsubscribeAllExcept - close all subscriptions except `subs`

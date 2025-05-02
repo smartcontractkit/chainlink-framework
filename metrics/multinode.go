@@ -67,6 +67,33 @@ var (
 		Help: "Total number of times node has transitioned to Syncing",
 	}, []string{"network", "chainID", "nodeName"})
 
+	// Node Lifecycle TODO START - ADD THESE ONES:
+	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pool_rpc_node_highest_seen_block",
+		Help: "The highest seen block for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pool_rpc_node_highest_finalized_block",
+		Help: "The highest seen finalized block for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_seen_blocks",
+		Help: "The total number of new blocks seen by the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_total",
+		Help: "The total number of poll checks for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_failed",
+		Help: "The total number of failed poll checks for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_polls_success",
+		Help: "The total number of successful poll checks for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	// TODO: END
+
 	// Transaction Sender
 	promMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "multi_node_invariant_violations",
@@ -88,6 +115,12 @@ type GenericMultiNodeMetrics interface {
 	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
 	IncrementInvariantViolations(ctx context.Context, invariant string)
+	SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64)
+	SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64)
+	IncrementSeenBlocks(ctx context.Context, nodeName string)
+	IncrementPolls(ctx context.Context, nodeName string)
+	IncrementPollsFailed(ctx context.Context, nodeName string)
+	IncrementPollsSuccess(ctx context.Context, nodeName string)
 }
 
 var _ GenericMultiNodeMetrics = &multiNodeMetrics{}
@@ -107,6 +140,12 @@ type multiNodeMetrics struct {
 	nodeTransitionsToInvalidChainID metric.Int64Counter
 	nodeTransitionsToUnusable       metric.Int64Counter
 	nodeTransitionsToSyncing        metric.Int64Counter
+	highestSeenBlock                metric.Int64Gauge
+	highestFinalizedBlock           metric.Int64Gauge
+	seenBlocks                      metric.Int64Counter
+	polls                           metric.Int64Counter
+	pollsFailed                     metric.Int64Counter
+	pollsSuccess                    metric.Int64Counter
 	invariantViolations             metric.Int64Counter
 }
 
@@ -171,6 +210,36 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		return nil, fmt.Errorf("failed to register node transitions to syncing metric: %w", err)
 	}
 
+	highestSeenBlock, err := beholder.GetMeter().Int64Gauge("pool_rpc_node_highest_seen_block")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register highest seen block metric: %w", err)
+	}
+
+	highestFinalizedBlock, err := beholder.GetMeter().Int64Gauge("pool_rpc_node_highest_finalized_block")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register highest finalized block metric: %w", err)
+	}
+
+	seenBlocks, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_seen_blocks")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register seen blocks counter: %w", err)
+	}
+
+	polls, err := beholder.GetMeter().Int64Counter("pool_rpc_node_polls_total")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register node polls metric: %w", err)
+	}
+
+	pollsFailed, err := beholder.GetMeter().Int64Counter("pool_rpc_node_polls_failed")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register node polls failed metric: %w", err)
+	}
+
+	pollsSuccess, err := beholder.GetMeter().Int64Counter("pool_rpc_node_polls_success")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register node polls success metric: %w", err)
+	}
+
 	invariantViolations, err := beholder.GetMeter().Int64Counter("multi_node_invariant_violations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register invariant violations metric: %w", err)
@@ -191,6 +260,12 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		nodeTransitionsToInvalidChainID: nodeTransitionsToInvalidChainID,
 		nodeTransitionsToUnusable:       nodeTransitionsToUnusable,
 		nodeTransitionsToSyncing:        nodeTransitionsToSyncing,
+		highestSeenBlock:                highestSeenBlock,
+		highestFinalizedBlock:           highestFinalizedBlock,
+		seenBlocks:                      seenBlocks,
+		polls:                           polls,
+		pollsFailed:                     pollsFailed,
+		pollsSuccess:                    pollsSuccess,
 		invariantViolations:             invariantViolations,
 	}, nil
 }
@@ -287,6 +362,54 @@ func (m *multiNodeMetrics) IncrementNodeTransitionsToUnusable(ctx context.Contex
 func (m *multiNodeMetrics) IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string) {
 	promPoolRPCNodeTransitionsToSyncing.WithLabelValues(m.network, m.chainID, nodeName).Inc()
 	m.nodeTransitionsToSyncing.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64) {
+	promPoolRPCNodeHighestSeenBlock.WithLabelValues(m.network, m.chainID, nodeName).Set(float64(blockNumber))
+	m.highestSeenBlock.Record(ctx, blockNumber, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64) {
+	promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(m.network, m.chainID, nodeName).Set(float64(blockNumber))
+	m.highestFinalizedBlock.Record(ctx, blockNumber, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementSeenBlocks(ctx context.Context, nodeName string) {
+	promPoolRPCNodeNumSeenBlocks.WithLabelValues(m.network, m.chainID, nodeName).Inc()
+	m.seenBlocks.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementPolls(ctx context.Context, nodeName string) {
+	promPoolRPCNodePolls.WithLabelValues(m.network, m.chainID, nodeName).Inc()
+	m.polls.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementPollsFailed(ctx context.Context, nodeName string) {
+	promPoolRPCNodePollsFailed.WithLabelValues(m.network, m.chainID, nodeName).Inc()
+	m.pollsFailed.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementPollsSuccess(ctx context.Context, nodeName string) {
+	promPoolRPCNodePollsSuccess.WithLabelValues(m.network, m.chainID, nodeName).Inc()
+	m.pollsSuccess.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("network", m.network),
 		attribute.String("chainID", m.chainID),
 		attribute.String("nodeName", nodeName)))
