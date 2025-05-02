@@ -28,6 +28,22 @@ func TestMultiNodeMetrics_RecordNodeStates(t *testing.T) {
 	)
 }
 
+func TestMultiNodeMetrics_RecordNodeClientVersion(t *testing.T) {
+	m := setupTestMultiNodeMetrics(t)
+	ctx := context.Background()
+
+	m.RecordNodeClientVersion(ctx, "test-node-1", "rpc-1.2.3")
+
+	value := testutil.ToFloat64(promNodeClientVersion.WithLabelValues(
+		"test-network",
+		"1",
+		"test-node-1",
+		"rpc-1.2.3",
+	))
+
+	require.Equal(t, float64(1), value)
+}
+
 func TestMultiNodeMetrics_Verifies(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
 	ctx := context.Background()
