@@ -143,6 +143,66 @@ func TestMultiNodeMetrics_NodeTransitions(t *testing.T) {
 	}
 }
 
+func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
+	m := setupTestMultiNodeMetrics(t)
+	ctx := context.Background()
+	nodeName := "node-1"
+
+	t.Run("SetHighestSeenBlock", func(t *testing.T) {
+		m.SetHighestSeenBlock(ctx, nodeName, 123)
+		require.InEpsilon(t,
+			123.0,
+			testutil.ToFloat64(promPoolRPCNodeHighestSeenBlock.WithLabelValues("test-network", "1", nodeName)),
+			0.001,
+		)
+	})
+
+	t.Run("SetHighestFinalizedBlock", func(t *testing.T) {
+		m.SetHighestFinalizedBlock(ctx, nodeName, 456)
+		require.InEpsilon(t,
+			456.0,
+			testutil.ToFloat64(promPoolRPCNodeHighestFinalizedBlock.WithLabelValues("test-network", "1", nodeName)),
+			0.001,
+		)
+	})
+
+	t.Run("IncrementSeenBlocks", func(t *testing.T) {
+		m.IncrementSeenBlocks(ctx, nodeName)
+		require.InEpsilon(t,
+			1.0,
+			testutil.ToFloat64(promPoolRPCNodeNumSeenBlocks.WithLabelValues("test-network", "1", nodeName)),
+			0.001,
+		)
+	})
+
+	t.Run("IncrementPolls", func(t *testing.T) {
+		m.IncrementPolls(ctx, nodeName)
+		require.InEpsilon(t,
+			1.0,
+			testutil.ToFloat64(promPoolRPCNodePolls.WithLabelValues("test-network", "1", nodeName)),
+			0.001,
+		)
+	})
+
+	t.Run("IncrementPollsFailed", func(t *testing.T) {
+		m.IncrementPollsFailed(ctx, nodeName)
+		require.InEpsilon(t,
+			1.0,
+			testutil.ToFloat64(promPoolRPCNodePollsFailed.WithLabelValues("test-network", "1", nodeName)),
+			0.001,
+		)
+	})
+
+	t.Run("IncrementPollsSuccess", func(t *testing.T) {
+		m.IncrementPollsSuccess(ctx, nodeName)
+		require.InEpsilon(t,
+			1.0,
+			testutil.ToFloat64(promPoolRPCNodePollsSuccess.WithLabelValues("test-network", "1", nodeName)),
+			0.001,
+		)
+	})
+}
+
 func TestMultiNodeMetrics_IncrementInvariantViolations(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
 	ctx := context.Background()

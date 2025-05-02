@@ -48,6 +48,13 @@ type nodeMetrics interface {
 	IncrementNodeTransitionsToInvalidChainID(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
+	RecordNodeClientVersion(ctx context.Context, nodeName string, version string)
+	SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64)
+	SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64)
+	IncrementSeenBlocks(ctx context.Context, nodeName string)
+	IncrementPolls(ctx context.Context, nodeName string)
+	IncrementPollsFailed(ctx context.Context, nodeName string)
+	IncrementPollsSuccess(ctx context.Context, nodeName string)
 }
 
 type Node[

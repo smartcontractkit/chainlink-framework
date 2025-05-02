@@ -107,7 +107,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		case <-ctx.Done():
 			return
 		case <-pollCh:
-			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
+			n.metrics.IncrementPolls(ctx, n.name)
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
 			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
 			version, err := n.RPC().PingClientVersion(pollCtx)
@@ -115,14 +115,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if err != nil {
 				// prevent overflow
 				if pollFailures < math.MaxUint32 {
-					promPoolRPCNodePollsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
+					n.metrics.IncrementPollsFailed(ctx, n.name)
 					pollFailures++
 				}
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.getCachedState())
 			} else {
-				// TODO Record client version metric n.metrics.Recor
+				n.metrics.RecordNodeClientVersion(ctx, n.name, version)
 				lggr.Debugw("Ping successful", "nodeState", n.State())
-				promPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+				n.metrics.IncrementPollsSuccess(ctx, n.name)
 				pollFailures = 0
 			}
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
@@ -282,7 +282,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewFinalizedHead(lggr logger.SugaredLogger
 		return false
 	}
 
-	promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+	ctx, cancel := n.newCtx()
+	defer cancel()
+	n.metrics.SetHighestFinalizedBlock(ctx, n.name, latestFinalizedBN)
 	chainInfo.FinalizedBlockNumber = latestFinalizedBN
 	return true
 }
@@ -292,8 +294,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 		lggr.Warn("Latest head is not valid")
 		return false
 	}
+	ctx, cancel := n.newCtx()
+	defer cancel()
 
-	promPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
+	n.metrics.IncrementSeenBlocks(ctx, n.name)
 	lggr.Debugw("Got head", "head", head)
 	lggr = lggr.With("latestReceivedBlockNumber", chainInfo.BlockNumber, "blockNumber", head.BlockNumber(), "nodeState", n.getCachedState())
 	if head.BlockNumber() <= chainInfo.BlockNumber {
@@ -301,13 +305,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 		return false
 	}
 
-	promPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(head.BlockNumber()))
+	n.metrics.SetHighestSeenBlock(ctx, n.name, head.BlockNumber())
 	chainInfo.BlockNumber = head.BlockNumber()
 
 	if !n.chainCfg.FinalityTagEnabled() {
 		latestFinalizedBN := max(head.BlockNumber()-int64(n.chainCfg.FinalityDepth()), 0)
 		if latestFinalizedBN > chainInfo.FinalizedBlockNumber {
-			promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+			n.metrics.SetHighestFinalizedBlock(ctx, n.name, latestFinalizedBN)
 			chainInfo.FinalizedBlockNumber = latestFinalizedBN
 		}
 	}

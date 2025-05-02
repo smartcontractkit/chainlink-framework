@@ -361,6 +361,247 @@ func (_c *mockNodeMetrics_IncrementNodeVerifiesSuccess_Call) RunAndReturn(run fu
 	return _c
 }
 
+// IncrementPolls provides a mock function with given fields: ctx, nodeName
+func (_m *mockNodeMetrics) IncrementPolls(ctx context.Context, nodeName string) {
+	_m.Called(ctx, nodeName)
+}
+
+// mockNodeMetrics_IncrementPolls_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementPolls'
+type mockNodeMetrics_IncrementPolls_Call struct {
+	*mock.Call
+}
+
+// IncrementPolls is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+func (_e *mockNodeMetrics_Expecter) IncrementPolls(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementPolls_Call {
+	return &mockNodeMetrics_IncrementPolls_Call{Call: _e.mock.On("IncrementPolls", ctx, nodeName)}
+}
+
+func (_c *mockNodeMetrics_IncrementPolls_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementPolls_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementPolls_Call) Return() *mockNodeMetrics_IncrementPolls_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementPolls_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementPolls_Call {
+	_c.Run(run)
+	return _c
+}
+
+// IncrementPollsFailed provides a mock function with given fields: ctx, nodeName
+func (_m *mockNodeMetrics) IncrementPollsFailed(ctx context.Context, nodeName string) {
+	_m.Called(ctx, nodeName)
+}
+
+// mockNodeMetrics_IncrementPollsFailed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementPollsFailed'
+type mockNodeMetrics_IncrementPollsFailed_Call struct {
+	*mock.Call
+}
+
+// IncrementPollsFailed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+func (_e *mockNodeMetrics_Expecter) IncrementPollsFailed(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementPollsFailed_Call {
+	return &mockNodeMetrics_IncrementPollsFailed_Call{Call: _e.mock.On("IncrementPollsFailed", ctx, nodeName)}
+}
+
+func (_c *mockNodeMetrics_IncrementPollsFailed_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementPollsFailed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementPollsFailed_Call) Return() *mockNodeMetrics_IncrementPollsFailed_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementPollsFailed_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementPollsFailed_Call {
+	_c.Run(run)
+	return _c
+}
+
+// IncrementPollsSuccess provides a mock function with given fields: ctx, nodeName
+func (_m *mockNodeMetrics) IncrementPollsSuccess(ctx context.Context, nodeName string) {
+	_m.Called(ctx, nodeName)
+}
+
+// mockNodeMetrics_IncrementPollsSuccess_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementPollsSuccess'
+type mockNodeMetrics_IncrementPollsSuccess_Call struct {
+	*mock.Call
+}
+
+// IncrementPollsSuccess is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+func (_e *mockNodeMetrics_Expecter) IncrementPollsSuccess(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementPollsSuccess_Call {
+	return &mockNodeMetrics_IncrementPollsSuccess_Call{Call: _e.mock.On("IncrementPollsSuccess", ctx, nodeName)}
+}
+
+func (_c *mockNodeMetrics_IncrementPollsSuccess_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementPollsSuccess_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementPollsSuccess_Call) Return() *mockNodeMetrics_IncrementPollsSuccess_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementPollsSuccess_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementPollsSuccess_Call {
+	_c.Run(run)
+	return _c
+}
+
+// IncrementSeenBlocks provides a mock function with given fields: ctx, nodeName
+func (_m *mockNodeMetrics) IncrementSeenBlocks(ctx context.Context, nodeName string) {
+	_m.Called(ctx, nodeName)
+}
+
+// mockNodeMetrics_IncrementSeenBlocks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementSeenBlocks'
+type mockNodeMetrics_IncrementSeenBlocks_Call struct {
+	*mock.Call
+}
+
+// IncrementSeenBlocks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+func (_e *mockNodeMetrics_Expecter) IncrementSeenBlocks(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementSeenBlocks_Call {
+	return &mockNodeMetrics_IncrementSeenBlocks_Call{Call: _e.mock.On("IncrementSeenBlocks", ctx, nodeName)}
+}
+
+func (_c *mockNodeMetrics_IncrementSeenBlocks_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementSeenBlocks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementSeenBlocks_Call) Return() *mockNodeMetrics_IncrementSeenBlocks_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementSeenBlocks_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementSeenBlocks_Call {
+	_c.Run(run)
+	return _c
+}
+
+// RecordNodeClientVersion provides a mock function with given fields: ctx, nodeName, version
+func (_m *mockNodeMetrics) RecordNodeClientVersion(ctx context.Context, nodeName string, version string) {
+	_m.Called(ctx, nodeName, version)
+}
+
+// mockNodeMetrics_RecordNodeClientVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RecordNodeClientVersion'
+type mockNodeMetrics_RecordNodeClientVersion_Call struct {
+	*mock.Call
+}
+
+// RecordNodeClientVersion is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+//   - version string
+func (_e *mockNodeMetrics_Expecter) RecordNodeClientVersion(ctx interface{}, nodeName interface{}, version interface{}) *mockNodeMetrics_RecordNodeClientVersion_Call {
+	return &mockNodeMetrics_RecordNodeClientVersion_Call{Call: _e.mock.On("RecordNodeClientVersion", ctx, nodeName, version)}
+}
+
+func (_c *mockNodeMetrics_RecordNodeClientVersion_Call) Run(run func(ctx context.Context, nodeName string, version string)) *mockNodeMetrics_RecordNodeClientVersion_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_RecordNodeClientVersion_Call) Return() *mockNodeMetrics_RecordNodeClientVersion_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_RecordNodeClientVersion_Call) RunAndReturn(run func(context.Context, string, string)) *mockNodeMetrics_RecordNodeClientVersion_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetHighestFinalizedBlock provides a mock function with given fields: ctx, nodeName, blockNumber
+func (_m *mockNodeMetrics) SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64) {
+	_m.Called(ctx, nodeName, blockNumber)
+}
+
+// mockNodeMetrics_SetHighestFinalizedBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetHighestFinalizedBlock'
+type mockNodeMetrics_SetHighestFinalizedBlock_Call struct {
+	*mock.Call
+}
+
+// SetHighestFinalizedBlock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+//   - blockNumber int64
+func (_e *mockNodeMetrics_Expecter) SetHighestFinalizedBlock(ctx interface{}, nodeName interface{}, blockNumber interface{}) *mockNodeMetrics_SetHighestFinalizedBlock_Call {
+	return &mockNodeMetrics_SetHighestFinalizedBlock_Call{Call: _e.mock.On("SetHighestFinalizedBlock", ctx, nodeName, blockNumber)}
+}
+
+func (_c *mockNodeMetrics_SetHighestFinalizedBlock_Call) Run(run func(ctx context.Context, nodeName string, blockNumber int64)) *mockNodeMetrics_SetHighestFinalizedBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int64))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_SetHighestFinalizedBlock_Call) Return() *mockNodeMetrics_SetHighestFinalizedBlock_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_SetHighestFinalizedBlock_Call) RunAndReturn(run func(context.Context, string, int64)) *mockNodeMetrics_SetHighestFinalizedBlock_Call {
+	_c.Run(run)
+	return _c
+}
+
+// SetHighestSeenBlock provides a mock function with given fields: ctx, nodeName, blockNumber
+func (_m *mockNodeMetrics) SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64) {
+	_m.Called(ctx, nodeName, blockNumber)
+}
+
+// mockNodeMetrics_SetHighestSeenBlock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetHighestSeenBlock'
+type mockNodeMetrics_SetHighestSeenBlock_Call struct {
+	*mock.Call
+}
+
+// SetHighestSeenBlock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+//   - blockNumber int64
+func (_e *mockNodeMetrics_Expecter) SetHighestSeenBlock(ctx interface{}, nodeName interface{}, blockNumber interface{}) *mockNodeMetrics_SetHighestSeenBlock_Call {
+	return &mockNodeMetrics_SetHighestSeenBlock_Call{Call: _e.mock.On("SetHighestSeenBlock", ctx, nodeName, blockNumber)}
+}
+
+func (_c *mockNodeMetrics_SetHighestSeenBlock_Call) Run(run func(ctx context.Context, nodeName string, blockNumber int64)) *mockNodeMetrics_SetHighestSeenBlock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(int64))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_SetHighestSeenBlock_Call) Return() *mockNodeMetrics_SetHighestSeenBlock_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_SetHighestSeenBlock_Call) RunAndReturn(run func(context.Context, string, int64)) *mockNodeMetrics_SetHighestSeenBlock_Call {
+	_c.Run(run)
+	return _c
+}
+
 // newMockNodeMetrics creates a new instance of mockNodeMetrics. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func newMockNodeMetrics(t interface {

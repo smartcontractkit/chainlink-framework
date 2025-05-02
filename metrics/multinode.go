@@ -67,12 +67,12 @@ var (
 		Help: "Total number of times node has transitioned to Syncing",
 	}, []string{"network", "chainID", "nodeName"})
 
-	// Node Lifecycle TODO START - ADD THESE ONES:
+	// Node Lifecycle
 	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pool_rpc_node_highest_seen_block",
 		Help: "The highest seen block for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
-	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	PromPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pool_rpc_node_highest_finalized_block",
 		Help: "The highest seen finalized block for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
@@ -92,7 +92,6 @@ var (
 		Name: "pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
-	// TODO: END
 
 	// Transaction Sender
 	promMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{

@@ -3,6 +3,7 @@ package multinode
 import (
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 	"math/big"
 	"math/rand/v2"
 	"strconv"
@@ -127,17 +128,17 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 
 		pollError := errors.New("failed to get ClientVersion")
 		// 1. Return error several times, but below threshold
-		rpc.On("Ping", mock.Anything).Return(pollError).Run(func(_ mock.Arguments) {
+		rpc.On("PingClientVersion", mock.Anything).Return("", pollError).Run(func(_ mock.Arguments) {
 			// stays healthy while below threshold
 			assert.Equal(t, nodeStateAlive, node.State())
 		}).Times(pollFailureThreshold - 1)
 		// 2. Successful call that is expected to reset counter
-		rpc.On("Ping", mock.Anything).Return(nil).Once()
+		rpc.On("PingClientVersion", mock.Anything).Return("", nil).Once()
 		// 3. Return error. If we have not reset the timer, we'll transition to nonAliveState
-		rpc.On("Ping", mock.Anything).Return(pollError).Once()
+		rpc.On("PingClientVersion", mock.Anything).Return("", pollError).Once()
 		// 4. Once during the call, check if node is alive
 		var ensuredAlive atomic.Bool
-		rpc.On("Ping", mock.Anything).Return(nil).Run(func(_ mock.Arguments) {
+		rpc.On("PingClientVersion", mock.Anything).Return("", nil).Run(func(_ mock.Arguments) {
 			if ensuredAlive.Load() {
 				return
 			}
@@ -145,7 +146,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			assert.Equal(t, nodeStateAlive, node.State())
 		}).Once()
 		// redundant call to stay in alive state
-		rpc.On("Ping", mock.Anything).Return(nil)
+		rpc.On("PingClientVersion", mock.Anything).Return("", nil)
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertLogCountEventually(t, observedLogs, "Ping successful", 2)
@@ -167,7 +168,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		pollError := errors.New("failed to get ClientVersion")
-		rpc.On("Ping", mock.Anything).Return(pollError)
+		rpc.On("PingClientVersion", mock.Anything).Return("", pollError)
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
@@ -196,7 +197,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
 		pollError := errors.New("failed to get ClientVersion")
-		rpc.On("Ping", mock.Anything).Return(pollError)
+		rpc.On("PingClientVersion", mock.Anything).Return("", pollError)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		assert.Equal(t, nodeStateAlive, node.State())
@@ -216,7 +217,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		rpc.On("Ping", mock.Anything).Return(nil)
+		rpc.On("PingClientVersion", mock.Anything).Return("", nil)
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		poolInfo := newMockPoolChainInfoProvider(t)
@@ -251,7 +252,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		rpc.On("Ping", mock.Anything).Return(nil)
+		rpc.On("PingClientVersion", mock.Anything).Return("", nil)
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		poolInfo := newMockPoolChainInfoProvider(t)
@@ -277,7 +278,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
-		rpc.On("Ping", mock.Anything).Return(nil)
+		rpc.On("PingClientVersion", mock.Anything).Return("", nil)
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		node.declareAlive()
@@ -380,7 +381,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
-			metric, err := promPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues(big.NewInt(1).String(), name)
+			metric, err := metrics.PromPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues(big.NewInt(1).String(), name)
 			require.NoError(t, err)
 			var m = &prom.Metric{}
 			require.NoError(t, metric.Write(m))
