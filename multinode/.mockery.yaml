@@ -18,3 +18,7 @@ packages:
       Head:
       PoolChainInfoProvider:
       Subscription:
+      multiNodeMetrics:
+      nodeMetrics:
+      sendOnlyNodeMetrics:
+      transactionSenderMetrics:

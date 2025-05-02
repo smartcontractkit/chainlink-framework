@@ -41,10 +41,16 @@ func newTestMultiNode(t *testing.T, opts multiNodeOpts) testMultiNode {
 	}
 
 	result := NewMultiNode[ID, multiNodeRPCClient](
-		opts.logger, opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily, opts.deathDeclarationDelay)
+		opts.logger, makeMockMultiNodeMetrics(t), opts.selectionMode, opts.leaseDuration, opts.nodes, opts.sendonlys, opts.chainID, opts.chainFamily, opts.deathDeclarationDelay)
 	return testMultiNode{
 		result,
 	}
+}
+
+func makeMockMultiNodeMetrics(t *testing.T) *mockMultiNodeMetrics {
+	mockMetrics := newMockMultiNodeMetrics(t)
+	mockMetrics.On("RecordNodeStates", mock.Anything, mock.Anything, mock.Anything).Maybe()
+	return mockMetrics
 }
 
 func newHealthyNode(t *testing.T, chainID ID) *mockNode[ID, multiNodeRPCClient] {

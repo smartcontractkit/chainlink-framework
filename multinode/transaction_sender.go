@@ -8,19 +8,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-)
-
-var (
-	// PromMultiNodeInvariantViolations reports violation of our assumptions
-	PromMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "multi_node_invariant_violations",
-		Help: "The number of invariant violations",
-	}, []string{"network", "chainId", "invariant"})
 )
 
 type sendTxResult[RESULT any] struct {
@@ -37,11 +26,16 @@ type SendTxRPCClient[TX any, RESULT any] interface {
 	SendTransaction(ctx context.Context, tx TX) (RESULT, SendTxReturnCode, error)
 }
 
+type transactionSenderMetrics interface {
+	IncrementInvariantViolations(ctx context.Context, invariant string)
+}
+
 func NewTransactionSender[TX any, RESULT any, CHAIN_ID ID, RPC SendTxRPCClient[TX, RESULT]](
 	lggr logger.Logger,
 	chainID CHAIN_ID,
 	chainFamily string,
 	multiNode *MultiNode[CHAIN_ID, RPC],
+	metrics transactionSenderMetrics,
 	classifyErr func(err error) SendTxReturnCode,
 	sendTxSoftTimeout time.Duration,
 ) *TransactionSender[TX, RESULT, CHAIN_ID, RPC] {
@@ -52,6 +46,7 @@ func NewTransactionSender[TX any, RESULT any, CHAIN_ID ID, RPC SendTxRPCClient[T
 		chainID:           chainID,
 		chainFamily:       chainFamily,
 		lggr:              logger.Sugared(lggr).Named("TransactionSender").With("chainID", chainID.String()),
+		metrics:           metrics,
 		multiNode:         multiNode,
 		classifyErr:       classifyErr,
 		sendTxSoftTimeout: sendTxSoftTimeout,
@@ -64,6 +59,7 @@ type TransactionSender[TX any, RESULT any, CHAIN_ID ID, RPC SendTxRPCClient[TX, 
 	chainID           CHAIN_ID
 	chainFamily       string
 	lggr              logger.SugaredLogger
+	metrics           transactionSenderMetrics
 	multiNode         *MultiNode[CHAIN_ID, RPC]
 	classifyErr       func(err error) SendTxReturnCode
 	sendTxSoftTimeout time.Duration // defines max waiting time from first response til responses evaluation
@@ -199,7 +195,9 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 	_, criticalErr := aggregateTxResults(resultsByCode)
 	if criticalErr != nil {
 		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
-		PromMultiNodeInvariantViolations.WithLabelValues(txSender.chainFamily, txSender.chainID.String(), criticalErr.Error()).Inc()
+		ctx, cancel := txSender.chStop.NewCtx()
+		defer cancel()
+		txSender.metrics.IncrementInvariantViolations(ctx, criticalErr.Error())
 	}
 }
 
