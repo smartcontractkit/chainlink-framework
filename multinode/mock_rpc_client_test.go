@@ -79,6 +79,62 @@ func (_c *mockRPCClient_ChainID_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(cont
 	return _c
 }
 
+// ClientVersion provides a mock function with given fields: _a0
+func (_m *mockRPCClient[CHAIN_ID, HEAD]) ClientVersion(_a0 context.Context) (string, error) {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ClientVersion")
+	}
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// mockRPCClient_ClientVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ClientVersion'
+type mockRPCClient_ClientVersion_Call[CHAIN_ID ID, HEAD Head] struct {
+	*mock.Call
+}
+
+// ClientVersion is a helper method to define mock.On call
+//   - _a0 context.Context
+func (_e *mockRPCClient_Expecter[CHAIN_ID, HEAD]) ClientVersion(_a0 interface{}) *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD] {
+	return &mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("ClientVersion", _a0)}
+}
+
+func (_c *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD]) Run(run func(_a0 context.Context)) *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD]) Return(_a0 string, _a1 error) *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (string, error)) *mockRPCClient_ClientVersion_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Close provides a mock function with no fields
 func (_m *mockRPCClient[CHAIN_ID, HEAD]) Close() {
 	_m.Called()
@@ -264,62 +320,6 @@ func (_c *mockRPCClient_IsSyncing_Call[CHAIN_ID, HEAD]) Return(_a0 bool, _a1 err
 }
 
 func (_c *mockRPCClient_IsSyncing_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (bool, error)) *mockRPCClient_IsSyncing_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(run)
-	return _c
-}
-
-// PingClientVersion provides a mock function with given fields: _a0
-func (_m *mockRPCClient[CHAIN_ID, HEAD]) PingClientVersion(_a0 context.Context) (string, error) {
-	ret := _m.Called(_a0)
-
-	if len(ret) == 0 {
-		panic("no return value specified for PingClientVersion")
-	}
-
-	var r0 string
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (string, error)); ok {
-		return rf(_a0)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context) string); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Get(0).(string)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = rf(_a0)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// mockRPCClient_PingClientVersion_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PingClientVersion'
-type mockRPCClient_PingClientVersion_Call[CHAIN_ID ID, HEAD Head] struct {
-	*mock.Call
-}
-
-// PingClientVersion is a helper method to define mock.On call
-//   - _a0 context.Context
-func (_e *mockRPCClient_Expecter[CHAIN_ID, HEAD]) PingClientVersion(_a0 interface{}) *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD] {
-	return &mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("PingClientVersion", _a0)}
-}
-
-func (_c *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD]) Run(run func(_a0 context.Context)) *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD]) Return(_a0 string, _a1 error) *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(_a0, _a1)
-	return _c
-}
-
-func (_c *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) (string, error)) *mockRPCClient_PingClientVersion_Call[CHAIN_ID, HEAD] {
 	_c.Call.Return(run)
 	return _c
 }
