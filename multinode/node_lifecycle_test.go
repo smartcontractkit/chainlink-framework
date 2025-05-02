@@ -3,7 +3,6 @@ package multinode
 import (
 	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-framework/metrics"
 	"math/big"
 	"math/rand/v2"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 	clientMocks "github.com/smartcontractkit/chainlink-framework/multinode/mocks"
 )
 

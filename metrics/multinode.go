@@ -375,7 +375,7 @@ func (m *multiNodeMetrics) SetHighestSeenBlock(ctx context.Context, nodeName str
 }
 
 func (m *multiNodeMetrics) SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64) {
-	promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(m.network, m.chainID, nodeName).Set(float64(blockNumber))
+	PromPoolRPCNodeHighestFinalizedBlock.WithLabelValues(m.network, m.chainID, nodeName).Set(float64(blockNumber))
 	m.highestFinalizedBlock.Record(ctx, blockNumber, metric.WithAttributes(
 		attribute.String("network", m.network),
 		attribute.String("chainID", m.chainID),
