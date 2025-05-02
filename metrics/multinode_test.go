@@ -161,7 +161,7 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 		m.SetHighestFinalizedBlock(ctx, nodeName, 456)
 		require.InEpsilon(t,
 			456.0,
-			testutil.ToFloat64(promPoolRPCNodeHighestFinalizedBlock.WithLabelValues("test-network", "1", nodeName)),
+			testutil.ToFloat64(PromPoolRPCNodeHighestFinalizedBlock.WithLabelValues("test-network", "1", nodeName)),
 			0.001,
 		)
 	})

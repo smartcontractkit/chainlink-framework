@@ -120,8 +120,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				}
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.getCachedState())
 			} else {
-				n.metrics.RecordNodeClientVersion(ctx, n.name, version)
 				lggr.Debugw("Ping successful", "nodeState", n.State())
+				n.metrics.RecordNodeClientVersion(ctx, n.name, version)
 				n.metrics.IncrementPollsSuccess(ctx, n.name)
 				pollFailures = 0
 			}

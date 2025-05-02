@@ -381,7 +381,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		node.declareAlive()
 		tests.AssertEventually(t, func() bool {
-			metric, err := metrics.PromPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues(big.NewInt(1).String(), name)
+			metric, err := metrics.PromPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues("test-network", big.NewInt(1).String(), name)
 			require.NoError(t, err)
 			var m = &prom.Metric{}
 			require.NoError(t, metric.Write(m))
@@ -466,7 +466,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			writeHeads(t, ch, head{BlockNumber: expectedBlock - 1}, head{BlockNumber: expectedBlock}, head{BlockNumber: expectedBlock - 1})
 		}()
 		tests.AssertEventually(t, func() bool {
-			metric, err := promPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues(big.NewInt(1).String(), name)
+			metric, err := metrics.PromPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues("test-network", big.NewInt(1).String(), name)
 			require.NoError(t, err)
 			var m = &prom.Metric{}
 			require.NoError(t, metric.Write(m))

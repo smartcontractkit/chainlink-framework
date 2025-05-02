@@ -1,6 +1,8 @@
 package multinode
 
 import (
+	"github.com/smartcontractkit/chainlink-framework/metrics"
+	"github.com/stretchr/testify/require"
 	"net/url"
 	"testing"
 	"time"
@@ -103,7 +105,10 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 		opts.id = 42
 	}
 
-	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr, makeMockNodeMetrics(t),
+	nodeMetrics, err := metrics.NewGenericMultiNodeMetrics("test-network", "1")
+	require.NoError(t, err)
+
+	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr, nodeMetrics,
 		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily)
 
 	return testNode{
@@ -123,5 +128,12 @@ func makeMockNodeMetrics(t *testing.T) *mockNodeMetrics {
 	mockMetrics.On("IncrementNodeTransitionsToInvalidChainID", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementNodeTransitionsToUnusable", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementNodeTransitionsToSyncing", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("SetHighestSeenBlock", mock.Anything, mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("SetHighestFinalizedBlock", mock.Anything, mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementSeenBlocks", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementPolls", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementPollsFailed", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementPollsSuccess", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("RecordNodeClientVersion", mock.Anything, mock.Anything, mock.Anything).Maybe()
 	return mockMetrics
 }
