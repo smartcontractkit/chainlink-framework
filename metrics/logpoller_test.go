@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"context"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -16,17 +15,15 @@ func setupTestLogPollerMetrics(t *testing.T) GenericLogPollerMetrics {
 
 func TestLogPollerMetrics_RecordQueryDuration(t *testing.T) {
 	m := setupTestLogPollerMetrics(t)
-	ctx := context.Background()
 
-	m.RecordQueryDuration(ctx, "PollLogs", Read, 0.005)
+	m.RecordQueryDuration(t.Context(), "PollLogs", Read, 0.005)
 	require.Positive(t, testutil.CollectAndCount(PromLpQueryDuration))
 }
 
 func TestLogPollerMetrics_RecordQueryDatasetSize(t *testing.T) {
 	m := setupTestLogPollerMetrics(t)
-	ctx := context.Background()
 
-	m.RecordQueryDatasetSize(ctx, "PollLogs", Read, 10)
+	m.RecordQueryDatasetSize(t.Context(), "PollLogs", Read, 10)
 
 	require.InEpsilon(t,
 		10.0,
@@ -37,9 +34,8 @@ func TestLogPollerMetrics_RecordQueryDatasetSize(t *testing.T) {
 
 func TestLogPollerMetrics_IncrementLogsInserted(t *testing.T) {
 	m := setupTestLogPollerMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementLogsInserted(ctx, 5)
+	m.IncrementLogsInserted(t.Context(), 5)
 
 	require.InEpsilon(t,
 		5.0,
@@ -50,9 +46,8 @@ func TestLogPollerMetrics_IncrementLogsInserted(t *testing.T) {
 
 func TestLogPollerMetrics_IncrementBlocksInserted(t *testing.T) {
 	m := setupTestLogPollerMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementBlocksInserted(ctx, 3)
+	m.IncrementBlocksInserted(t.Context(), 3)
 
 	require.InEpsilon(t,
 		3.0,

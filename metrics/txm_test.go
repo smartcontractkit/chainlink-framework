@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"context"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -16,9 +15,8 @@ func setupTestTxmMetrics(t *testing.T) GenericTXMMetrics {
 
 func TestTxmMetrics_IncrementNumBroadcastedTxs(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementNumBroadcastedTxs(ctx)
+	m.IncrementNumBroadcastedTxs(t.Context())
 
 	require.InEpsilon(t,
 		1.0,
@@ -29,9 +27,8 @@ func TestTxmMetrics_IncrementNumBroadcastedTxs(t *testing.T) {
 
 func TestTxmMetrics_RecordTimeUntilTxBroadcast(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.RecordTimeUntilTxBroadcast(ctx, 1.5) // 1.5 seconds
+	m.RecordTimeUntilTxBroadcast(t.Context(), 1.5) // 1.5 seconds
 
 	require.Positive(t,
 		testutil.CollectAndCount(promTimeUntilBroadcast),
@@ -40,9 +37,8 @@ func TestTxmMetrics_RecordTimeUntilTxBroadcast(t *testing.T) {
 
 func TestTxmMetrics_IncrementNumGasBumps(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementNumGasBumps(ctx)
+	m.IncrementNumGasBumps(t.Context())
 
 	require.InEpsilon(t,
 		1.0,
@@ -53,9 +49,8 @@ func TestTxmMetrics_IncrementNumGasBumps(t *testing.T) {
 
 func TestTxmMetrics_IncrementGasBumpExceedsLimit(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementGasBumpExceedsLimit(ctx)
+	m.IncrementGasBumpExceedsLimit(t.Context())
 
 	require.InEpsilon(t,
 		1.0,
@@ -66,9 +61,8 @@ func TestTxmMetrics_IncrementGasBumpExceedsLimit(t *testing.T) {
 
 func TestTxmMetrics_IncrementNumConfirmedTxs(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementNumConfirmedTxs(ctx, 2)
+	m.IncrementNumConfirmedTxs(t.Context(), 2)
 
 	require.InEpsilon(t,
 		2.0,
@@ -79,9 +73,8 @@ func TestTxmMetrics_IncrementNumConfirmedTxs(t *testing.T) {
 
 func TestTxmMetrics_RecordTimeUntilTxConfirmed(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.RecordTimeUntilTxConfirmed(ctx, 2.5) // 2.5 seconds
+	m.RecordTimeUntilTxConfirmed(t.Context(), 2.5) // 2.5 seconds
 
 	require.Positive(t,
 		testutil.CollectAndCount(promTimeUntilTxConfirmed),
@@ -90,9 +83,8 @@ func TestTxmMetrics_RecordTimeUntilTxConfirmed(t *testing.T) {
 
 func TestTxmMetrics_RecordBlocksUntilTxConfirmed(t *testing.T) {
 	m := setupTestTxmMetrics(t)
-	ctx := context.Background()
 
-	m.RecordBlocksUntilTxConfirmed(ctx, 3)
+	m.RecordBlocksUntilTxConfirmed(t.Context(), 3)
 
 	require.Positive(t,
 		testutil.CollectAndCount(promBlocksUntilTxConfirmed),

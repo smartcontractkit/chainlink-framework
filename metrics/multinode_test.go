@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"context"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -17,9 +16,8 @@ func setupTestMultiNodeMetrics(t *testing.T) GenericMultiNodeMetrics {
 
 func TestMultiNodeMetrics_RecordNodeStates(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
-	ctx := context.Background()
 
-	m.RecordNodeStates(ctx, "Alive", 5)
+	m.RecordNodeStates(t.Context(), "Alive", 5)
 
 	require.InEpsilon(t,
 		5.0,
@@ -30,9 +28,8 @@ func TestMultiNodeMetrics_RecordNodeStates(t *testing.T) {
 
 func TestMultiNodeMetrics_RecordNodeClientVersion(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
-	ctx := context.Background()
 
-	m.RecordNodeClientVersion(ctx, "test-node-1", "rpc-1.2.3")
+	m.RecordNodeClientVersion(t.Context(), "test-node-1", "rpc-1.2.3")
 
 	value := testutil.ToFloat64(promNodeClientVersion.WithLabelValues(
 		"test-network",
@@ -50,23 +47,22 @@ func TestMultiNodeMetrics_RecordNodeClientVersion(t *testing.T) {
 
 func TestMultiNodeMetrics_Verifies(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementNodeVerifies(ctx, "node-1")
+	m.IncrementNodeVerifies(t.Context(), "node-1")
 	require.InEpsilon(t,
 		1.0,
 		testutil.ToFloat64(promPoolRPCNodeVerifies.WithLabelValues("test-network", "1", "node-1")),
 		0.001,
 	)
 
-	m.IncrementNodeVerifiesFailed(ctx, "node-1")
+	m.IncrementNodeVerifiesFailed(t.Context(), "node-1")
 	require.InEpsilon(t,
 		1.0,
 		testutil.ToFloat64(promPoolRPCNodeVerifiesFailed.WithLabelValues("test-network", "1", "node-1")),
 		0.001,
 	)
 
-	m.IncrementNodeVerifiesSuccess(ctx, "node-1")
+	m.IncrementNodeVerifiesSuccess(t.Context(), "node-1")
 	require.InEpsilon(t,
 		1.0,
 		testutil.ToFloat64(promPoolRPCNodeVerifiesSuccess.WithLabelValues("test-network", "1", "node-1")),
@@ -76,7 +72,6 @@ func TestMultiNodeMetrics_Verifies(t *testing.T) {
 
 func TestMultiNodeMetrics_NodeTransitions(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
-	ctx := context.Background()
 	nodeName := "node-1"
 
 	tests := []struct {
@@ -87,49 +82,49 @@ func TestMultiNodeMetrics_NodeTransitions(t *testing.T) {
 		{
 			name: "Alive",
 			increment: func() {
-				m.IncrementNodeTransitionsToAlive(ctx, nodeName)
+				m.IncrementNodeTransitionsToAlive(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToAlive,
 		},
 		{
 			name: "InSync",
 			increment: func() {
-				m.IncrementNodeTransitionsToInSync(ctx, nodeName)
+				m.IncrementNodeTransitionsToInSync(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToInSync,
 		},
 		{
 			name: "OutOfSync",
 			increment: func() {
-				m.IncrementNodeTransitionsToOutOfSync(ctx, nodeName)
+				m.IncrementNodeTransitionsToOutOfSync(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToOutOfSync,
 		},
 		{
 			name: "Unreachable",
 			increment: func() {
-				m.IncrementNodeTransitionsToUnreachable(ctx, nodeName)
+				m.IncrementNodeTransitionsToUnreachable(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToUnreachable,
 		},
 		{
 			name: "InvalidChainID",
 			increment: func() {
-				m.IncrementNodeTransitionsToInvalidChainID(ctx, nodeName)
+				m.IncrementNodeTransitionsToInvalidChainID(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToInvalidChainID,
 		},
 		{
 			name: "Unusable",
 			increment: func() {
-				m.IncrementNodeTransitionsToUnusable(ctx, nodeName)
+				m.IncrementNodeTransitionsToUnusable(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToUnusable,
 		},
 		{
 			name: "Syncing",
 			increment: func() {
-				m.IncrementNodeTransitionsToSyncing(ctx, nodeName)
+				m.IncrementNodeTransitionsToSyncing(t.Context(), nodeName)
 			},
 			promMetric: promPoolRPCNodeTransitionsToSyncing,
 		},
@@ -149,11 +144,10 @@ func TestMultiNodeMetrics_NodeTransitions(t *testing.T) {
 
 func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
-	ctx := context.Background()
 	nodeName := "node-1"
 
 	t.Run("SetHighestSeenBlock", func(t *testing.T) {
-		m.SetHighestSeenBlock(ctx, nodeName, 123)
+		m.SetHighestSeenBlock(t.Context(), nodeName, 123)
 		require.InEpsilon(t,
 			123.0,
 			testutil.ToFloat64(promPoolRPCNodeHighestSeenBlock.WithLabelValues("test-network", "1", nodeName)),
@@ -162,7 +156,7 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 	})
 
 	t.Run("SetHighestFinalizedBlock", func(t *testing.T) {
-		m.SetHighestFinalizedBlock(ctx, nodeName, 456)
+		m.SetHighestFinalizedBlock(t.Context(), nodeName, 456)
 		require.InEpsilon(t,
 			456.0,
 			testutil.ToFloat64(PromPoolRPCNodeHighestFinalizedBlock.WithLabelValues("test-network", "1", nodeName)),
@@ -171,7 +165,7 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 	})
 
 	t.Run("IncrementSeenBlocks", func(t *testing.T) {
-		m.IncrementSeenBlocks(ctx, nodeName)
+		m.IncrementSeenBlocks(t.Context(), nodeName)
 		require.InEpsilon(t,
 			1.0,
 			testutil.ToFloat64(promPoolRPCNodeNumSeenBlocks.WithLabelValues("test-network", "1", nodeName)),
@@ -180,7 +174,7 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 	})
 
 	t.Run("IncrementPolls", func(t *testing.T) {
-		m.IncrementPolls(ctx, nodeName)
+		m.IncrementPolls(t.Context(), nodeName)
 		require.InEpsilon(t,
 			1.0,
 			testutil.ToFloat64(promPoolRPCNodePolls.WithLabelValues("test-network", "1", nodeName)),
@@ -189,7 +183,7 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 	})
 
 	t.Run("IncrementPollsFailed", func(t *testing.T) {
-		m.IncrementPollsFailed(ctx, nodeName)
+		m.IncrementPollsFailed(t.Context(), nodeName)
 		require.InEpsilon(t,
 			1.0,
 			testutil.ToFloat64(promPoolRPCNodePollsFailed.WithLabelValues("test-network", "1", nodeName)),
@@ -198,7 +192,7 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 	})
 
 	t.Run("IncrementPollsSuccess", func(t *testing.T) {
-		m.IncrementPollsSuccess(ctx, nodeName)
+		m.IncrementPollsSuccess(t.Context(), nodeName)
 		require.InEpsilon(t,
 			1.0,
 			testutil.ToFloat64(promPoolRPCNodePollsSuccess.WithLabelValues("test-network", "1", nodeName)),
@@ -209,9 +203,8 @@ func TestMultiNodeMetrics_LifecycleMetrics(t *testing.T) {
 
 func TestMultiNodeMetrics_IncrementInvariantViolations(t *testing.T) {
 	m := setupTestMultiNodeMetrics(t)
-	ctx := context.Background()
 
-	m.IncrementInvariantViolations(ctx, "wrong_nonce")
+	m.IncrementInvariantViolations(t.Context(), "wrong_nonce")
 
 	require.InEpsilon(t,
 		1.0,
