@@ -47,11 +47,18 @@ func newTestTransactionSender(t *testing.T, chainID ID, lggr logger.Logger,
 	sendOnlyNodes []SendOnlyNode[ID, TestSendTxRPCClient],
 ) (*sendTxMultiNode, *TransactionSender[any, any, ID, TestSendTxRPCClient]) {
 	mn := sendTxMultiNode{NewMultiNode[ID, TestSendTxRPCClient](
-		lggr, NodeSelectionModeRoundRobin, 0, nodes, sendOnlyNodes, chainID, "chainFamily", 0)}
+		lggr, makeMockMultiNodeMetrics(t), NodeSelectionModeRoundRobin, 0, nodes, sendOnlyNodes, chainID, "chainFamily", 0)}
 
-	txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
+	txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, makeMockTxSenderMetrics(t),
+		func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
 	servicetest.Run(t, txSender)
 	return &mn, txSender
+}
+
+func makeMockTxSenderMetrics(t *testing.T) *mockTransactionSenderMetrics {
+	metrics := newMockTransactionSenderMetrics(t)
+	metrics.On("IncrementInvariantViolations", mock.Anything, mock.Anything).Maybe()
+	return metrics
 }
 
 func classifySendTxError(_ any, err error) SendTxReturnCode {
@@ -148,8 +155,9 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 
 		chainID := RandomID()
 		mn := sendTxMultiNode{NewMultiNode[ID, TestSendTxRPCClient](
-			lggr, NodeSelectionModeRoundRobin, 0, []Node[ID, TestSendTxRPCClient]{mainNode}, nil, chainID, "chainFamily", 0)}
-		txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
+			lggr, makeMockMultiNodeMetrics(t), NodeSelectionModeRoundRobin, 0, []Node[ID, TestSendTxRPCClient]{mainNode}, nil, chainID, "chainFamily", 0)}
+		txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, makeMockTxSenderMetrics(t),
+			func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
 		require.NoError(t, txSender.Start(tests.Context(t)))
 
 		_, _, err := txSender.SendTransaction(requestContext, nil)
