@@ -25,7 +25,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 		if err != nil {
 			ok := s.IfStarted(func() {
 				if changed := s.setState(nodeStateUnreachable); changed {
-					promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
+					s.metrics.IncrementNodeTransitionsToUnreachable(ctx, s.name)
 				}
 			})
 			if !ok {
@@ -36,7 +36,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 		} else if chainID.String() != s.chainID.String() {
 			ok := s.IfStarted(func() {
 				if changed := s.setState(nodeStateInvalidChainID); changed {
-					promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
+					s.metrics.IncrementNodeTransitionsToInvalidChainID(ctx, s.name)
 				}
 			})
 			if !ok {
@@ -53,7 +53,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 		}
 		ok := s.IfStarted(func() {
 			if changed := s.setState(nodeStateAlive); changed {
-				promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
+				s.metrics.IncrementNodeTransitionsToAlive(ctx, s.name)
 			}
 		})
 		if !ok {

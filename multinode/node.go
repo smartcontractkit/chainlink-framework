@@ -8,9 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -18,21 +15,6 @@ import (
 const QueryTimeout = 10 * time.Second
 
 var errInvalidChainID = errors.New("invalid chain id")
-
-var (
-	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_verifies",
-		Help: "The total number of chain ID verifications for the given RPC node",
-	}, []string{"network", "chainID", "nodeName"})
-	promPoolRPCNodeVerifiesFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_verifies_failed",
-		Help: "The total number of failed chain ID verifications for the given RPC node",
-	}, []string{"network", "chainID", "nodeName"})
-	promPoolRPCNodeVerifiesSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_verifies_success",
-		Help: "The total number of successful chain ID verifications for the given RPC node",
-	}, []string{"network", "chainID", "nodeName"})
-)
 
 type NodeConfig interface {
 	PollFailureThreshold() uint32
@@ -53,6 +35,26 @@ type ChainConfig interface {
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
+}
+
+type nodeMetrics interface {
+	IncrementNodeVerifies(ctx context.Context, nodeName string)
+	IncrementNodeVerifiesFailed(ctx context.Context, nodeName string)
+	IncrementNodeVerifiesSuccess(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToAlive(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToInSync(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToOutOfSync(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToUnreachable(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToInvalidChainID(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
+	RecordNodeClientVersion(ctx context.Context, nodeName string, version string)
+	SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64)
+	SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64)
+	IncrementSeenBlocks(ctx context.Context, nodeName string)
+	IncrementPolls(ctx context.Context, nodeName string)
+	IncrementPollsFailed(ctx context.Context, nodeName string)
+	IncrementPollsSuccess(ctx context.Context, nodeName string)
 }
 
 type Node[
@@ -98,6 +100,8 @@ type node[
 	order       int32
 	chainFamily string
 
+	metrics nodeMetrics
+
 	ws   *url.URL
 	http *url.URL
 
@@ -123,6 +127,7 @@ func NewNode[
 	nodeCfg NodeConfig,
 	chainCfg ChainConfig,
 	lggr logger.Logger,
+	metrics nodeMetrics,
 	wsuri *url.URL,
 	httpuri *url.URL,
 	name string,
@@ -139,6 +144,7 @@ func NewNode[
 	n.nodePoolCfg = nodeCfg
 	n.chainCfg = chainCfg
 	n.order = nodeOrder
+	n.metrics = metrics
 	if wsuri != nil {
 		n.ws = wsuri
 	}
@@ -253,9 +259,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) start() {
 // Not thread-safe
 // Pure verifyChainID: does not mutate node "state" field.
 func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lggr logger.Logger) nodeState {
-	promPoolRPCNodeVerifies.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
+	n.metrics.IncrementNodeVerifies(callerCtx, n.name)
 	promFailed := func() {
-		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
+		n.metrics.IncrementNodeVerifiesFailed(callerCtx, n.name)
 	}
 
 	st := n.getCachedState()
@@ -288,7 +294,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 		return nodeStateInvalidChainID
 	}
 
-	promPoolRPCNodeVerifiesSuccess.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
+	n.metrics.IncrementNodeVerifiesSuccess(callerCtx, n.name)
 
 	return nodeStateAlive
 }
