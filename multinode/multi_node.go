@@ -8,21 +8,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-var (
-	// PromMultiNodeRPCNodeStates reports current RPC node state
-	PromMultiNodeRPCNodeStates = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "multi_node_states",
-		Help: "The number of RPC nodes currently in the given state for the given chain",
-	}, []string{"network", "chainId", "state"})
-	ErrNodeError = fmt.Errorf("no live nodes available")
-)
+var ErrNodeError = fmt.Errorf("no live nodes available")
+
+type multiNodeMetrics interface {
+	RecordNodeStates(ctx context.Context, state string, count int64)
+}
 
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
@@ -37,6 +31,7 @@ type MultiNode[
 	sendOnlyNodes         []SendOnlyNode[CHAIN_ID, RPC]
 	chainID               CHAIN_ID
 	lggr                  logger.SugaredLogger
+	metrics               multiNodeMetrics
 	selectionMode         string
 	nodeSelector          NodeSelector[CHAIN_ID, RPC]
 	leaseDuration         time.Duration
@@ -54,6 +49,7 @@ func NewMultiNode[
 	RPC any,
 ](
 	lggr logger.Logger,
+	metrics multiNodeMetrics,
 	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
 	primaryNodes []Node[CHAIN_ID, RPC],
@@ -67,6 +63,7 @@ func NewMultiNode[
 	// aliasing (see: https://en.wikipedia.org/wiki/Nyquist_frequency)
 	const reportInterval = 6500 * time.Millisecond
 	c := &MultiNode[CHAIN_ID, RPC]{
+		metrics:               metrics,
 		primaryNodes:          primaryNodes,
 		sendOnlyNodes:         sendOnlyNodes,
 		chainID:               chainID,
@@ -361,9 +358,12 @@ func (c *MultiNode[CHAIN_ID, RPC]) report(nodesStateInfo []nodeWithState) {
 			dead++
 		}
 	}
+
+	ctx, cancel := c.eng.NewCtx()
+	defer cancel()
 	for _, state := range allNodeStates {
-		count := counts[state]
-		PromMultiNodeRPCNodeStates.WithLabelValues(c.chainFamily, c.chainID.String(), state.String()).Set(float64(count))
+		count := int64(counts[state])
+		c.metrics.RecordNodeStates(ctx, state.String(), count)
 	}
 
 	total := len(c.primaryNodes)

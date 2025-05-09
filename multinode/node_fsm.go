@@ -2,40 +2,6 @@ package multinode
 
 import (
 	"fmt"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-var (
-	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_alive",
-		Help: transitionString(nodeStateAlive),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_in_sync",
-		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
-		Help: transitionString(nodeStateOutOfSync),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unreachable",
-		Help: transitionString(nodeStateUnreachable),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
-		Help: transitionString(nodeStateInvalidChainID),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_unusable",
-		Help: transitionString(nodeStateUnusable),
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeTransitionsToSyncing = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_transitions_to_syncing",
-		Help: transitionString(nodeStateSyncing),
-	}, []string{"chainID", "nodeName"})
 )
 
 // nodeState represents the current state of the node
@@ -207,7 +173,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareAlive() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
-	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
+	n.metrics.IncrementNodeTransitionsToAlive(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {
@@ -233,8 +201,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
-	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
-	promPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
+	n.metrics.IncrementNodeTransitionsToAlive(ctx, n.name)
+	n.metrics.IncrementNodeTransitionsToInSync(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {
@@ -260,7 +230,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(syncIssues syncStatus) {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
-	promPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
+	n.metrics.IncrementNodeTransitionsToOutOfSync(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {
@@ -285,7 +257,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareUnreachable() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
-	promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
+	n.metrics.IncrementNodeTransitionsToUnreachable(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {
@@ -328,7 +302,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareInvalidChainID() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
-	promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
+	n.metrics.IncrementNodeTransitionsToInvalidChainID(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {
@@ -353,7 +329,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareSyncing() {
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
-	promPoolRPCNodeTransitionsToSyncing.WithLabelValues(n.chainID.String(), n.name).Inc()
+	ctx, cancel := n.stopCh.NewCtx()
+	defer cancel()
+	n.metrics.IncrementNodeTransitionsToSyncing(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {
@@ -371,10 +349,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 		panic("unexpected transition to nodeStateSyncing, while it's disabled")
 	}
 	fn()
-}
-
-func transitionString(state nodeState) string {
-	return fmt.Sprintf("Total number of times node has transitioned to %s", state)
 }
 
 func transitionFail(from nodeState, to nodeState) string {
