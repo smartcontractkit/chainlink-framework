@@ -11,8 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder"
 )
 
-// EVM-specific product-agnostic processors to be injected into WriteTarget Monitor
-func NewEVMPlatformProcessors(emitter monitor.ProtoEmitter) ([]monitor.ProtoProcessor, error) {
+// Product-agnostic processors to be injected into WriteTarget Monitor
+func NewPlatformProcessors(emitter monitor.ProtoEmitter) ([]monitor.ProtoProcessor, error) {
 	forwarderMetrics, err := forwarder.NewMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new forwarder metrics: %w", err)
@@ -31,7 +31,6 @@ func NewEVMPlatformProcessors(emitter monitor.ProtoEmitter) ([]monitor.ProtoProc
 			metrics: wtMetrics,
 		},
 	}, nil
-	// Initialize the EVM-specific product-agnostic processors
 }
 
 // Write-Target specific processor decodes write messages to derive metrics

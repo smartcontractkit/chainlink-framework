@@ -6,7 +6,13 @@ packages:
   github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor:
     interfaces:
       BalanceMonitor:
-
+      ProtoEmitter:
   github.com/smartcontractkit/chainlink-framework/capabilities/writetarget:
     interfaces:
       ProductSpecificProcessor:
+      TargetStrategy:
+  github.com/smartcontractkit/chainlink-common/pkg/types:
+    config:
+      dir: writetarget/mocks
+    interfaces:
+      ChainService:
