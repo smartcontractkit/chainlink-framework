@@ -3,8 +3,6 @@ package writetarget_test
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -12,12 +10,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	writetarget "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
@@ -49,10 +47,10 @@ func setupWriteTarget(
 	monClient, err := writetarget.NewMonitor(lggr, platformProcessors, psp, emitter)
 	require.NoError(t, err)
 
-	pollPeriod, err := commonconfig.NewDuration(2 * time.Second)
+	pollPeriod, err := commonconfig.NewDuration(100 * time.Millisecond)
 	require.NoError(t, err)
 
-	timeout, err := commonconfig.NewDuration(30 * time.Second)
+	timeout, err := commonconfig.NewDuration(500 * time.Millisecond)
 	require.NoError(t, err)
 
 	opts := writetarget.WriteTargetOpts{
@@ -109,25 +107,6 @@ func setupWriteTarget(
 	return wt, req
 }
 
-func findLogMatch(t *testing.T, observed *observer.ObservedLogs, msg string, key string, value string) {
-	require.Eventually(t, func() bool {
-		filteredByMsg := observed.FilterMessage(msg)
-		matches := filteredByMsg.
-			Filter(func(le observer.LoggedEntry) bool {
-				for _, field := range le.Context {
-					if field.Key == key &&
-						strings.Contains(fmt.Sprint(field.Interface),
-							value) {
-						return true
-					}
-				}
-				return false
-			}).
-			All() // => []observer.LoggedEntry
-		return len(matches) > 0
-	}, 30*time.Second, 1*time.Second)
-}
-
 func newMockProductSpecificProcessor(t *testing.T) writetarget.ProductSpecificProcessor {
 	processor := wtmocks.NewProductSpecificProcessor(t)
 	processor.EXPECT().Name().Return("test").Once()
@@ -135,55 +114,109 @@ func newMockProductSpecificProcessor(t *testing.T) writetarget.ProductSpecificPr
 	return processor
 }
 
+type testCase struct {
+	name                     string
+	initialTransmissionState writetarget.TransmissionState
+	txState                  commontypes.TransactionStatus
+	simulateTxError          bool
+	expectError              bool
+	errorContains            string
+	productSpecificProcessor bool
+	requiredLogMessage       string
+}
+
 func TestWriteTarget_Execute(t *testing.T) {
-	cases := []struct {
-		name                     string
-		headHeight               string
-		state                    writetarget.TransmissionState
-		expectTransmit           bool
-		simulateTxError          bool
-		expectError              bool
-		errorContains            string
-		productSpecificProcessor bool
-	}{
+	cases := []testCase{
 		{
-			name:           "not attempted",
-			headHeight:     "100",
-			state:          writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
-			expectTransmit: true,
-			expectError:    false,
+			name:                     "succeeds transmission state is not attempted",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Finalized,
+			expectError:              false,
+			requiredLogMessage:       "no matching processor for MetaCapabilityProcessor=test",
 		},
 		{
-			name:           "already succeeded",
-			headHeight:     "200",
-			state:          writetarget.TransmissionState{Status: writetarget.TransmissionStateSucceeded},
-			expectTransmit: false,
-			expectError:    false,
+			name:                     "succeeds transmission state is already succeeded",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateSucceeded},
+			txState:                  commontypes.Unknown,
+			expectError:              false,
+		},
+		{
+			name:                     "succeeds transmission state is not attempted with product specific processor",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Finalized,
+			expectError:              false,
+			productSpecificProcessor: true,
+			requiredLogMessage:       "confirmed - transmission state visible",
 		},
 		{
 			name:                     "already succeeded with product specific processor",
-			headHeight:               "200",
-			state:                    writetarget.TransmissionState{Status: writetarget.TransmissionStateSucceeded},
-			expectTransmit:           false,
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateSucceeded},
+			txState:                  commontypes.Unknown,
 			expectError:              false,
 			productSpecificProcessor: true,
 		},
 		{
-			name:           "fatal state",
-			headHeight:     "300",
-			state:          writetarget.TransmissionState{Status: writetarget.TransmissionStateFatal, Err: errors.New("fatal")},
-			expectTransmit: false,
-			expectError:    true,
-			errorContains:  "Transmission attempt fatal",
+			name:                     "fatal initialTransmissionState",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateFatal, Err: errors.New("fatal")},
+			txState:                  commontypes.Unknown,
+			expectError:              true,
+			errorContains:            "Transmission attempt fatal",
 		},
 		{
-			name:            "transmit error",
-			headHeight:      "400",
-			state:           writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
-			expectTransmit:  true,
-			simulateTxError: true,
-			expectError:     true,
-			errorContains:   "failed to transmit the report",
+			name:                     "transmit error",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Pending,
+			simulateTxError:          true,
+			expectError:              true,
+			errorContains:            "failed to transmit the report",
+		},
+		{
+			name:                     "Returns error if tx is not finalized before timeout",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Pending,
+			simulateTxError:          false,
+			expectError:              true,
+			errorContains:            "context deadline exceeded",
+		},
+		{
+			name:                     "Returns error if tx is finalized but no report is on-chain",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Finalized,
+			simulateTxError:          false,
+			expectError:              true,
+			errorContains:            "platform.write_target.WriteError [ERR-0] - write confirmation - failed: transaction was finalized, but report was not observed on chain before timeout",
+		},
+		{
+			name:                     "Returns error if tx is fatal but no report is on-chain",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Fatal,
+			simulateTxError:          false,
+			expectError:              true,
+			errorContains:            "platform.write_target.WriteError [ERR-0] - write confirmation - failed: transaction failed and no other node managed to get report on chain before timeout",
+		},
+		{
+			name:                     "Returns error if tx is failed but no report is on-chain",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Failed,
+			simulateTxError:          false,
+			expectError:              true,
+			errorContains:            "platform.write_target.WriteError [ERR-0] - write confirmation - failed: transaction failed and no other node managed to get report on chain before timeout",
+		},
+		{
+			name:                     "Returns success if report is on-chain but tx is fatal",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Fatal,
+			simulateTxError:          false,
+			expectError:              false,
+			requiredLogMessage:       "confirmed - transmission state visible but submitted by another node. This node's tx failed",
+		},
+		{
+			name:                     "Returns success if report is on-chain but tx is failed",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Failed,
+			simulateTxError:          false,
+			expectError:              false,
+			requiredLogMessage:       "confirmed - transmission state visible but submitted by another node. This node's tx failed",
 		},
 	}
 
@@ -191,56 +224,31 @@ func TestWriteTarget_Execute(t *testing.T) {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
-
-			// TODO: replace with real emitter
 			emitter := monmocks.NewProtoEmitter(t)
-
 			strategy := wtmocks.NewTargetStrategy(t)
-			strategy.EXPECT().QueryTransmissionState(mock.Anything, mock.Anything, mock.Anything).
-				Return(&tc.state, nil)
 
-			// Ensure the correct beholder messages are emitted for each case
-			emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteInitiated"), mock.Anything).Return(nil).Once()
-			if tc.expectError {
-				emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteError"), mock.Anything).Return(nil).Once()
-			} else {
-				if tc.expectTransmit {
-					emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteSent"), mock.Anything).Return(nil).Once()
-					strategy.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(commontypes.Finalized, nil)
-				}
-				emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteConfirmed"), mock.Anything).Return(nil).Once()
-				emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*forwarder.ReportProcessed"), mock.Anything).Return(nil).Once()
-			}
+			mockTransmissionState(tc, strategy)
+			mockBeholderMessages(tc, emitter)
+			mockTransmit(tc, strategy, emitter)
 
 			chainSvc := wtmocks.NewChainService(t)
 			chainSvc.EXPECT().LatestHead(mock.Anything).
-				Return(commontypes.Head{Height: tc.headHeight}, nil)
-
-			if tc.expectTransmit {
-				ex := strategy.EXPECT().TransmitReport(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
-				if tc.simulateTxError {
-					ex.Return("", errors.New("transmit fail"))
-				} else {
-					ex.Return("tx123", nil)
-				}
-			}
+				Return(commontypes.Head{Height: "100"}, nil)
 
 			target, req := setupWriteTarget(t, lggr, strategy, chainSvc, tc.productSpecificProcessor, emitter)
 
-			resp, err := target.Execute(context.Background(), req)
+			resp, err := target.Execute(t.Context(), req)
 			if tc.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tc.errorContains)
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, resp)
+			}
 
-				// TODO: remove next 2 lines and enable once synchronous waiting is implemented
-				_ = observed
-				time.Sleep(1 * time.Second)
-				// if tc.productSpecificProcessor == nil {
-				// 	findLogMatch(t, observed, "failed to emit write confirmed", "err", "no matching processor for MetaCapabilityProcessor")
-				// }
+			if tc.requiredLogMessage != "" {
+				tests.RequireLogMessage(t, observed, tc.requiredLogMessage)
+				// return len(observed.FilterMessage("no matching processor for MetaCapabilityProcessor=test").All()) > 0
 			}
 		})
 	}
@@ -296,6 +304,45 @@ func TestWriteTarget_Execute(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to validate config")
 	})
+}
+
+func mockTransmissionState(tc testCase, strategy *wtmocks.TargetStrategy) {
+	// initial query for transmission state
+	strategy.EXPECT().QueryTransmissionState(mock.Anything, mock.Anything, mock.Anything).
+		Return(&tc.initialTransmissionState, nil).Once()
+
+	// subsequent queries for transaction state (if applicable)
+	if tc.expectError {
+		strategy.EXPECT().QueryTransmissionState(mock.Anything, mock.Anything, mock.Anything).
+			Return(&writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted}, nil).Maybe()
+	} else {
+		strategy.EXPECT().QueryTransmissionState(mock.Anything, mock.Anything, mock.Anything).
+			Return(&writetarget.TransmissionState{Status: writetarget.TransmissionStateSucceeded}, nil).Maybe()
+	}
+}
+
+func mockBeholderMessages(tc testCase, emitter *monmocks.ProtoEmitter) {
+	// Ensure the correct beholder messages are emitted for each case
+	emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteInitiated"), mock.Anything).Return(nil).Once()
+	if tc.expectError {
+		emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteError"), mock.Anything).Return(nil).Once()
+	} else {
+		emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteConfirmed"), mock.Anything).Return(nil).Once()
+		emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*forwarder.ReportProcessed"), mock.Anything).Return(nil).Once()
+	}
+}
+
+func mockTransmit(tc testCase, strategy *wtmocks.TargetStrategy, emitter *monmocks.ProtoEmitter) {
+	if tc.txState != commontypes.Unknown {
+		ex := strategy.EXPECT().TransmitReport(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		if tc.simulateTxError {
+			ex.Return("", errors.New("transmit fail"))
+		} else {
+			ex.Return("tx123", nil)
+			emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteSent"), mock.Anything).Return(nil).Once()
+			strategy.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(tc.txState, nil)
+		}
+	}
 }
 
 func TestNewWriteTargetID(t *testing.T) {

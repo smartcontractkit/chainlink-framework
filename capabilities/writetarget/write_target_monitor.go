@@ -114,9 +114,9 @@ func (e *protoEmitter) Process(ctx context.Context, m proto.Message, attrKVs ...
 			e.lggr.Debugw("skipping processor", "processor", p.Name())
 		}
 
-		// no processor matching configured one, return error
+		// no processor matching configured one, log error
 		if !found {
-			return fmt.Errorf("no matching processor for MetaCapabilityProcessor=%s", msg.MetaCapabilityProcessor)
+			e.lggr.Errorf("no matching processor for MetaCapabilityProcessor=%s", msg.MetaCapabilityProcessor)
 		}
 	}
 

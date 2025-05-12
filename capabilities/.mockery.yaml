@@ -11,8 +11,6 @@ packages:
     interfaces:
       ProductSpecificProcessor:
       TargetStrategy:
-  github.com/smartcontractkit/chainlink-common/pkg/types:
-    config:
-      dir: writetarget/mocks
-    interfaces:
-      ChainService:
+      chainService:
+        config:
+          mockname: ChainService
