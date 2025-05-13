@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmtypes "github.com/smartcontractkit/chainlink-common/pkg/types/chains/evm"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-framework/chains"
@@ -57,7 +58,7 @@ type TxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	FindEarliestUnconfirmedTxAttemptBlock(ctx context.Context) (nullv4.Int, error)
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
 	GetTransactionStatus(ctx context.Context, transactionID string) (state commontypes.TransactionStatus, err error)
-	GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error)
+	GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error)
 }
 
 type TxmV2Wrapper[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
@@ -731,7 +732,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionStatus(c
 	}
 }
 
-func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error) {
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error) {
 	receipt, err := b.txStore.FindReceiptWithIdempotencyKey(ctx, transactionID, b.chainID)
 	if err != nil {
 		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s: %w", transactionID, err)
@@ -755,7 +756,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return fee, fmt.Errorf("tx status is not finalized")
 	}
 
-	fee = &commontypes.TransactionFee{
+	fee = &evmtypes.TransactionFee{
 		TransactionFee: totalFee,
 	}
 
@@ -843,7 +844,7 @@ func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionS
 	return
 }
 
-func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *commontypes.TransactionFee, err error) {
+func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error) {
 	return
 }
 
