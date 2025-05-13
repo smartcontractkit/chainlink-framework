@@ -60,7 +60,7 @@ type TargetStrategy interface {
 }
 
 var (
-	_ capabilities.TargetCapability = &writeTarget{}
+	_ capabilities.ExecutableCapability = &writeTarget{}
 )
 
 // chain-agnostic consts
@@ -98,7 +98,8 @@ type writeTarget struct {
 	nodeAddress      string
 	forwarderAddress string
 
-	targetStrategy TargetStrategy
+	targetStrategy       TargetStrategy
+	writeAcceptanceState commontypes.TransactionStatus
 }
 type WriteTargetOpts struct {
 	ID string
@@ -120,7 +121,8 @@ type WriteTargetOpts struct {
 	NodeAddress      string
 	ForwarderAddress string
 
-	TargetStrategy TargetStrategy
+	TargetStrategy       TargetStrategy
+	WriteAcceptanceState commontypes.TransactionStatus
 }
 
 // Capability-specific configuration
@@ -170,6 +172,7 @@ func NewWriteTarget(opts WriteTargetOpts) capabilities.ExecutableCapability {
 		opts.NodeAddress,
 		opts.ForwarderAddress,
 		opts.TargetStrategy,
+		opts.WriteAcceptanceState,
 	}
 }
 
@@ -467,18 +470,21 @@ func (c *writeTarget) waitTxReachesTerminalStatus(ctx context.Context, lggr logg
 			lggr.Debugw("txm - tx status", "txID", txID, "status", status)
 
 			switch status {
-			case commontypes.Finalized:
-				// Notice: report write confirmation is only possible after a tx is accepted without an error
-				// TODO: [Beholder] Emit 'platform.write-target.WriteAccepted' (useful to source tx hash, block number, and tx status/error)
-				lggr.Infow("accepted", "txID", txID, "status", status)
-				return true, nil
 			case commontypes.Failed, commontypes.Fatal:
 				// TODO: [Beholder] Emit 'platform.write-target.WriteError' if accepted with an error (surface specific on-chain error)
 				lggr.Infow("transaction failed", "txID", txID, "status", status)
 				return false, nil
 			default:
-				lggr.Infow("not accepted yet", "txID", txID, "status", status)
-				continue
+				// Notice: On slower chains we can accept a non-finalized state, but on faster chains we should always wait for finalization.
+				if status >= c.writeAcceptanceState {
+					// Notice: report write confirmation is only possible after a tx is accepted without an error
+					// TODO: [Beholder] Emit 'platform.write-target.WriteAccepted' (useful to source tx hash, block number, and tx status/error)
+					lggr.Infow("accepted", "txID", txID, "status", status)
+					return true, nil
+				} else {
+					lggr.Infow("not accepted yet", "txID", txID, "status", status)
+					continue
+				}
 			}
 		}
 	}
