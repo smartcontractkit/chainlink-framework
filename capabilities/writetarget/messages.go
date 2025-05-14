@@ -1,4 +1,4 @@
-//nolint:gosec // disable G115
+//nolint:gosec,errcheck // disable G115, errcheck
 package writetarget
 
 import (

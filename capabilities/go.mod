@@ -5,9 +5,8 @@ go 1.24.1
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jpillora/backoff v1.0.0
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250513192730-b60cf427d1a8
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250514171116-a973d22fbfc5
 	github.com/stretchr/testify v1.10.0
-	github.com/test-go/testify v1.1.4
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0
 	go.opentelemetry.io/otel/trace v1.35.0

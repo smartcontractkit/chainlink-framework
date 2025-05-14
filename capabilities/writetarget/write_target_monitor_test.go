@@ -3,20 +3,24 @@ package writetarget_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/mocks"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
-	"github.com/test-go/testify/mock"
-
-	"github.com/stretchr/testify/require"
 )
 
 func TestWriteTargetMonitor(t *testing.T) {
 	processor := mocks.NewProductSpecificProcessor(t)
+	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 
-	monitor, err := writetarget.NewMonitor(logger.Test(t), []monitor.ProtoProcessor{}, []writetarget.ProductSpecificProcessor{processor}, writetarget.NewMonitorEmitter(logger.Test(t)))
+	monitor, err := writetarget.NewMonitor(lggr, []monitor.ProtoProcessor{}, []writetarget.ProductSpecificProcessor{processor}, writetarget.NewMonitorEmitter(lggr))
 	require.NoError(t, err)
 
 	encoded := []byte{}
@@ -30,13 +34,16 @@ func TestWriteTargetMonitor(t *testing.T) {
 	t.Run("Uses processor when name equals config", func(t *testing.T) {
 		processor.On("Name").Return("test").Once()
 		processor.On("Process", t.Context(), msg, mock.Anything).Return(nil).Once()
-		monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		err := monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		require.NoError(t, err)
 	})
 
-	t.Run("Errors when config name is not found", func(t *testing.T) {
+	t.Run("Logs when config name is not found", func(t *testing.T) {
 		processor.On("Name").Return("other")
 		err := monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
-		require.Error(t, err)
+		require.NoError(t, err)
+
+		tests.RequireLogMessage(t, observed, "no matching processor for MetaCapabilityProcessor=test")
 	})
 
 	t.Run("Does not use processor when none is configured", func(t *testing.T) {
@@ -47,5 +54,7 @@ func TestWriteTargetMonitor(t *testing.T) {
 
 		err := monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)
+
+		tests.RequireLogMessage(t, observed, "No product specific processor specified; skipping.")
 	})
 }

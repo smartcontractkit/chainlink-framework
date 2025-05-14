@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	_ capabilities.TargetCapability = &writeTarget{}
+	_ capabilities.ExecutableCapability = &writeTarget{}
 )
 
 type TransactionStatus uint8
