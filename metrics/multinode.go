@@ -23,7 +23,7 @@ var (
 	promNodeClientVersion = promauto.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "pool_rpc_node_client_version",
 		Help: "Tracks node RPC client versions",
-	}, []string{"network", "chainID", "nodeName", "version"})
+	}, []string{"network", "chainID", "nodeName", "rpcClientVersion"})
 	promPoolRPCNodeVerifies = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_verifies",
 		Help: "The total number of chain ID verifications for the given RPC node",
@@ -283,7 +283,7 @@ func (m *multiNodeMetrics) RecordNodeClientVersion(ctx context.Context, nodeName
 		attribute.String("network", m.network),
 		attribute.String("chainID", m.chainID),
 		attribute.String("nodeName", nodeName),
-		attribute.String("version", version)))
+		attribute.String("rpcClientVersion", version)))
 }
 
 func (m *multiNodeMetrics) IncrementNodeVerifies(ctx context.Context, nodeName string) {
