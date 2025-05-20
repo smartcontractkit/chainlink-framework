@@ -138,7 +138,7 @@ func (l *listener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
 		err = errors.New("Listener is not receiving heads")
 	}
 	if !l.Connected() {
-		err = errors.New("Listener is not connected")
+		err = errors.Join(err, errors.New("Listener is not connected"))
 	}
 	return map[string]error{l.Name(): err}
 }
@@ -150,6 +150,7 @@ func (l *listener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, h
 	if noHeadsAlarmDuration > 0 {
 		noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
 		noHeadsAlarmC = noHeadsAlarmT.C
+		defer noHeadsAlarmT.Stop()
 	}
 
 	for {
