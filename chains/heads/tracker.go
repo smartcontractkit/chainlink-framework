@@ -514,7 +514,7 @@ func (t *tracker[HTH, S, ID, BHASH]) backfill(ctx context.Context, head, latestF
 	}
 
 	if head.BlockHash() != latestFinalizedHead.BlockHash() {
-		t.log.Criticalw("Finalized block missing from conical chain",
+		t.log.Criticalw("Finalized block missing from canonical chain",
 			"finalized_block_number", latestFinalizedHead.BlockNumber(), "finalized_hash", latestFinalizedHead.BlockHash(),
 			"canonical_chain_block_number", head.BlockNumber(), "canonical_chain_hash", head.BlockHash())
 		return FinalizedMissingError[BHASH]{latestFinalizedHead.BlockHash(), head.BlockHash()}

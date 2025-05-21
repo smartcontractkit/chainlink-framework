@@ -18,7 +18,7 @@ With probably plenty of bugs to be fixed, the POC supports:
 - Simple and complex types inputs and outputs.
 - Basic chain reader and chain writer configuration but works for simple use cases.
 
-Solidity primitive types to Go primitive types are not fully mapped. If you encounter an issue regarding type mapping you can update the code in internal/gen/evm/solity_types_mapping.go
+Solidity primitive types to Go primitive types are not fully mapped. If you encounter an issue regarding type mapping you can update the code in pkg/gen/evm/solidity_types_mapping.go
 
 ## Troubleshooting and issue reporting
 
