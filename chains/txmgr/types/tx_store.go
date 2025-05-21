@@ -116,4 +116,5 @@ type ChainReceipt[THASH, BHASH chains.Hashable] interface {
 	GetBlockHash() BHASH
 	GetRevertReason() *string
 	GetEffectiveGasPrice() *big.Int
+	GetL1Fee() *big.Int
 }
