@@ -119,7 +119,6 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
 		if err != nil || chainID.String() != s.chainID.String() {
 			s.metrics.IncrementNodeTransitionsToUnreachable(ctx, s.name)
 			if err != nil {
-				s.metrics.IncrementNodeTransitionsToUnreachable(ctx, s.name)
 				s.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
 				s.setState(nodeStateUnreachable)
 			} else {
