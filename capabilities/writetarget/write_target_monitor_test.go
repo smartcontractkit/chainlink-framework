@@ -20,7 +20,12 @@ func TestWriteTargetMonitor(t *testing.T) {
 	processor := mocks.NewProductSpecificProcessor(t)
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 
-	monitor, err := writetarget.NewMonitor(lggr, []monitor.ProtoProcessor{}, []writetarget.ProductSpecificProcessor{processor}, writetarget.NewMonitorEmitter(lggr))
+	m, err := writetarget.NewMonitor(writetarget.MonitorOpts{
+		lggr,
+		[]monitor.ProtoProcessor{},
+		map[string]monitor.ProtoProcessor{"test": processor},
+		writetarget.NewMonitorEmitter(lggr),
+	})
 	require.NoError(t, err)
 
 	encoded := []byte{}
@@ -32,15 +37,15 @@ func TestWriteTargetMonitor(t *testing.T) {
 	}
 
 	t.Run("Uses processor when name equals config", func(t *testing.T) {
-		processor.On("Name").Return("test").Once()
 		processor.On("Process", t.Context(), msg, mock.Anything).Return(nil).Once()
-		err := monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		err := m.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)
 	})
 
 	t.Run("Logs when config name is not found", func(t *testing.T) {
-		processor.On("Name").Return("other")
-		err := monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, []monitor.ProtoProcessor{}, map[string]monitor.ProtoProcessor{"other": processor}, writetarget.NewMonitorEmitter(lggr)})
+
+		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)
 
 		tests.RequireLogMessage(t, observed, "no matching processor for MetaCapabilityProcessor=test")
@@ -52,7 +57,7 @@ func TestWriteTargetMonitor(t *testing.T) {
 		msg.MetaCapabilityProcessor = ""
 		processor.AssertNotCalled(t, "Process", mock.Anything, mock.Anything, mock.Anything)
 
-		err := monitor.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		err := m.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)
 
 		tests.RequireLogMessage(t, observed, "No product specific processor specified; skipping.")

@@ -91,8 +91,6 @@ type writeTarget struct {
 	beholder *monitor.BeholderClient
 
 	cs               chainService
-	cr               contractReader
-	EVM              commontypes.EVMService
 	configValidateFn func(request capabilities.CapabilityRequest) (string, error)
 
 	nodeAddress      string
@@ -159,6 +157,11 @@ func NewWriteTargetID(chainFamilyName, networkName, chainID, version string) (st
 func NewWriteTarget(opts WriteTargetOpts) capabilities.ExecutableCapability {
 	capInfo := capabilities.MustNewCapabilityInfo(opts.ID, capabilities.CapabilityTypeTarget, CapabilityName)
 
+	// override Unknown to ensure Finalized is default
+	if opts.WriteAcceptanceState == 0 {
+		opts.WriteAcceptanceState = commontypes.Finalized
+	}
+
 	return &writeTarget{
 		capInfo,
 		opts.Config,
@@ -166,8 +169,6 @@ func NewWriteTarget(opts WriteTargetOpts) capabilities.ExecutableCapability {
 		opts.Logger,
 		opts.Beholder,
 		opts.ChainService,
-		opts.ContractReader,
-		opts.EVMService,
 		opts.ConfigValidateFn,
 		opts.NodeAddress,
 		opts.ForwarderAddress,
@@ -307,7 +308,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 
 	switch state.Status {
 	case TransmissionStateNotAttempted:
-		c.lggr.Debugw("Transmission not attempted yet, retrying", "reportID", info.reportInfo.reportID)
+		c.lggr.Debugw("Report is not on chain yet, pushing tx", "reportID", info.reportInfo.reportID)
 	case TransmissionStateFailed:
 		c.lggr.Debugw("Tranmissions previously failed, retrying", "reportID", info.reportInfo.reportID)
 	case TransmissionStateFatal:
@@ -391,7 +392,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 	capInfo, _ := c.Info(ctx)
 	builder := NewMessageBuilder(c.chainInfo, capInfo)
 
-	txFinalized, err := c.waitTxReachesTerminalStatus(ctx, lggr, txID)
+	txAccepted, err := c.waitTxReachesTerminalStatus(ctx, lggr, txID)
 
 	if err != nil {
 		// We (eventually) failed to confirm the report was transmitted
@@ -405,7 +406,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 		case <-ctx.Done():
 			// We (eventually) failed to confirm the report was transmitted
 			cause := "transaction was finalized, but report was not observed on chain before timeout"
-			if !txFinalized {
+			if !txAccepted {
 				cause = "transaction failed and no other node managed to get report on chain before timeout"
 			}
 			msg := builder.buildWriteError(&info, 0, "write confirmation - failed", cause)
@@ -432,7 +433,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 
 			// We (eventually) confirmed the report was transmitted
 			// Emit the confirmation message and return
-			if !txFinalized {
+			if !txAccepted {
 				lggr.Infow("confirmed - transmission state visible but submitted by another node. This node's tx failed", "txID", txID)
 			} else {
 				lggr.Infow("confirmed - transmission state visible", "txID", txID)

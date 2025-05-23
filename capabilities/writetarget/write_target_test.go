@@ -40,11 +40,11 @@ func setupWriteTarget(
 	platformProcessors, err := processor.NewPlatformProcessors(emitter)
 	require.NoError(t, err)
 
-	var psp []writetarget.ProductSpecificProcessor
+	var psp map[string]monitor.ProtoProcessor
 	if productSpecificProcessor {
-		psp = []writetarget.ProductSpecificProcessor{newMockProductSpecificProcessor(t)}
+		psp = map[string]monitor.ProtoProcessor{"test": newMockProductSpecificProcessor(t)}
 	}
-	monClient, err := writetarget.NewMonitor(lggr, platformProcessors, psp, emitter)
+	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, psp, emitter})
 	require.NoError(t, err)
 
 	pollPeriod, err := commonconfig.NewDuration(100 * time.Millisecond)
@@ -108,9 +108,8 @@ func setupWriteTarget(
 	return wt, req
 }
 
-func newMockProductSpecificProcessor(t *testing.T) writetarget.ProductSpecificProcessor {
+func newMockProductSpecificProcessor(t *testing.T) monitor.ProtoProcessor {
 	processor := wtmocks.NewProductSpecificProcessor(t)
-	processor.EXPECT().Name().Return("test").Once()
 	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	return processor
 }
@@ -277,7 +276,7 @@ func TestWriteTarget_Execute(t *testing.T) {
 		lggr := logger.Test(t)
 		emitter := monmocks.NewProtoEmitter(t)
 		emitter.EXPECT().EmitWithLog(mock.Anything, mock.Anything, mock.Anything).Return(nil)
-		monClient, _ := writetarget.NewMonitor(lggr, nil, nil, emitter)
+		monClient, _ := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, nil, nil, emitter})
 		chainSvc := wtmocks.NewChainService(t)
 		strategy := wtmocks.NewTargetStrategy(t)
 

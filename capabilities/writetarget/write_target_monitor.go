@@ -21,15 +21,17 @@ const (
 	schemaBasePath     = repoCLLCommon + "/" + versionRefsDevelop + "/pkg/capabilities/writetarget/pb"
 )
 
-type ProductSpecificProcessor interface {
-	monitor.ProtoProcessor
-	Name() string
-}
-
 func NewMonitorEmitter(lggr logger.Logger) monitor.ProtoEmitter {
 	// Initialize the Beholder client with a local logger a custom Emitter
 	client := beholder.GetClient().ForPackage("write_target")
 	return monitor.NewProtoEmitter(lggr, &client, schemaBasePath)
+}
+
+type MonitorOpts struct {
+	Lggr                      logger.Logger
+	ProductAgnosticProcessors []monitor.ProtoProcessor
+	ProductSpecificProcessors map[string]monitor.ProtoProcessor
+	Emitter                   monitor.ProtoEmitter
 }
 
 // NewMonitor initializes a Beholder client for the Write Target
@@ -39,15 +41,15 @@ func NewMonitorEmitter(lggr logger.Logger) monitor.ProtoEmitter {
 // includes decoding messages as specific types and deriving metrics based on the decoded messages.
 // TODO: Report decoding uses the same ABI for EVM and Aptos, however, future chains may need a different
 // decoding scheme. Generalize this in the future to support different chains and decoding schemes.
-func NewMonitor(lggr logger.Logger, productAgnosticProcessors []monitor.ProtoProcessor, productSpecificProcessors []ProductSpecificProcessor, emitter monitor.ProtoEmitter) (*monitor.BeholderClient, error) {
+func NewMonitor(opts MonitorOpts) (*monitor.BeholderClient, error) {
 	client := beholder.GetClient().ForPackage("write_target")
 
 	// Proxy ProtoEmitter with additional processing
 	protoEmitterProxy := protoEmitter{
-		lggr:                      lggr,
-		emitter:                   emitter,
-		processors:                productAgnosticProcessors,
-		productSpecificProcessors: productSpecificProcessors,
+		lggr:                      opts.Lggr,
+		emitter:                   opts.Emitter,
+		processors:                opts.ProductAgnosticProcessors,
+		productSpecificProcessors: opts.ProductSpecificProcessors,
 	}
 	return &monitor.BeholderClient{Client: &client, ProtoEmitter: &protoEmitterProxy}, nil
 }
@@ -57,7 +59,7 @@ type protoEmitter struct {
 	lggr                      logger.Logger
 	emitter                   monitor.ProtoEmitter
 	processors                []monitor.ProtoProcessor
-	productSpecificProcessors []ProductSpecificProcessor
+	productSpecificProcessors map[string]monitor.ProtoProcessor
 }
 
 // Emit emits a proto.Message and runs additional processing
@@ -102,22 +104,15 @@ func (e *protoEmitter) Process(ctx context.Context, m proto.Message, attrKVs ...
 			return nil
 		}
 
-		found := false
-		for _, p := range e.productSpecificProcessors {
-			if p.Name() == msg.MetaCapabilityProcessor {
-				if err := p.Process(ctx, msg, attrKVs...); err != nil {
-					e.lggr.Errorw("failed to process emitted message", "err", err)
-				}
-				found = true
-				break
+		if p, ok := e.productSpecificProcessors[msg.MetaCapabilityProcessor]; ok {
+			if err := p.Process(ctx, msg, attrKVs...); err != nil {
+				e.lggr.Errorw("failed to process emitted message", "err", err)
 			}
-			e.lggr.Debugw("skipping processor", "processor", p.Name())
-		}
-
-		// no processor matching configured one, log error
-		if !found {
+		} else {
+			// no processor matching configured one, log error
 			e.lggr.Errorf("no matching processor for MetaCapabilityProcessor=%s", msg.MetaCapabilityProcessor)
 		}
+
 	}
 
 	return nil
