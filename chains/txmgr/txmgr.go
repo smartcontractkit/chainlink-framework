@@ -743,17 +743,16 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s", transactionID)
 	}
 
+	totalFee := new(big.Int)
+
 	gasUsed := new(big.Int).SetUint64(receipt.GetFeeUsed())
 	price := receipt.GetEffectiveGasPrice()
-	totalFee := new(big.Int).Mul(gasUsed, price)
-
-	status, err := b.GetTransactionStatus(ctx, transactionID)
-	if err != nil {
-		return fee, fmt.Errorf("failed to find transaction with IdempotencyKey %s: %w", transactionID, err)
+	if price != nil {
+		totalFee.Mul(gasUsed, price)
 	}
-
-	if status != commontypes.Finalized {
-		return fee, fmt.Errorf("tx status is not finalized")
+	l1Fee := receipt.GetL1Fee()
+	if l1Fee != nil {
+		totalFee.Add(totalFee, l1Fee)
 	}
 
 	fee = &evmtypes.TransactionFee{

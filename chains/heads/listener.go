@@ -133,13 +133,13 @@ func (l *listener[HTH, S, ID, BLOCK_HASH]) Connected() bool {
 }
 
 func (l *listener[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
+	receivingHeads := l.ReceivingHeads()
+	connected := l.Connected()
 	var err error
-	if !l.ReceivingHeads() {
-		err = errors.New("Listener is not receiving heads")
+	if !receivingHeads || !connected {
+		err = fmt.Errorf("Listener connected = %t, receiving heads = %t", connected, receivingHeads)
 	}
-	if !l.Connected() {
-		err = errors.New("Listener is not connected")
-	}
+
 	return map[string]error{l.Name(): err}
 }
 
@@ -150,6 +150,7 @@ func (l *listener[HTH, S, ID, BLOCK_HASH]) receiveHeaders(ctx context.Context, h
 	if noHeadsAlarmDuration > 0 {
 		noHeadsAlarmT = time.NewTicker(noHeadsAlarmDuration)
 		noHeadsAlarmC = noHeadsAlarmT.C
+		defer noHeadsAlarmT.Stop()
 	}
 
 	for {
