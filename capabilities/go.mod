@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jpillora/backoff v1.0.0
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250523132550-d8e352f0be68
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250527183339-15fe47d985bf
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0

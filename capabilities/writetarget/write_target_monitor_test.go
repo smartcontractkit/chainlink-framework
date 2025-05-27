@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/mocks"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
@@ -22,8 +22,8 @@ func TestWriteTargetMonitor(t *testing.T) {
 
 	m, err := writetarget.NewMonitor(writetarget.MonitorOpts{
 		lggr,
-		[]monitor.ProtoProcessor{},
-		map[string]monitor.ProtoProcessor{"test": processor},
+		[]beholder.ProtoProcessor{},
+		map[string]beholder.ProtoProcessor{"test": processor},
 		writetarget.NewMonitorEmitter(lggr),
 	})
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestWriteTargetMonitor(t *testing.T) {
 	})
 
 	t.Run("Logs when config name is not found", func(t *testing.T) {
-		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, []monitor.ProtoProcessor{}, map[string]monitor.ProtoProcessor{"other": processor}, writetarget.NewMonitorEmitter(lggr)})
+		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, []beholder.ProtoProcessor{}, map[string]beholder.ProtoProcessor{"other": processor}, writetarget.NewMonitorEmitter(lggr)})
 
 		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)

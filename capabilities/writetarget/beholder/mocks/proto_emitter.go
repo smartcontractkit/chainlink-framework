@@ -6,7 +6,6 @@ import (
 	context "context"
 
 	mock "github.com/stretchr/testify/mock"
-
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 )
 

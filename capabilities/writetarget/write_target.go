@@ -12,6 +12,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -88,7 +89,7 @@ type writeTarget struct {
 
 	lggr logger.Logger
 	// Local beholder client, also hosting the protobuf emitter
-	beholder *monitor.BeholderClient
+	beholder *beholder.BeholderClient
 
 	cs               chainService
 	configValidateFn func(request capabilities.CapabilityRequest) (string, error)
@@ -109,7 +110,7 @@ type WriteTargetOpts struct {
 	ChainInfo monitor.ChainInfo
 
 	Logger   logger.Logger
-	Beholder *monitor.BeholderClient
+	Beholder *beholder.BeholderClient
 
 	ChainService     chainService
 	ContractReader   contractReader

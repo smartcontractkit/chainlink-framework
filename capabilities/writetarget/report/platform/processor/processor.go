@@ -6,13 +6,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder"
 )
 
 // Product-agnostic processors to be injected into WriteTarget Monitor
-func NewPlatformProcessors(emitter monitor.ProtoEmitter) ([]monitor.ProtoProcessor, error) {
+func NewPlatformProcessors(emitter beholder.ProtoEmitter) ([]beholder.ProtoProcessor, error) {
 	forwarderMetrics, err := forwarder.NewMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new forwarder metrics: %w", err)
@@ -22,7 +22,7 @@ func NewPlatformProcessors(emitter monitor.ProtoEmitter) ([]monitor.ProtoProcess
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new write target metrics: %w", err)
 	}
-	return []monitor.ProtoProcessor{
+	return []beholder.ProtoProcessor{
 		&keystoneProcessor{
 			emitter: emitter,
 			metrics: forwarderMetrics,
@@ -72,7 +72,7 @@ func (p *wtProcessor) Process(ctx context.Context, m proto.Message, attrKVs ...a
 
 // Keystone specific processor decodes writes as 'platform.forwarder.ReportProcessed' messages + metrics
 type keystoneProcessor struct {
-	emitter monitor.ProtoEmitter
+	emitter beholder.ProtoEmitter
 	metrics *forwarder.Metrics
 }
 

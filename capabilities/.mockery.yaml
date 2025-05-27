@@ -3,10 +3,6 @@ mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
 packages:
-  github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor:
-    interfaces:
-      BalanceMonitor:
-      ProtoEmitter:
   github.com/smartcontractkit/chainlink-framework/capabilities/writetarget:
     interfaces:
       ProductSpecificProcessor:
@@ -14,3 +10,8 @@ packages:
       chainService:
         config:
           mockname: ChainService
+  github.com/smartcontractkit/chainlink-common/pkg/beholder:
+    config:
+      dir: writetarget/beholder/monitor/mocks/
+    interfaces:
+      ProtoEmitter:

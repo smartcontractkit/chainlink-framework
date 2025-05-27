@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -24,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
 
-	monmocks "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor/mocks"
+	monmocks "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/mocks"
 	wtmocks "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/mocks"
 )
 
@@ -35,14 +36,14 @@ func setupWriteTarget(
 	strategy *wtmocks.TargetStrategy,
 	chainSvc *wtmocks.ChainService,
 	productSpecificProcessor bool,
-	emitter monitor.ProtoEmitter,
+	emitter beholder.ProtoEmitter,
 ) (capabilities.ExecutableCapability, capabilities.CapabilityRequest) {
 	platformProcessors, err := processor.NewPlatformProcessors(emitter)
 	require.NoError(t, err)
 
-	var psp map[string]monitor.ProtoProcessor
+	var psp map[string]beholder.ProtoProcessor
 	if productSpecificProcessor {
-		psp = map[string]monitor.ProtoProcessor{"test": newMockProductSpecificProcessor(t)}
+		psp = map[string]beholder.ProtoProcessor{"test": newMockProductSpecificProcessor(t)}
 	}
 	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, psp, emitter})
 	require.NoError(t, err)
@@ -108,7 +109,7 @@ func setupWriteTarget(
 	return wt, req
 }
 
-func newMockProductSpecificProcessor(t *testing.T) monitor.ProtoProcessor {
+func newMockProductSpecificProcessor(t *testing.T) beholder.ProtoProcessor {
 	processor := wtmocks.NewProductSpecificProcessor(t)
 	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	return processor

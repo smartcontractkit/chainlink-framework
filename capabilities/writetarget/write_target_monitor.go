@@ -9,8 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
-
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
@@ -21,17 +19,17 @@ const (
 	schemaBasePath     = repoCLLCommon + "/" + versionRefsDevelop + "/pkg/capabilities/writetarget/pb"
 )
 
-func NewMonitorEmitter(lggr logger.Logger) monitor.ProtoEmitter {
+func NewMonitorEmitter(lggr logger.Logger) beholder.ProtoEmitter {
 	// Initialize the Beholder client with a local logger a custom Emitter
 	client := beholder.GetClient().ForPackage("write_target")
-	return monitor.NewProtoEmitter(lggr, &client, schemaBasePath)
+	return beholder.NewProtoEmitter(lggr, &client, schemaBasePath)
 }
 
 type MonitorOpts struct {
 	Lggr                      logger.Logger
-	ProductAgnosticProcessors []monitor.ProtoProcessor
-	ProductSpecificProcessors map[string]monitor.ProtoProcessor
-	Emitter                   monitor.ProtoEmitter
+	ProductAgnosticProcessors []beholder.ProtoProcessor
+	ProductSpecificProcessors map[string]beholder.ProtoProcessor
+	Emitter                   beholder.ProtoEmitter
 }
 
 // NewMonitor initializes a Beholder client for the Write Target
@@ -41,7 +39,7 @@ type MonitorOpts struct {
 // includes decoding messages as specific types and deriving metrics based on the decoded messages.
 // TODO: Report decoding uses the same ABI for EVM and Aptos, however, future chains may need a different
 // decoding scheme. Generalize this in the future to support different chains and decoding schemes.
-func NewMonitor(opts MonitorOpts) (*monitor.BeholderClient, error) {
+func NewMonitor(opts MonitorOpts) (*beholder.BeholderClient, error) {
 	client := beholder.GetClient().ForPackage("write_target")
 
 	// Proxy ProtoEmitter with additional processing
@@ -51,15 +49,15 @@ func NewMonitor(opts MonitorOpts) (*monitor.BeholderClient, error) {
 		processors:                opts.ProductAgnosticProcessors,
 		productSpecificProcessors: opts.ProductSpecificProcessors,
 	}
-	return &monitor.BeholderClient{Client: &client, ProtoEmitter: &protoEmitterProxy}, nil
+	return &beholder.BeholderClient{Client: &client, ProtoEmitter: &protoEmitterProxy}, nil
 }
 
 // ProtoEmitter proxy specific to the WT
 type protoEmitter struct {
 	lggr                      logger.Logger
-	emitter                   monitor.ProtoEmitter
-	processors                []monitor.ProtoProcessor
-	productSpecificProcessors map[string]monitor.ProtoProcessor
+	emitter                   beholder.ProtoEmitter
+	processors                []beholder.ProtoProcessor
+	productSpecificProcessors map[string]beholder.ProtoProcessor
 }
 
 // Emit emits a proto.Message and runs additional processing
