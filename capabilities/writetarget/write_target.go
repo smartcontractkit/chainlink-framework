@@ -20,7 +20,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
+	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/retry"
 

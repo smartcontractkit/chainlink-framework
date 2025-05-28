@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	writetarget "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
+	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	utils "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
