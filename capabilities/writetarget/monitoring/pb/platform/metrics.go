@@ -164,14 +164,14 @@ func NewMetrics() (*Metrics, error) {
 
 func (m *Metrics) OnWriteInitiated(ctx context.Context, msg *WriteInitiated, attrKVs ...any) error {
 	// Emit basic metrics (count, timestamps)
-	start, emit := msg.MetaCapabilityTimestampStart, msg.MetaCapabilityTimestampEmit
+	start, emit := msg.ExecutionContext.MetaCapabilityTimestampStart, msg.ExecutionContext.MetaCapabilityTimestampEmit
 	m.writeInitiated.basic.RecordEmit(ctx, start, emit, msg.Attributes()...)
 	return nil
 }
 
 func (m *Metrics) OnWriteError(ctx context.Context, msg *WriteError, attrKVs ...any) error {
 	// Emit basic metrics (count, timestamps)
-	start, emit := msg.MetaCapabilityTimestampStart, msg.MetaCapabilityTimestampEmit
+	start, emit := msg.ExecutionContext.MetaCapabilityTimestampStart, msg.ExecutionContext.MetaCapabilityTimestampEmit
 	m.writeError.basic.RecordEmit(ctx, start, emit, msg.Attributes()...)
 	return nil
 }
@@ -181,7 +181,7 @@ func (m *Metrics) OnWriteSent(ctx context.Context, msg *WriteSent, attrKVs ...an
 	attrs := metric.WithAttributes(msg.Attributes()...)
 
 	// Emit basic metrics (count, timestamps)
-	start, emit := msg.MetaCapabilityTimestampStart, msg.MetaCapabilityTimestampEmit
+	start, emit := msg.ExecutionContext.MetaCapabilityTimestampStart, msg.ExecutionContext.MetaCapabilityTimestampEmit
 	m.writeSent.basic.RecordEmit(ctx, start, emit, msg.Attributes()...)
 
 	// Block timestamp
@@ -201,7 +201,7 @@ func (m *Metrics) OnWriteConfirmed(ctx context.Context, msg *WriteConfirmed, att
 	attrs := metric.WithAttributes(msg.Attributes()...)
 
 	// Emit basic metrics (count, timestamps)
-	start, emit := msg.MetaCapabilityTimestampStart, msg.MetaCapabilityTimestampEmit
+	start, emit := msg.ExecutionContext.MetaCapabilityTimestampStart, msg.ExecutionContext.MetaCapabilityTimestampEmit
 	m.writeConfirmed.basic.RecordEmit(ctx, start, emit, msg.Attributes()...)
 
 	// Signers number
@@ -223,23 +223,23 @@ func (m *Metrics) OnWriteConfirmed(ctx context.Context, msg *WriteConfirmed, att
 func (m *WriteInitiated) Attributes() []attribute.KeyValue {
 	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
-		SourceID: m.MetaSourceId,
+		SourceID: m.ExecutionContext.MetaSourceId,
 		// Execution Context - Chain
-		ChainFamilyName: m.MetaChainFamilyName,
-		ChainID:         m.MetaChainId,
-		NetworkName:     m.MetaNetworkName,
-		NetworkNameFull: m.MetaNetworkNameFull,
+		ChainFamilyName: m.ExecutionContext.MetaChainFamilyName,
+		ChainID:         m.ExecutionContext.MetaChainId,
+		NetworkName:     m.ExecutionContext.MetaNetworkName,
+		NetworkNameFull: m.ExecutionContext.MetaNetworkNameFull,
 		// Execution Context - Workflow (capabilities.RequestMetadata)
-		WorkflowID:               m.MetaWorkflowId,
-		WorkflowOwner:            m.MetaWorkflowOwner,
-		WorkflowExecutionID:      m.MetaWorkflowExecutionId,
-		WorkflowName:             m.MetaWorkflowName,
-		WorkflowDonID:            m.MetaWorkflowDonId,
-		WorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		ReferenceID:              m.MetaReferenceId,
+		WorkflowID:               m.ExecutionContext.MetaWorkflowId,
+		WorkflowOwner:            m.ExecutionContext.MetaWorkflowOwner,
+		WorkflowExecutionID:      m.ExecutionContext.MetaWorkflowExecutionId,
+		WorkflowName:             m.ExecutionContext.MetaWorkflowName,
+		WorkflowDonID:            m.ExecutionContext.MetaWorkflowDonId,
+		WorkflowDonConfigVersion: m.ExecutionContext.MetaWorkflowDonConfigVersion,
+		ReferenceID:              m.ExecutionContext.MetaReferenceId,
 		// Execution Context - Capability
-		CapabilityType: m.MetaCapabilityType,
-		CapabilityID:   m.MetaCapabilityId,
+		CapabilityType: m.ExecutionContext.MetaCapabilityType,
+		CapabilityID:   m.ExecutionContext.MetaCapabilityId,
 	}
 
 	attrs := []attribute.KeyValue{
@@ -256,23 +256,23 @@ func (m *WriteInitiated) Attributes() []attribute.KeyValue {
 func (m *WriteError) Attributes() []attribute.KeyValue {
 	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
-		SourceID: m.MetaSourceId,
+		SourceID: m.ExecutionContext.MetaSourceId,
 		// Execution Context - Chain
-		ChainFamilyName: m.MetaChainFamilyName,
-		ChainID:         m.MetaChainId,
-		NetworkName:     m.MetaNetworkName,
-		NetworkNameFull: m.MetaNetworkNameFull,
+		ChainFamilyName: m.ExecutionContext.MetaChainFamilyName,
+		ChainID:         m.ExecutionContext.MetaChainId,
+		NetworkName:     m.ExecutionContext.MetaNetworkName,
+		NetworkNameFull: m.ExecutionContext.MetaNetworkNameFull,
 		// Execution Context - Workflow (capabilities.RequestMetadata)
-		WorkflowID:               m.MetaWorkflowId,
-		WorkflowOwner:            m.MetaWorkflowOwner,
-		WorkflowExecutionID:      m.MetaWorkflowExecutionId,
-		WorkflowName:             m.MetaWorkflowName,
-		WorkflowDonID:            m.MetaWorkflowDonId,
-		WorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		ReferenceID:              m.MetaReferenceId,
+		WorkflowID:               m.ExecutionContext.MetaWorkflowId,
+		WorkflowOwner:            m.ExecutionContext.MetaWorkflowOwner,
+		WorkflowExecutionID:      m.ExecutionContext.MetaWorkflowExecutionId,
+		WorkflowName:             m.ExecutionContext.MetaWorkflowName,
+		WorkflowDonID:            m.ExecutionContext.MetaWorkflowDonId,
+		WorkflowDonConfigVersion: m.ExecutionContext.MetaWorkflowDonConfigVersion,
+		ReferenceID:              m.ExecutionContext.MetaReferenceId,
 		// Execution Context - Capability
-		CapabilityType: m.MetaCapabilityType,
-		CapabilityID:   m.MetaCapabilityId,
+		CapabilityType: m.ExecutionContext.MetaCapabilityType,
+		CapabilityID:   m.ExecutionContext.MetaCapabilityId,
 	}
 
 	attrs := []attribute.KeyValue{
@@ -292,23 +292,23 @@ func (m *WriteError) Attributes() []attribute.KeyValue {
 func (m *WriteSent) Attributes() []attribute.KeyValue {
 	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
-		SourceID: m.MetaSourceId,
+		SourceID: m.ExecutionContext.MetaSourceId,
 		// Execution Context - Chain
-		ChainFamilyName: m.MetaChainFamilyName,
-		ChainID:         m.MetaChainId,
-		NetworkName:     m.MetaNetworkName,
-		NetworkNameFull: m.MetaNetworkNameFull,
+		ChainFamilyName: m.ExecutionContext.MetaChainFamilyName,
+		ChainID:         m.ExecutionContext.MetaChainId,
+		NetworkName:     m.ExecutionContext.MetaNetworkName,
+		NetworkNameFull: m.ExecutionContext.MetaNetworkNameFull,
 		// Execution Context - Workflow (capabilities.RequestMetadata)
-		WorkflowID:               m.MetaWorkflowId,
-		WorkflowOwner:            m.MetaWorkflowOwner,
-		WorkflowExecutionID:      m.MetaWorkflowExecutionId,
-		WorkflowName:             m.MetaWorkflowName,
-		WorkflowDonID:            m.MetaWorkflowDonId,
-		WorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		ReferenceID:              m.MetaReferenceId,
+		WorkflowID:               m.ExecutionContext.MetaWorkflowId,
+		WorkflowOwner:            m.ExecutionContext.MetaWorkflowOwner,
+		WorkflowExecutionID:      m.ExecutionContext.MetaWorkflowExecutionId,
+		WorkflowName:             m.ExecutionContext.MetaWorkflowName,
+		WorkflowDonID:            m.ExecutionContext.MetaWorkflowDonId,
+		WorkflowDonConfigVersion: m.ExecutionContext.MetaWorkflowDonConfigVersion,
+		ReferenceID:              m.ExecutionContext.MetaReferenceId,
 		// Execution Context - Capability
-		CapabilityType: m.MetaCapabilityType,
-		CapabilityID:   m.MetaCapabilityId,
+		CapabilityType: m.ExecutionContext.MetaCapabilityType,
+		CapabilityID:   m.ExecutionContext.MetaCapabilityId,
 	}
 
 	attrs := []attribute.KeyValue{
@@ -325,23 +325,23 @@ func (m *WriteSent) Attributes() []attribute.KeyValue {
 func (m *WriteConfirmed) Attributes() []attribute.KeyValue {
 	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
-		SourceID: m.MetaSourceId,
+		SourceID: m.ExecutionContext.MetaSourceId,
 		// Execution Context - Chain
-		ChainFamilyName: m.MetaChainFamilyName,
-		ChainID:         m.MetaChainId,
-		NetworkName:     m.MetaNetworkName,
-		NetworkNameFull: m.MetaNetworkNameFull,
+		ChainFamilyName: m.ExecutionContext.MetaChainFamilyName,
+		ChainID:         m.ExecutionContext.MetaChainId,
+		NetworkName:     m.ExecutionContext.MetaNetworkName,
+		NetworkNameFull: m.ExecutionContext.MetaNetworkNameFull,
 		// Execution Context - Workflow (capabilities.RequestMetadata)
-		WorkflowID:               m.MetaWorkflowId,
-		WorkflowOwner:            m.MetaWorkflowOwner,
-		WorkflowExecutionID:      m.MetaWorkflowExecutionId,
-		WorkflowName:             m.MetaWorkflowName,
-		WorkflowDonID:            m.MetaWorkflowDonId,
-		WorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		ReferenceID:              m.MetaReferenceId,
+		WorkflowID:               m.ExecutionContext.MetaWorkflowId,
+		WorkflowOwner:            m.ExecutionContext.MetaWorkflowOwner,
+		WorkflowExecutionID:      m.ExecutionContext.MetaWorkflowExecutionId,
+		WorkflowName:             m.ExecutionContext.MetaWorkflowName,
+		WorkflowDonID:            m.ExecutionContext.MetaWorkflowDonId,
+		WorkflowDonConfigVersion: m.ExecutionContext.MetaWorkflowDonConfigVersion,
+		ReferenceID:              m.ExecutionContext.MetaReferenceId,
 		// Execution Context - Capability
-		CapabilityType: m.MetaCapabilityType,
-		CapabilityID:   m.MetaCapabilityId,
+		CapabilityType: m.ExecutionContext.MetaCapabilityType,
+		CapabilityID:   m.ExecutionContext.MetaCapabilityId,
 	}
 
 	attrs := []attribute.KeyValue{

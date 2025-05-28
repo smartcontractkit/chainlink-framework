@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/mocks"
@@ -38,7 +38,7 @@ func TestWriteTargetMonitor(t *testing.T) {
 
 	t.Run("Uses processor when name equals config", func(t *testing.T) {
 		processor.On("Process", t.Context(), msg, mock.Anything).Return(nil).Once()
-		err := m.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)
 	})
 

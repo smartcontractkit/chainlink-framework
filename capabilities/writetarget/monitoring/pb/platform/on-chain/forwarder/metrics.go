@@ -83,7 +83,7 @@ func (m *Metrics) OnReportProcessed(ctx context.Context, msg *ReportProcessed, a
 	attrs := metric.WithAttributes(msg.Attributes()...)
 
 	// Emit basic metrics (count, timestamps)
-	start, emit := msg.MetaCapabilityTimestampStart, msg.MetaCapabilityTimestampEmit
+	start, emit := msg.ExecutionContext.MetaCapabilityTimestampStart, msg.ExecutionContext.MetaCapabilityTimestampEmit
 	m.reportProcessed.basic.RecordEmit(ctx, start, emit, msg.Attributes()...)
 
 	// Block timestamp
@@ -103,23 +103,23 @@ func (m *Metrics) OnReportProcessed(ctx context.Context, msg *ReportProcessed, a
 func (m *ReportProcessed) Attributes() []attribute.KeyValue {
 	context := beholder.ExecutionMetadata{
 		// Execution Context - Source
-		SourceID: m.MetaSourceId,
+		SourceID: m.ExecutionContext.MetaSourceId,
 		// Execution Context - Chain
-		ChainFamilyName: m.MetaChainFamilyName,
-		ChainID:         m.MetaChainId,
-		NetworkName:     m.MetaNetworkName,
-		NetworkNameFull: m.MetaNetworkNameFull,
+		ChainFamilyName: m.ExecutionContext.MetaChainFamilyName,
+		ChainID:         m.ExecutionContext.MetaChainId,
+		NetworkName:     m.ExecutionContext.MetaNetworkName,
+		NetworkNameFull: m.ExecutionContext.MetaNetworkNameFull,
 		// Execution Context - Workflow (capabilities.RequestMetadata)
-		WorkflowID:               m.MetaWorkflowId,
-		WorkflowOwner:            m.MetaWorkflowOwner,
-		WorkflowExecutionID:      m.MetaWorkflowExecutionId,
-		WorkflowName:             m.MetaWorkflowName,
-		WorkflowDonID:            m.MetaWorkflowDonId,
-		WorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		ReferenceID:              m.MetaReferenceId,
+		WorkflowID:               m.ExecutionContext.MetaWorkflowId,
+		WorkflowOwner:            m.ExecutionContext.MetaWorkflowOwner,
+		WorkflowExecutionID:      m.ExecutionContext.MetaWorkflowExecutionId,
+		WorkflowName:             m.ExecutionContext.MetaWorkflowName,
+		WorkflowDonID:            m.ExecutionContext.MetaWorkflowDonId,
+		WorkflowDonConfigVersion: m.ExecutionContext.MetaWorkflowDonConfigVersion,
+		ReferenceID:              m.ExecutionContext.MetaReferenceId,
 		// Execution Context - Capability
-		CapabilityType: m.MetaCapabilityType,
-		CapabilityID:   m.MetaCapabilityId,
+		CapabilityType: m.ExecutionContext.MetaCapabilityType,
+		CapabilityID:   m.ExecutionContext.MetaCapabilityId,
 	}
 
 	attrs := []attribute.KeyValue{
@@ -134,9 +134,9 @@ func (m *ReportProcessed) Attributes() []attribute.KeyValue {
 
 		// We mark confrmations by transmitter so we can query for only initial (fast) confirmations
 		// with PromQL, and ignore the slower confirmations by other signers for SLA measurements.
-		attribute.Bool("observed_by_transmitter", m.TxSender == m.MetaSourceId), // source_id == node account
+		attribute.Bool("observed_by_transmitter", m.TxSender == m.ExecutionContext.MetaSourceId), // source_id == node account
 		// TODO: remove once NOT_SET bug with non-string labels is fixed
-		attribute.String("observed_by_transmitter_str", strconv.FormatBool(m.TxSender == m.MetaSourceId)),
+		attribute.String("observed_by_transmitter_str", strconv.FormatBool(m.TxSender == m.ExecutionContext.MetaSourceId)),
 	}
 
 	return append(attrs, context.Attributes()...)

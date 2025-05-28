@@ -61,28 +61,30 @@ func (m *messageBuilder) buildWriteError(i *requestInfo, code uint32, summary, c
 		ReportId:  uint32(i.reportInfo.reportID),
 
 		// Execution Context - Source
-		MetaSourceId: i.node,
+		ExecutionContext: &wt.ExecutionContext{
+			MetaSourceId: i.node,
 
-		// Execution Context - Chain
-		MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
-		MetaChainId:         m.ChainInfo.ChainID,
-		MetaNetworkName:     m.ChainInfo.NetworkName,
-		MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
+			// Execution Context - Chain
+			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainId:         m.ChainInfo.ChainID,
+			MetaNetworkName:     m.ChainInfo.NetworkName,
+			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
 
-		// Execution Context - Workflow (capabilities.RequestMetadata)
-		MetaWorkflowId:               i.request.Metadata.WorkflowID,
-		MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
-		MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
-		MetaWorkflowName:             i.request.Metadata.WorkflowName,
-		MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
-		MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
-		MetaReferenceId:              i.request.Metadata.ReferenceID,
+			// Execution Context - Workflow (capabilities.RequestMetadata)
+			MetaWorkflowId:               i.request.Metadata.WorkflowID,
+			MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
+			MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
+			MetaWorkflowName:             i.request.Metadata.WorkflowName,
+			MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
+			MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
+			MetaReferenceId:              i.request.Metadata.ReferenceID,
 
-		// Execution Context - Capability
-		MetaCapabilityType:           string(m.CapInfo.CapabilityType),
-		MetaCapabilityId:             m.CapInfo.ID,
-		MetaCapabilityTimestampStart: uint64(i.tsStart),
-		MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+			// Execution Context - Capability
+			MetaCapabilityType:           string(m.CapInfo.CapabilityType),
+			MetaCapabilityId:             m.CapInfo.ID,
+			MetaCapabilityTimestampStart: uint64(i.tsStart),
+			MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+		},
 	}
 }
 
@@ -93,29 +95,31 @@ func (m *messageBuilder) buildWriteInitiated(i *requestInfo) *wt.WriteInitiated 
 		Receiver:  i.receiver,
 		ReportId:  uint32(i.reportInfo.reportID),
 
-		// Execution Context - Source
-		MetaSourceId: i.node,
+		ExecutionContext: &wt.ExecutionContext{
+			// Execution Context - Source
+			MetaSourceId: i.node,
 
-		// Execution Context - Chain
-		MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
-		MetaChainId:         m.ChainInfo.ChainID,
-		MetaNetworkName:     m.ChainInfo.NetworkName,
-		MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
+			// Execution Context - Chain
+			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainId:         m.ChainInfo.ChainID,
+			MetaNetworkName:     m.ChainInfo.NetworkName,
+			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
 
-		// Execution Context - Workflow (capabilities.RequestMetadata)
-		MetaWorkflowId:               i.request.Metadata.WorkflowID,
-		MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
-		MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
-		MetaWorkflowName:             i.request.Metadata.WorkflowName,
-		MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
-		MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
-		MetaReferenceId:              i.request.Metadata.ReferenceID,
+			// Execution Context - Workflow (capabilities.RequestMetadata)
+			MetaWorkflowId:               i.request.Metadata.WorkflowID,
+			MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
+			MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
+			MetaWorkflowName:             i.request.Metadata.WorkflowName,
+			MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
+			MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
+			MetaReferenceId:              i.request.Metadata.ReferenceID,
 
-		// Execution Context - Capability
-		MetaCapabilityType:           string(m.CapInfo.CapabilityType),
-		MetaCapabilityId:             m.CapInfo.ID,
-		MetaCapabilityTimestampStart: uint64(i.tsStart),
-		MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+			// Execution Context - Capability
+			MetaCapabilityType:           string(m.CapInfo.CapabilityType),
+			MetaCapabilityId:             m.CapInfo.ID,
+			MetaCapabilityTimestampStart: uint64(i.tsStart),
+			MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+		},
 	}
 }
 
@@ -127,29 +131,31 @@ func (m *messageBuilder) buildWriteSkipped(i *requestInfo, reason string) *wt.Wr
 		ReportId:  uint32(i.reportInfo.reportID),
 		Reason:    reason,
 
-		// Execution Context - Source
-		MetaSourceId: i.node,
+		ExecutionContext: &wt.ExecutionContext{
+			// Execution Context - Source
+			MetaSourceId: i.node,
 
-		// Execution Context - Chain
-		MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
-		MetaChainId:         m.ChainInfo.ChainID,
-		MetaNetworkName:     m.ChainInfo.NetworkName,
-		MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
+			// Execution Context - Chain
+			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainId:         m.ChainInfo.ChainID,
+			MetaNetworkName:     m.ChainInfo.NetworkName,
+			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
 
-		// Execution Context - Workflow (capabilities.RequestMetadata)
-		MetaWorkflowId:               i.request.Metadata.WorkflowID,
-		MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
-		MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
-		MetaWorkflowName:             i.request.Metadata.WorkflowName,
-		MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
-		MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
-		MetaReferenceId:              i.request.Metadata.ReferenceID,
+			// Execution Context - Workflow (capabilities.RequestMetadata)
+			MetaWorkflowId:               i.request.Metadata.WorkflowID,
+			MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
+			MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
+			MetaWorkflowName:             i.request.Metadata.WorkflowName,
+			MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
+			MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
+			MetaReferenceId:              i.request.Metadata.ReferenceID,
 
-		// Execution Context - Capability
-		MetaCapabilityType:           string(m.CapInfo.CapabilityType),
-		MetaCapabilityId:             m.CapInfo.ID,
-		MetaCapabilityTimestampStart: uint64(i.tsStart),
-		MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+			// Execution Context - Capability
+			MetaCapabilityType:           string(m.CapInfo.CapabilityType),
+			MetaCapabilityId:             m.CapInfo.ID,
+			MetaCapabilityTimestampStart: uint64(i.tsStart),
+			MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+		},
 	}
 }
 
@@ -166,29 +172,32 @@ func (m *messageBuilder) buildWriteSent(i *requestInfo, head types.Head, txID st
 		BlockHeight:    head.Height,
 		BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
 
-		// Execution Context - Source
-		MetaSourceId: i.node,
+		ExecutionContext: &wt.ExecutionContext{
 
-		// Execution Context - Chain
-		MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
-		MetaChainId:         m.ChainInfo.ChainID,
-		MetaNetworkName:     m.ChainInfo.NetworkName,
-		MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
+			// Execution Context - Source
+			MetaSourceId: i.node,
 
-		// Execution Context - Workflow (capabilities.RequestMetadata)
-		MetaWorkflowId:               i.request.Metadata.WorkflowID,
-		MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
-		MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
-		MetaWorkflowName:             i.request.Metadata.WorkflowName,
-		MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
-		MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
-		MetaReferenceId:              i.request.Metadata.ReferenceID,
+			// Execution Context - Chain
+			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainId:         m.ChainInfo.ChainID,
+			MetaNetworkName:     m.ChainInfo.NetworkName,
+			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
 
-		// Execution Context - Capability
-		MetaCapabilityType:           string(m.CapInfo.CapabilityType),
-		MetaCapabilityId:             m.CapInfo.ID,
-		MetaCapabilityTimestampStart: uint64(i.tsStart),
-		MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+			// Execution Context - Workflow (capabilities.RequestMetadata)
+			MetaWorkflowId:               i.request.Metadata.WorkflowID,
+			MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
+			MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
+			MetaWorkflowName:             i.request.Metadata.WorkflowName,
+			MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
+			MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
+			MetaReferenceId:              i.request.Metadata.ReferenceID,
+
+			// Execution Context - Capability
+			MetaCapabilityType:           string(m.CapInfo.CapabilityType),
+			MetaCapabilityId:             m.CapInfo.ID,
+			MetaCapabilityTimestampStart: uint64(i.tsStart),
+			MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+		},
 	}
 }
 
@@ -220,30 +229,31 @@ func (m *messageBuilder) buildWriteConfirmed(i *requestInfo, head types.Head) *w
 		Transmitter: i.reportTransmissionState.Transmitter,
 		Success:     i.reportTransmissionState.Status == TransmissionStateSucceeded,
 
-		// Execution Context - Source
-		MetaSourceId: i.node,
+		ExecutionContext: &wt.ExecutionContext{
+			// Execution Context - Source
+			MetaSourceId: i.node,
 
-		// Execution Context - Chain
-		MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
-		MetaChainId:         m.ChainInfo.ChainID,
-		MetaNetworkName:     m.ChainInfo.NetworkName,
-		MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
+			// Execution Context - Chain
+			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainId:         m.ChainInfo.ChainID,
+			MetaNetworkName:     m.ChainInfo.NetworkName,
+			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
 
-		// Execution Context - Workflow (capabilities.RequestMetadata)
-		MetaWorkflowId:               i.request.Metadata.WorkflowID,
-		MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
-		MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
-		MetaWorkflowName:             i.request.Metadata.WorkflowName,
-		MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
-		MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
-		MetaReferenceId:              i.request.Metadata.ReferenceID,
+			// Execution Context - Workflow (capabilities.RequestMetadata)
+			MetaWorkflowId:               i.request.Metadata.WorkflowID,
+			MetaWorkflowOwner:            i.request.Metadata.WorkflowOwner,
+			MetaWorkflowExecutionId:      i.request.Metadata.WorkflowExecutionID,
+			MetaWorkflowName:             i.request.Metadata.WorkflowName,
+			MetaWorkflowDonId:            i.request.Metadata.WorkflowDonID,
+			MetaWorkflowDonConfigVersion: i.request.Metadata.WorkflowDonConfigVersion,
+			MetaReferenceId:              i.request.Metadata.ReferenceID,
 
-		// Execution Context - Capability
-		MetaCapabilityType:           string(m.CapInfo.CapabilityType),
-		MetaCapabilityId:             m.CapInfo.ID,
-		MetaCapabilityTimestampStart: uint64(i.tsStart),
-		MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
-
+			// Execution Context - Capability
+			MetaCapabilityType:           string(m.CapInfo.CapabilityType),
+			MetaCapabilityId:             m.CapInfo.ID,
+			MetaCapabilityTimestampStart: uint64(i.tsStart),
+			MetaCapabilityTimestampEmit:  uint64(time.Now().UnixMilli()),
+		},
 		MetaCapabilityProcessor: processor,
 	}
 }

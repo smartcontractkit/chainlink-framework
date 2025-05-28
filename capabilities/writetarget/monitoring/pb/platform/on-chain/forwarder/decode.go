@@ -35,28 +35,6 @@ func DecodeAsReportProcessed(m *wt_msg.WriteConfirmed) (*ReportProcessed, error)
 		TxSender:   m.Transmitter,
 		TxReceiver: m.Forwarder,
 
-		// Execution Context - Source
-		MetaSourceId: m.MetaSourceId,
-
-		// Execution Context - Chain
-		MetaChainFamilyName: m.MetaChainFamilyName,
-		MetaChainId:         m.MetaChainId,
-		MetaNetworkName:     m.MetaNetworkName,
-		MetaNetworkNameFull: m.MetaNetworkNameFull,
-
-		// Execution Context - Workflow (capabilities.RequestMetadata)
-		MetaWorkflowId:               m.MetaWorkflowId,
-		MetaWorkflowOwner:            m.MetaWorkflowOwner,
-		MetaWorkflowExecutionId:      m.MetaWorkflowExecutionId,
-		MetaWorkflowName:             m.MetaWorkflowName,
-		MetaWorkflowDonId:            m.MetaWorkflowDonId,
-		MetaWorkflowDonConfigVersion: m.MetaWorkflowDonConfigVersion,
-		MetaReferenceId:              m.MetaReferenceId,
-
-		// Execution Context - Capability
-		MetaCapabilityType:           m.MetaCapabilityType,
-		MetaCapabilityId:             m.MetaCapabilityId,
-		MetaCapabilityTimestampStart: m.MetaCapabilityTimestampStart,
-		MetaCapabilityTimestampEmit:  m.MetaCapabilityTimestampEmit,
+		ExecutionContext: m.ExecutionContext,
 	}, nil
 }

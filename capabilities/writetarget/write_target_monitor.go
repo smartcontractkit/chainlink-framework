@@ -110,7 +110,6 @@ func (e *protoEmitter) Process(ctx context.Context, m proto.Message, attrKVs ...
 			// no processor matching configured one, log error
 			e.lggr.Errorf("no matching processor for MetaCapabilityProcessor=%s", msg.MetaCapabilityProcessor)
 		}
-
 	}
 
 	return nil
