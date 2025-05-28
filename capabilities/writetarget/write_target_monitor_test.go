@@ -12,12 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/mocks"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/mocks"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
 func TestWriteTargetMonitor(t *testing.T) {
-	processor := mocks.NewProductSpecificProcessor(t)
+	processor := mocks.NewProtoProcessor(t)
 	lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 
 	m, err := writetarget.NewMonitor(writetarget.MonitorOpts{
@@ -53,7 +53,7 @@ func TestWriteTargetMonitor(t *testing.T) {
 
 	t.Run("Does not use processor when none is configured", func(t *testing.T) {
 		// get new processor
-		processor = mocks.NewProductSpecificProcessor(t)
+		processor = mocks.NewProtoProcessor(t)
 		msg.MetaCapabilityProcessor = ""
 		processor.AssertNotCalled(t, "Process", mock.Anything, mock.Anything, mock.Anything)
 

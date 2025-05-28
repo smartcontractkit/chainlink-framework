@@ -12,6 +12,7 @@ packages:
           mockname: ChainService
   github.com/smartcontractkit/chainlink-common/pkg/beholder:
     config:
-      dir: writetarget/beholder/monitor/mocks/
+      dir: writetarget/beholder/mocks/
     interfaces:
       ProtoEmitter:
+      ProtoProcessor:

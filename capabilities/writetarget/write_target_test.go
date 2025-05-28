@@ -110,7 +110,7 @@ func setupWriteTarget(
 }
 
 func newMockProductSpecificProcessor(t *testing.T) beholder.ProtoProcessor {
-	processor := wtmocks.NewProductSpecificProcessor(t)
+	processor := monmocks.NewProtoProcessor(t)
 	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
 	return processor
 }
