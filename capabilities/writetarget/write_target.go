@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
 	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
@@ -77,10 +76,6 @@ type chainService interface {
 	LatestHead(ctx context.Context) (commontypes.Head, error)
 }
 
-type contractReader interface {
-	GetLatestValue(ctx context.Context, readIdentifier string, confidenceLevel primitives.ConfidenceLevel, params, returnVal any) error
-}
-
 type writeTarget struct {
 	capabilities.CapabilityInfo
 
@@ -113,8 +108,6 @@ type WriteTargetOpts struct {
 	Beholder *beholder.BeholderClient
 
 	ChainService     chainService
-	ContractReader   contractReader
-	EVMService       commontypes.EVMService
 	ConfigValidateFn func(request capabilities.CapabilityRequest) (string, error)
 
 	NodeAddress      string
