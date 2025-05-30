@@ -7,7 +7,7 @@ toolchain go1.24.3
 require (
 	github.com/google/uuid v1.6.0
 	github.com/jpillora/backoff v1.0.0
-	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250528165710-630467fa4124
+	github.com/smartcontractkit/chainlink-common v0.7.1-0.20250530143634-9084a34834f0
 	github.com/stretchr/testify v1.10.0
 	go.opentelemetry.io/otel v1.35.0
 	go.opentelemetry.io/otel/metric v1.35.0
@@ -32,7 +32,6 @@ require (
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.25.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.2.1 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.1 // indirect
 	github.com/invopop/jsonschema v0.12.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
@@ -51,7 +50,6 @@ require (
 	github.com/prometheus/procfs v0.16.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v5 v5.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/smartcontractkit/freeport v0.1.0 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250328171017-609ec10a5510 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect
