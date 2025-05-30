@@ -11,6 +11,14 @@ type MetricInfo struct {
 	Description string
 }
 
+// ChainInfo contains the chain information (used as execution context)
+type ChainInfo struct {
+	ChainFamilyName string
+	ChainID         string
+	NetworkName     string
+	NetworkNameFull string
+}
+
 // NewInt64Counter creates a new Int64Counter metric
 func (m MetricInfo) NewInt64Counter(meter metric.Meter) (metric.Int64Counter, error) {
 	return meter.Int64Counter(
