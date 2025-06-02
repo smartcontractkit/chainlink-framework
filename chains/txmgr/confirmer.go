@@ -347,7 +347,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 			continue
 		}
 		confirmedTxIDs = append(confirmedTxIDs, tx.ID)
-		observeUntilTxConfirmed(ctx, ec.metrics, tx, head)
+		observeUntilTxConfirmed(ctx, ec.metrics, tx, head, ec.lggr)
 	}
 	// Mark the transactions included on-chain with a purge attempt as fatal error with the terminally stuck error message
 	if err := ec.txStore.UpdateTxFatalError(ctx, purgeTxIDs, ec.stuckTxDetector.StuckTxFatalError()); err != nil {
@@ -826,7 +826,7 @@ func observeUntilTxConfirmed[
 	TX_HASH, BLOCK_HASH chains.Hashable,
 	SEQ chains.Sequence,
 	FEE fees.Fee,
-](ctx context.Context, metrics confimerMetrics, tx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH]) {
+](ctx context.Context, metrics confimerMetrics, tx *types.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], head chains.Head[BLOCK_HASH], lggr logger.Logger) {
 	if tx == nil {
 		return
 	}
@@ -836,6 +836,8 @@ func observeUntilTxConfirmed[
 	// were needed to achieve this.
 	duration := time.Since(tx.CreatedAt)
 	metrics.RecordTimeUntilTxConfirmed(ctx, float64(duration))
+	txLggr := tx.GetLogger(lggr)
+	txLggr.Debugw("Recording confirmation time metric", "duration", duration)
 
 	// Since a tx can have many attempts, we take the number of blocks to confirm as the current block number
 	// minus the block number of the first ever broadcast for this transaction.
@@ -845,7 +847,7 @@ func observeUntilTxConfirmed[
 			minBroadcastBefore = *b
 		}
 	}
-
+	txLggr.Debugw("Recording confirmation block metric", "minBroadcastBefore", minBroadcastBefore, "head", head.BlockNumber())
 	if minBroadcastBefore > 0 {
 		blocksElapsed := head.BlockNumber() - minBroadcastBefore
 		metrics.RecordBlocksUntilTxConfirmed(ctx, float64(blocksElapsed))
