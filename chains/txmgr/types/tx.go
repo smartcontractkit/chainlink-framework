@@ -270,6 +270,7 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetLogger(lgr logger
 		"sequence", e.Sequence,
 		"checker", e.TransmitChecker,
 		"feeLimit", e.FeeLimit,
+		"createdTs", e.CreatedAt,
 	)
 
 	meta, err := e.GetMeta()
