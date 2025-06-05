@@ -49,7 +49,7 @@ type requestInfo struct {
 	reportTransmissionState *TransmissionState
 }
 
-func (m *messageBuilder) buildWriteError(i *requestInfo, code uint32, summary, cause string) *wt.WriteError {
+func (m *messageBuilder) buildWriteError(i requestInfo, code uint32, summary, cause string) *wt.WriteError {
 	return &wt.WriteError{
 		Code:    code,
 		Summary: summary,
@@ -65,7 +65,7 @@ func (m *messageBuilder) buildWriteError(i *requestInfo, code uint32, summary, c
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
-			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainFamilyName: m.ChainInfo.FamilyName,
 			MetaChainId:         m.ChainInfo.ChainID,
 			MetaNetworkName:     m.ChainInfo.NetworkName,
 			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
@@ -88,7 +88,7 @@ func (m *messageBuilder) buildWriteError(i *requestInfo, code uint32, summary, c
 	}
 }
 
-func (m *messageBuilder) buildWriteInitiated(i *requestInfo) *wt.WriteInitiated {
+func (m *messageBuilder) buildWriteInitiated(i requestInfo) *wt.WriteInitiated {
 	return &wt.WriteInitiated{
 		Node:      i.node,
 		Forwarder: i.forwarder,
@@ -100,7 +100,7 @@ func (m *messageBuilder) buildWriteInitiated(i *requestInfo) *wt.WriteInitiated 
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
-			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainFamilyName: m.ChainInfo.FamilyName,
 			MetaChainId:         m.ChainInfo.ChainID,
 			MetaNetworkName:     m.ChainInfo.NetworkName,
 			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
@@ -123,7 +123,7 @@ func (m *messageBuilder) buildWriteInitiated(i *requestInfo) *wt.WriteInitiated 
 	}
 }
 
-func (m *messageBuilder) buildWriteSkipped(i *requestInfo, reason string) *wt.WriteSkipped {
+func (m *messageBuilder) buildWriteSkipped(i requestInfo, reason string) *wt.WriteSkipped {
 	return &wt.WriteSkipped{
 		Node:      i.node,
 		Forwarder: i.forwarder,
@@ -136,7 +136,7 @@ func (m *messageBuilder) buildWriteSkipped(i *requestInfo, reason string) *wt.Wr
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
-			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainFamilyName: m.ChainInfo.FamilyName,
 			MetaChainId:         m.ChainInfo.ChainID,
 			MetaNetworkName:     m.ChainInfo.NetworkName,
 			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
@@ -159,7 +159,7 @@ func (m *messageBuilder) buildWriteSkipped(i *requestInfo, reason string) *wt.Wr
 	}
 }
 
-func (m *messageBuilder) buildWriteSent(i *requestInfo, head types.Head, txID string) *wt.WriteSent {
+func (m *messageBuilder) buildWriteSent(i requestInfo, head types.Head, txID string) *wt.WriteSent {
 	return &wt.WriteSent{
 		Node:      i.node,
 		Forwarder: i.forwarder,
@@ -178,7 +178,7 @@ func (m *messageBuilder) buildWriteSent(i *requestInfo, head types.Head, txID st
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
-			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainFamilyName: m.ChainInfo.FamilyName,
 			MetaChainId:         m.ChainInfo.ChainID,
 			MetaNetworkName:     m.ChainInfo.NetworkName,
 			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,
@@ -201,7 +201,7 @@ func (m *messageBuilder) buildWriteSent(i *requestInfo, head types.Head, txID st
 	}
 }
 
-func (m *messageBuilder) buildWriteConfirmed(i *requestInfo, head types.Head) *wt.WriteConfirmed {
+func (m *messageBuilder) buildWriteConfirmed(i requestInfo, head types.Head) *wt.WriteConfirmed {
 	rcfg := ReqConfig{}
 	processor := ""
 	reqConfig := i.request.Config
@@ -234,7 +234,7 @@ func (m *messageBuilder) buildWriteConfirmed(i *requestInfo, head types.Head) *w
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
-			MetaChainFamilyName: m.ChainInfo.ChainFamilyName,
+			MetaChainFamilyName: m.ChainInfo.FamilyName,
 			MetaChainId:         m.ChainInfo.ChainID,
 			MetaNetworkName:     m.ChainInfo.NetworkName,
 			MetaNetworkNameFull: m.ChainInfo.NetworkNameFull,

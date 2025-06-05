@@ -190,7 +190,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	c.lggr.Debugw("Execute", "request", request, "capInfo", capInfo)
 
 	// Helper to keep track of the request info
-	info := &requestInfo{
+	info := requestInfo{
 		tsStart:   tsStart,
 		node:      c.nodeAddress,
 		forwarder: c.forwarderAddress,
@@ -338,10 +338,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 		c.lggr.Errorw("failed to emit write sent", "err", err)
 	}
 
-	// TODO: implement a background WriteTxConfirmer to periodically source new events/transactions,
-	// relevant to this forwarder), and emit write-tx-accepted/confirmed events.
-
-	err = c.acceptAndConfirmWrite(ctx, *info, txID)
+	err = c.acceptAndConfirmWrite(ctx, info, txID)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
@@ -390,7 +387,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 
 	if err != nil {
 		// We (eventually) failed to confirm the report was transmitted
-		msg := builder.buildWriteError(&info, 0, "failed to wait until tx gets finalized", err.Error())
+		msg := builder.buildWriteError(info, 0, "failed to wait until tx gets finalized", err.Error())
 		lggr.Errorw("failed to wait until tx gets finalized", "txID", txID, "error", err)
 		return c.asEmittedError(ctx, msg)
 	}
@@ -403,7 +400,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 			if !txAccepted {
 				cause = "transaction failed and no other node managed to get report on chain before timeout"
 			}
-			msg := builder.buildWriteError(&info, 0, "write confirmation - failed", cause)
+			msg := builder.buildWriteError(info, 0, "write confirmation - failed", cause)
 			return c.asEmittedError(ctx, msg)
 		case <-ticker.C:
 			// Fetch the latest head from the chain (timestamp)
@@ -436,7 +433,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 			// Source the transmitter address from the on-chain state
 			info.reportTransmissionState = state
 
-			_ = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteConfirmed(&info, head))
+			_ = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteConfirmed(info, head))
 
 			return nil
 		}
