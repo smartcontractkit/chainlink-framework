@@ -1,0 +1,18 @@
+dir: "{{ .InterfaceDir }}/mocks"
+mockname: "{{ .InterfaceName }}"
+outpkg: mocks
+filename: "{{ .InterfaceName | snakecase }}.go"
+packages:
+  github.com/smartcontractkit/chainlink-framework/capabilities/writetarget:
+    interfaces:
+      ProductSpecificProcessor:
+      TargetStrategy:
+      chainService:
+        config:
+          mockname: ChainService
+  github.com/smartcontractkit/chainlink-common/pkg/beholder:
+    config:
+      dir: writetarget/beholder/mocks/
+    interfaces:
+      ProtoEmitter:
+      ProtoProcessor:
