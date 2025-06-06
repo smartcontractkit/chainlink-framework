@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -48,11 +47,9 @@ func setupWriteTarget(
 	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, psp, emitter})
 	require.NoError(t, err)
 
-	pollPeriod, err := commonconfig.NewDuration(100 * time.Millisecond)
-	require.NoError(t, err)
+	pollPeriod := 100 * time.Millisecond
 
-	timeout, err := commonconfig.NewDuration(500 * time.Millisecond)
-	require.NoError(t, err)
+	timeout := 500 * time.Millisecond
 
 	opts := writetarget.WriteTargetOpts{
 		ID: "write_generic-testnet@1.0.0",

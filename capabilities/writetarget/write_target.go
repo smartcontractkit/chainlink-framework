@@ -369,12 +369,12 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 	lggr := logger.Named(c.lggr, "write-confirmer")
 
 	// Timeout for the confirmation process
-	timeout := c.config.ConfirmerTimeout.Duration()
+	timeout := c.config.ConfirmerTimeout
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Retry interval for the confirmation process
-	interval := c.config.ConfirmerPollPeriod.Duration()
+	interval := c.config.ConfirmerPollPeriod
 	ticker := services.NewTicker(interval)
 	defer ticker.Stop()
 
@@ -443,7 +443,7 @@ func (c *writeTarget) acceptAndConfirmWrite(ctx context.Context, info requestInf
 // Polls transaction status until it reaches one of terminal states [Finalized, Failed, Fatal]
 func (c *writeTarget) waitTxReachesTerminalStatus(ctx context.Context, lggr logger.Logger, txID string) (finalized bool, err error) {
 	// Retry interval for the confirmation process
-	interval := c.config.ConfirmerPollPeriod.Duration()
+	interval := c.config.ConfirmerPollPeriod
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
