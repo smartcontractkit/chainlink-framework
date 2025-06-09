@@ -7,6 +7,7 @@
 package writetarget
 
 import (
+	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -42,7 +43,7 @@ type WriteAccepted struct {
 	TxReceiver string `protobuf:"bytes,13,opt,name=tx_receiver,json=txReceiver,proto3" json:"tx_receiver,omitempty"`
 	TxStatus   string `protobuf:"bytes,14,opt,name=tx_status,json=txStatus,proto3" json:"tx_status,omitempty"`
 	// [Execution Context]
-	ExecutionContext *ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -161,7 +162,7 @@ func (x *WriteAccepted) GetTxStatus() string {
 	return ""
 }
 
-func (x *WriteAccepted) GetExecutionContext() *ExecutionContext {
+func (x *WriteAccepted) GetExecutionContext() *common.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -172,7 +173,7 @@ var File_write_accepted_proto protoreflect.FileDescriptor
 
 const file_write_accepted_proto_rawDesc = "" +
 	"\n" +
-	"\x14write_accepted.proto\x12\x15platform.write_target\x1a\x17execution_context.proto\"\xc4\x03\n" +
+	"\x14write_accepted.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\xb5\x03\n" +
 	"\rWriteAccepted\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
@@ -188,8 +189,8 @@ const file_write_accepted_proto_rawDesc = "" +
 	"\ttx_sender\x18\f \x01(\tR\btxSender\x12\x1f\n" +
 	"\vtx_receiver\x18\r \x01(\tR\n" +
 	"txReceiver\x12\x1b\n" +
-	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12T\n" +
-	"\x11execution_context\x18\x14 \x01(\v2'.platform.write_target.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
+	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12E\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
 	file_write_accepted_proto_rawDescOnce sync.Once
@@ -205,11 +206,11 @@ func file_write_accepted_proto_rawDescGZIP() []byte {
 
 var file_write_accepted_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_accepted_proto_goTypes = []any{
-	(*WriteAccepted)(nil),    // 0: platform.write_target.WriteAccepted
-	(*ExecutionContext)(nil), // 1: platform.write_target.ExecutionContext
+	(*WriteAccepted)(nil),           // 0: platform.write_target.WriteAccepted
+	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
 }
 var file_write_accepted_proto_depIdxs = []int32{
-	1, // 0: platform.write_target.WriteAccepted.execution_context:type_name -> platform.write_target.ExecutionContext
+	1, // 0: platform.write_target.WriteAccepted.execution_context:type_name -> common.ExecutionContext
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -222,7 +223,6 @@ func file_write_accepted_proto_init() {
 	if File_write_accepted_proto != nil {
 		return
 	}
-	file_execution_context_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

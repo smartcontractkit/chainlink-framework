@@ -7,7 +7,7 @@
 package forwarder
 
 import (
-	platform "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
+	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -42,7 +42,7 @@ type ReportProcessed struct {
 	TxReceiver string `protobuf:"bytes,13,opt,name=tx_receiver,json=txReceiver,proto3" json:"tx_receiver,omitempty"`
 	TxStatus   string `protobuf:"bytes,14,opt,name=tx_status,json=txStatus,proto3" json:"tx_status,omitempty"`
 	// [Execution Context]
-	ExecutionContext *platform.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -161,7 +161,7 @@ func (x *ReportProcessed) GetTxStatus() string {
 	return ""
 }
 
-func (x *ReportProcessed) GetExecutionContext() *platform.ExecutionContext {
+func (x *ReportProcessed) GetExecutionContext() *common.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -172,7 +172,7 @@ var File_report_processed_proto protoreflect.FileDescriptor
 
 const file_report_processed_proto_rawDesc = "" +
 	"\n" +
-	"\x16report_processed.proto\x12\x1bplatform.on_chain.forwarder\x1a platform/execution_context.proto\"\xe2\x03\n" +
+	"\x16report_processed.proto\x12\x1bplatform.on_chain.forwarder\x1a\x1ecommon/execution_context.proto\"\xd3\x03\n" +
 	"\x0fReportProcessed\x12\x1a\n" +
 	"\breceiver\x18\x01 \x01(\tR\breceiver\x122\n" +
 	"\x15workflow_execution_id\x18\x02 \x01(\tR\x13workflowExecutionId\x12\x1b\n" +
@@ -188,8 +188,8 @@ const file_report_processed_proto_rawDesc = "" +
 	"\ttx_sender\x18\f \x01(\tR\btxSender\x12\x1f\n" +
 	"\vtx_receiver\x18\r \x01(\tR\n" +
 	"txReceiver\x12\x1b\n" +
-	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12T\n" +
-	"\x11execution_context\x18\x14 \x01(\v2'.platform.write_target.ExecutionContextR\x10executionContextB~Z|github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder;forwarderb\x06proto3"
+	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12E\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextB~Z|github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder;forwarderb\x06proto3"
 
 var (
 	file_report_processed_proto_rawDescOnce sync.Once
@@ -205,11 +205,11 @@ func file_report_processed_proto_rawDescGZIP() []byte {
 
 var file_report_processed_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_report_processed_proto_goTypes = []any{
-	(*ReportProcessed)(nil),           // 0: platform.on_chain.forwarder.ReportProcessed
-	(*platform.ExecutionContext)(nil), // 1: platform.write_target.ExecutionContext
+	(*ReportProcessed)(nil),         // 0: platform.on_chain.forwarder.ReportProcessed
+	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
 }
 var file_report_processed_proto_depIdxs = []int32{
-	1, // 0: platform.on_chain.forwarder.ReportProcessed.execution_context:type_name -> platform.write_target.ExecutionContext
+	1, // 0: platform.on_chain.forwarder.ReportProcessed.execution_context:type_name -> common.ExecutionContext
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

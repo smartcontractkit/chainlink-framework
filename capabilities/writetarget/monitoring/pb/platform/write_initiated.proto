@@ -3,7 +3,7 @@ syntax="proto3";
 package platform.write_target;
 option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
 
-import "execution_context.proto";
+import "common/execution_context.proto";
 
 // WT initiated the processing of the write request
 message WriteInitiated {
@@ -15,5 +15,5 @@ message WriteInitiated {
   uint32 report_id = 4;
 
   // [Execution Context]
-  ExecutionContext execution_context = 20;
+  common.ExecutionContext execution_context = 20;
 }

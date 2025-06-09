@@ -4,7 +4,7 @@
 // 	protoc        v5.29.3
 // source: execution_context.proto
 
-package writetarget
+package common
 
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
@@ -194,7 +194,7 @@ var File_execution_context_proto protoreflect.FileDescriptor
 
 const file_execution_context_proto_rawDesc = "" +
 	"\n" +
-	"\x17execution_context.proto\x12\x15platform.write_target\"\xc8\x06\n" +
+	"\x17execution_context.proto\x12\x06common\"\xc8\x06\n" +
 	"\x10ExecutionContext\x12$\n" +
 	"\x0emeta_source_id\x18\x01 \x01(\tR\fmetaSourceId\x123\n" +
 	"\x16meta_chain_family_name\x18\x02 \x01(\tR\x13metaChainFamilyName\x12\"\n" +
@@ -212,7 +212,7 @@ const file_execution_context_proto_rawDesc = "" +
 	"\x14meta_capability_type\x18\r \x01(\tR\x12metaCapabilityType\x12,\n" +
 	"\x12meta_capability_id\x18\x0e \x01(\tR\x10metaCapabilityId\x12E\n" +
 	"\x1fmeta_capability_timestamp_start\x18\x0f \x01(\x04R\x1cmetaCapabilityTimestampStart\x12C\n" +
-	"\x1emeta_capability_timestamp_emit\x18\x10 \x01(\x04R\x1bmetaCapabilityTimestampEmitBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
+	"\x1emeta_capability_timestamp_emit\x18\x10 \x01(\x04R\x1bmetaCapabilityTimestampEmitBfZdgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common;commonb\x06proto3"
 
 var (
 	file_execution_context_proto_rawDescOnce sync.Once
@@ -228,7 +228,7 @@ func file_execution_context_proto_rawDescGZIP() []byte {
 
 var file_execution_context_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_execution_context_proto_goTypes = []any{
-	(*ExecutionContext)(nil), // 0: platform.write_target.ExecutionContext
+	(*ExecutionContext)(nil), // 0: common.ExecutionContext
 }
 var file_execution_context_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type

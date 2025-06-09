@@ -3,7 +3,7 @@ syntax="proto3";
 package platform.write_target;
 option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
 
-import "execution_context.proto";
+import "common/execution_context.proto";
 
 // WT sent a transaction on-chain
 //
@@ -25,5 +25,5 @@ message WriteSent {
   uint64 block_timestamp = 9;
 
   // [Execution Context]
-  ExecutionContext execution_context = 20;
+  common.ExecutionContext execution_context = 20;
 }

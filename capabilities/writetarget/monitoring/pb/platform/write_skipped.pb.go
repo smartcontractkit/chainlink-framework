@@ -7,6 +7,7 @@
 package writetarget
 
 import (
+	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -30,7 +31,7 @@ type WriteSkipped struct {
 	ReportId  uint32                 `protobuf:"varint,4,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
 	Reason    string                 `protobuf:"bytes,5,opt,name=reason,proto3" json:"reason,omitempty"`
 	// [Execution Context]
-	ExecutionContext *ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -100,7 +101,7 @@ func (x *WriteSkipped) GetReason() string {
 	return ""
 }
 
-func (x *WriteSkipped) GetExecutionContext() *ExecutionContext {
+func (x *WriteSkipped) GetExecutionContext() *common.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -111,14 +112,14 @@ var File_write_skipped_proto protoreflect.FileDescriptor
 
 const file_write_skipped_proto_rawDesc = "" +
 	"\n" +
-	"\x13write_skipped.proto\x12\x15platform.write_target\x1a\x17execution_context.proto\"\xe7\x01\n" +
+	"\x13write_skipped.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\xd8\x01\n" +
 	"\fWriteSkipped\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
 	"\breceiver\x18\x03 \x01(\tR\breceiver\x12\x1b\n" +
 	"\treport_id\x18\x04 \x01(\rR\breportId\x12\x16\n" +
-	"\x06reason\x18\x05 \x01(\tR\x06reason\x12T\n" +
-	"\x11execution_context\x18\x14 \x01(\v2'.platform.write_target.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
+	"\x06reason\x18\x05 \x01(\tR\x06reason\x12E\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
 	file_write_skipped_proto_rawDescOnce sync.Once
@@ -134,11 +135,11 @@ func file_write_skipped_proto_rawDescGZIP() []byte {
 
 var file_write_skipped_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_skipped_proto_goTypes = []any{
-	(*WriteSkipped)(nil),     // 0: platform.write_target.WriteSkipped
-	(*ExecutionContext)(nil), // 1: platform.write_target.ExecutionContext
+	(*WriteSkipped)(nil),            // 0: platform.write_target.WriteSkipped
+	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
 }
 var file_write_skipped_proto_depIdxs = []int32{
-	1, // 0: platform.write_target.WriteSkipped.execution_context:type_name -> platform.write_target.ExecutionContext
+	1, // 0: platform.write_target.WriteSkipped.execution_context:type_name -> common.ExecutionContext
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
@@ -151,7 +152,6 @@ func file_write_skipped_proto_init() {
 	if File_write_skipped_proto != nil {
 		return
 	}
-	file_execution_context_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

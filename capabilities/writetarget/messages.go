@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 
+	commonpb "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
@@ -61,7 +62,7 @@ func (m *messageBuilder) buildWriteError(i requestInfo, code uint32, summary, ca
 		ReportId:  uint32(i.reportInfo.reportID),
 
 		// Execution Context - Source
-		ExecutionContext: &wt.ExecutionContext{
+		ExecutionContext: &commonpb.ExecutionContext{
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
@@ -95,7 +96,7 @@ func (m *messageBuilder) buildWriteInitiated(i requestInfo) *wt.WriteInitiated {
 		Receiver:  i.receiver,
 		ReportId:  uint32(i.reportInfo.reportID),
 
-		ExecutionContext: &wt.ExecutionContext{
+		ExecutionContext: &commonpb.ExecutionContext{
 			// Execution Context - Source
 			MetaSourceId: i.node,
 
@@ -131,7 +132,7 @@ func (m *messageBuilder) buildWriteSkipped(i requestInfo, reason string) *wt.Wri
 		ReportId:  uint32(i.reportInfo.reportID),
 		Reason:    reason,
 
-		ExecutionContext: &wt.ExecutionContext{
+		ExecutionContext: &commonpb.ExecutionContext{
 			// Execution Context - Source
 			MetaSourceId: i.node,
 
@@ -172,7 +173,7 @@ func (m *messageBuilder) buildWriteSent(i requestInfo, head types.Head, txID str
 		BlockHeight:    head.Height,
 		BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
 
-		ExecutionContext: &wt.ExecutionContext{
+		ExecutionContext: &commonpb.ExecutionContext{
 
 			// Execution Context - Source
 			MetaSourceId: i.node,
@@ -229,7 +230,7 @@ func (m *messageBuilder) buildWriteConfirmed(i requestInfo, head types.Head) *wt
 		Transmitter: i.reportTransmissionState.Transmitter,
 		Success:     i.reportTransmissionState.Status == TransmissionStateSucceeded,
 
-		ExecutionContext: &wt.ExecutionContext{
+		ExecutionContext: &commonpb.ExecutionContext{
 			// Execution Context - Source
 			MetaSourceId: i.node,
 

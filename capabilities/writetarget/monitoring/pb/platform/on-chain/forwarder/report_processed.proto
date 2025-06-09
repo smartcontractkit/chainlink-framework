@@ -2,7 +2,7 @@ syntax="proto3";
 
 package platform.on_chain.forwarder;
 
-import "platform/execution_context.proto";
+import "common/execution_context.proto";
 
 option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder;forwarder";
 
@@ -29,5 +29,5 @@ message ReportProcessed {
   string tx_status = 14;
 
   // [Execution Context]
-  platform.write_target.ExecutionContext execution_context = 20;
+  common.ExecutionContext execution_context = 20;
 }
