@@ -29,7 +29,7 @@ var (
 		blockTimestamp        beholder.MetricInfo
 		blockNumber           beholder.MetricInfo
 	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("feed_updated"), "data-feeds.on-chain.registry.FeedUpdated"),
+		basic: beholder.NewMetricsInfoCapBasic(ns("feed_updated"), "datafeeds.on-chain.registry.FeedUpdated"),
 		observationsTimestamp: beholder.MetricInfo{
 			Name:        ns("feed_updated_observations_timestamp"),
 			Unit:        "ms",
@@ -38,7 +38,7 @@ var (
 		duration: beholder.MetricInfo{
 			Name:        ns("feed_updated_duration"),
 			Unit:        "ms",
-			Description: "The duration (local) since observation to message: 'data-feeds.on-chain.registry.FeedUpdated' emit",
+			Description: "The duration (local) since observation to message: 'datafeeds.on-chain.registry.FeedUpdated' emit",
 		},
 		benchmark: beholder.MetricInfo{
 			Name:        ns("feed_updated_benchmark"),
