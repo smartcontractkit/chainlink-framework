@@ -1,0 +1,28 @@
+syntax="proto3";
+
+package platform.write_target;
+option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
+
+import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+
+// WT sent a transaction on-chain
+//
+// Notice: we publish txId (TXM ref) vs. txHash (N/A here)
+message WriteSent {
+  string node = 1;
+  string forwarder = 2;
+  string receiver = 3;
+
+  // Report Info
+  uint32 report_id = 4;
+
+  // Transaction ID - tx reference as created by the WT, to be used for tracking TXM execution
+  string tx_id = 5;
+
+  // When was the transaction submitted
+  common.BlockData block_data = 7;
+
+  // [Execution Context]
+  common.ExecutionContext execution_context = 20;
+}

@@ -1,0 +1,24 @@
+syntax="proto3";
+
+package platform.on_chain.forwarder;
+
+import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
+
+option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder;forwarder";
+
+
+// The on-chain ReportProcessed event which is extracted from the tx/event data or
+// the write-target WriteConfirmed event, after a write was confirmed (@see message: platform.write-target.WriteConfirmed).
+message ReportProcessed {
+  // Event data
+  string receiver = 1;
+  string workflow_execution_id = 2; // bytes as hex string for readability
+  uint32 report_id = 3;
+  bool success = 4;
+
+  common.BlockData block_data = 6;
+  common.TransactionData transaction_data = 10;
+  common.ExecutionContext execution_context = 20;
+}

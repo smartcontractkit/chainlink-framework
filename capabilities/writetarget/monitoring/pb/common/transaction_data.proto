@@ -1,0 +1,15 @@
+syntax="proto3";
+
+package common;
+option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common;common";
+// [Transaction Data]
+message TransactionData {
+  // Transaction data - info about the tx that mained the event (optional)
+  string tx_id = 10; // TXM ref
+  string tx_hash = 11;
+  string tx_sender = 12;
+  string tx_receiver = 13;
+  string tx_status = 14;
+}
+
+

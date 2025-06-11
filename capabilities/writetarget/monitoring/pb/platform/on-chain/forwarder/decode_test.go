@@ -1,0 +1,109 @@
+//nolint:govet // disable govet
+package forwarder
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
+	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
+)
+
+func TestDecodeAsReportProcessed(t *testing.T) {
+	encoded, err := NewTestReport(t, []byte{})
+	require.NoError(t, err)
+
+	// Define test cases
+	tests := []struct {
+		name     string
+		input    wt_msg.WriteConfirmed
+		expected ReportProcessed
+		wantErr  bool
+	}{
+		{
+			name: "Valid input",
+			input: wt_msg.WriteConfirmed{
+				Node:      "example-node",
+				Forwarder: "example-forwarder",
+				Receiver:  "example-receiver",
+
+				// Report Info
+				ReportId:      123,
+				ReportContext: []byte{},
+				Report:        encoded, // Example valid byte slice
+				SignersNum:    2,
+
+				// Transmission Info
+				Transmitter: "example-transmitter",
+				Success:     true,
+
+				BlockData: &common.BlockData{
+					// Block Info
+					BlockHash:      "0xaa",
+					BlockHeight:    "17",
+					BlockTimestamp: 0x66f5bf69,
+				},
+			},
+			expected: ReportProcessed{
+				Receiver:            "example-receiver",
+				WorkflowExecutionId: "0102030405060708090a0b0c0d0e0f1000000000000000000000000000000000",
+				ReportId:            123,
+				Success:             true,
+
+				BlockData: &common.BlockData{
+					// Block Info
+					BlockHash:      "0xaa",
+					BlockHeight:    "17",
+					BlockTimestamp: 0x66f5bf69,
+				},
+
+				TransactionData: &common.TransactionData{
+					TxSender:   "example-transmitter",
+					TxReceiver: "example-forwarder",
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Invalid input",
+			input: wt_msg.WriteConfirmed{
+				Node:      "example-node",
+				Forwarder: "example-forwarder",
+				Receiver:  "example-receiver",
+
+				// Report Info
+				ReportId:      123,
+				ReportContext: []byte{},
+				Report:        []byte{0x01, 0x02, 0x03, 0x04}, // Example invalid byte slice
+				SignersNum:    2,
+
+				// Transmission Info
+				Transmitter: "example-transmitter",
+				Success:     true,
+
+				BlockData: &common.BlockData{
+					// Block Info
+					BlockHash:      "0xaa",
+					BlockHeight:    "17",
+					BlockTimestamp: 0x66f5bf69,
+				},
+			},
+			expected: ReportProcessed{},
+			wantErr:  true,
+		},
+		// Add more test cases as needed
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := DecodeAsReportProcessed(&tt.input)
+			if tt.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, *result)
+			}
+		})
+	}
+}
