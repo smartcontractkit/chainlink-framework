@@ -18,9 +18,31 @@ func ns(name string) string {
 	return "data_feeds_on_chain_registry_" + name
 }
 
-// Define metrics configuration
-var (
-	feedUpdated = struct {
+// Define a new struct for metrics
+type Metrics struct {
+	// Define on FeedUpdated metrics
+	feedUpdated struct {
+		basic beholder.MetricsCapBasic
+		// specific to FeedUpdated
+		observationsTimestamp metric.Int64Gauge
+		duration              metric.Int64Gauge // ts.emit - ts.observation
+		benchmark             metric.Float64Gauge
+		blockTimestamp        metric.Int64Gauge
+		blockNumber           metric.Int64Gauge
+	}
+}
+
+func NewMetrics() (*Metrics, error) {
+	// Define new metrics
+	m := &Metrics{}
+
+	meter := beholdercommon.GetMeter()
+
+	// Create new metrics
+	var err error
+
+	// Define metrics configuration
+	feedUpdated := struct {
 		basic beholder.MetricsInfoCapBasic
 		// specific to FeedUpdated
 		observationsTimestamp beholder.MetricInfo
@@ -29,7 +51,7 @@ var (
 		blockTimestamp        beholder.MetricInfo
 		blockNumber           beholder.MetricInfo
 	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("feed_updated"), "datafeeds.on-chain.registry.FeedUpdated"),
+		basic: beholder.NewMetricsInfoCapBasic(ns("feed_updated"), beholdercommon.ToSchemaFullName(&FeedUpdated{})),
 		observationsTimestamp: beholder.MetricInfo{
 			Name:        ns("feed_updated_observations_timestamp"),
 			Unit:        "ms",
@@ -56,30 +78,6 @@ var (
 			Description: "The block number at the latest confirmed update (as observed)",
 		},
 	}
-)
-
-// Define a new struct for metrics
-type Metrics struct {
-	// Define on FeedUpdated metrics
-	feedUpdated struct {
-		basic beholder.MetricsCapBasic
-		// specific to FeedUpdated
-		observationsTimestamp metric.Int64Gauge
-		duration              metric.Int64Gauge // ts.emit - ts.observation
-		benchmark             metric.Float64Gauge
-		blockTimestamp        metric.Int64Gauge
-		blockNumber           metric.Int64Gauge
-	}
-}
-
-func NewMetrics() (*Metrics, error) {
-	// Define new metrics
-	m := &Metrics{}
-
-	meter := beholdercommon.GetMeter()
-
-	// Create new metrics
-	var err error
 
 	m.feedUpdated.basic, err = beholder.NewMetricsCapBasic(feedUpdated.basic)
 	if err != nil {

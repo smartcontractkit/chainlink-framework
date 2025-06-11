@@ -18,28 +18,6 @@ func ns(name string) string {
 	return fmt.Sprintf("platform_on_chain_forwarder_%s", name)
 }
 
-// Define metrics configuration
-var (
-	reportProcessed = struct {
-		basic beholder.MetricsInfoCapBasic
-		// specific to ReportProcessed
-		blockTimestamp beholder.MetricInfo
-		blockNumber    beholder.MetricInfo
-	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("report_processed"), "platform.on-chain.forwarder.ReportProcessed"),
-		blockTimestamp: beholder.MetricInfo{
-			Name:        ns("report_processed_block_timestamp"),
-			Unit:        "ms",
-			Description: "The block timestamp at the latest confirmed write (as observed)",
-		},
-		blockNumber: beholder.MetricInfo{
-			Name:        ns("report_processed_block_number"),
-			Unit:        "",
-			Description: "The block number at the latest confirmed write (as observed)",
-		},
-	}
-)
-
 // Define a new struct for metrics
 type Metrics struct {
 	// Define on ReportProcessed metrics
@@ -59,6 +37,27 @@ func NewMetrics() (*Metrics, error) {
 
 	// Create new metrics
 	var err error
+
+	reportProcessed := struct {
+		basic beholder.MetricsInfoCapBasic
+		// specific to ReportProcessed
+		blockTimestamp beholder.MetricInfo
+		blockNumber    beholder.MetricInfo
+	}{
+		basic: beholder.NewMetricsInfoCapBasic(ns("report_processed"), beholdercommon.ToSchemaFullName(&ReportProcessed{})),
+		blockTimestamp: beholder.MetricInfo{
+			Name:        ns("report_processed_block_timestamp"),
+			Unit:        "ms",
+			Description: "The block timestamp at the latest confirmed write (as observed)",
+		},
+		blockNumber: beholder.MetricInfo{
+			Name:        ns("report_processed_block_number"),
+			Unit:        "",
+			Description: "The block number at the latest confirmed write (as observed)",
+		},
+	}
+
+	fmt.Println("report processed name:", beholdercommon.ToSchemaFullName(&ReportProcessed{}))
 
 	m.reportProcessed.basic, err = beholder.NewMetricsCapBasic(reportProcessed.basic)
 	if err != nil {

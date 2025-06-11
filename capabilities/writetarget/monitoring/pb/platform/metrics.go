@@ -18,62 +18,6 @@ func ns(name string) string {
 	return fmt.Sprintf("platform_write_target_%s", name)
 }
 
-// Define metrics configuration
-var (
-	writeInitiated = struct {
-		basic beholder.MetricsInfoCapBasic
-	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("write_initiated"), "platform.write-target.WriteInitiated"),
-	}
-	writeError = struct {
-		basic beholder.MetricsInfoCapBasic
-	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("write_error"), "platform.write-target.WriteError"),
-	}
-	writeSent = struct {
-		basic beholder.MetricsInfoCapBasic
-		// specific to WriteSent
-		blockTimestamp beholder.MetricInfo
-		blockNumber    beholder.MetricInfo
-	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("write_sent"), "platform.write-target.WriteSent"),
-		blockTimestamp: beholder.MetricInfo{
-			Name:        ns("write_sent_block_timestamp"),
-			Unit:        "ms",
-			Description: "The block timestamp at the latest sent write (as observed)",
-		},
-		blockNumber: beholder.MetricInfo{
-			Name:        ns("write_sent_block_number"),
-			Unit:        "",
-			Description: "The block number at the latest sent write (as observed)",
-		},
-	}
-	writeConfirmed = struct {
-		basic beholder.MetricsInfoCapBasic
-		// specific to WriteSent
-		blockTimestamp beholder.MetricInfo
-		blockNumber    beholder.MetricInfo
-		signersNumber  beholder.MetricInfo
-	}{
-		basic: beholder.NewMetricsInfoCapBasic(ns("write_confirmed"), "platform.write-target.WriteConfirmed"),
-		blockTimestamp: beholder.MetricInfo{
-			Name:        ns("write_confirmed_block_timestamp"),
-			Unit:        "ms",
-			Description: "The block timestamp for latest confirmed write (as observed)",
-		},
-		blockNumber: beholder.MetricInfo{
-			Name:        ns("write_confirmed_block_number"),
-			Unit:        "",
-			Description: "The block number for latest confirmed write (as observed)",
-		},
-		signersNumber: beholder.MetricInfo{
-			Name:        ns("write_confirmed_signers_number"),
-			Unit:        "",
-			Description: "The number of signers attached to the processed and confirmed write request",
-		},
-	}
-)
-
 // Define a new struct for metrics
 type Metrics struct {
 	// Define on WriteInitiated metrics
@@ -109,6 +53,60 @@ func NewMetrics() (*Metrics, error) {
 
 	// Create new metrics
 	var err error
+
+	// Define metrics configuration
+	writeInitiated := struct {
+		basic beholder.MetricsInfoCapBasic
+	}{
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_initiated"), beholdercommon.ToSchemaFullName(&WriteInitiated{})),
+	}
+	writeError := struct {
+		basic beholder.MetricsInfoCapBasic
+	}{
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_error"), beholdercommon.ToSchemaFullName(&WriteError{})),
+	}
+	writeSent := struct {
+		basic beholder.MetricsInfoCapBasic
+		// specific to WriteSent
+		blockTimestamp beholder.MetricInfo
+		blockNumber    beholder.MetricInfo
+	}{
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_sent"), beholdercommon.ToSchemaFullName(&WriteSent{})),
+		blockTimestamp: beholder.MetricInfo{
+			Name:        ns("write_sent_block_timestamp"),
+			Unit:        "ms",
+			Description: "The block timestamp at the latest sent write (as observed)",
+		},
+		blockNumber: beholder.MetricInfo{
+			Name:        ns("write_sent_block_number"),
+			Unit:        "",
+			Description: "The block number at the latest sent write (as observed)",
+		},
+	}
+	writeConfirmed := struct {
+		basic beholder.MetricsInfoCapBasic
+		// specific to WriteSent
+		blockTimestamp beholder.MetricInfo
+		blockNumber    beholder.MetricInfo
+		signersNumber  beholder.MetricInfo
+	}{
+		basic: beholder.NewMetricsInfoCapBasic(ns("write_confirmed"), beholdercommon.ToSchemaFullName(&WriteConfirmed{})),
+		blockTimestamp: beholder.MetricInfo{
+			Name:        ns("write_confirmed_block_timestamp"),
+			Unit:        "ms",
+			Description: "The block timestamp for latest confirmed write (as observed)",
+		},
+		blockNumber: beholder.MetricInfo{
+			Name:        ns("write_confirmed_block_number"),
+			Unit:        "",
+			Description: "The block number for latest confirmed write (as observed)",
+		},
+		signersNumber: beholder.MetricInfo{
+			Name:        ns("write_confirmed_signers_number"),
+			Unit:        "",
+			Description: "The number of signers attached to the processed and confirmed write request",
+		},
+	}
 
 	// WriteInitiated
 	m.writeInitiated.basic, err = beholder.NewMetricsCapBasic(writeInitiated.basic)
