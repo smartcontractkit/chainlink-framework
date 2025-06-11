@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
@@ -24,16 +25,15 @@ func DecodeAsReportProcessed(m *wt_msg.WriteConfirmed) (*ReportProcessed, error)
 		ReportId:            m.ReportId,
 		Success:             m.Success,
 
-		// Head data - when was the event produced on-chain
-		BlockHash:      m.BlockHash,
-		BlockHeight:    m.BlockHeight,
-		BlockTimestamp: m.BlockTimestamp,
+		BlockData: m.BlockData,
 
 		// Transaction data - info about the tx that mained the event (optional)
 		// Notice: we skip SOME head/tx data here (unknown), as we map from 'platform.write-target.WriteConfirmed'
 		// and not from tx/event data (e.g., 'platform.write-target.WriteTxConfirmed')
-		TxSender:   m.Transmitter,
-		TxReceiver: m.Forwarder,
+		TransactionData: &common.TransactionData{
+			TxSender:   m.Transmitter,
+			TxReceiver: m.Forwarder,
+		},
 
 		ExecutionContext: m.ExecutionContext,
 	}, nil

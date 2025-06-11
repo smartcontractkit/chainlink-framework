@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/mocks"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
@@ -31,7 +32,9 @@ func TestWriteTargetMonitor(t *testing.T) {
 	encoded := []byte{}
 
 	msg := &wt.WriteConfirmed{
-		BlockHeight:             "10",
+		BlockData: &common.BlockData{
+			BlockHeight: "10",
+		},
 		MetaCapabilityProcessor: "test",
 		Report:                  encoded,
 	}

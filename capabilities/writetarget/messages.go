@@ -169,9 +169,11 @@ func (m *messageBuilder) buildWriteSent(i requestInfo, head types.Head, txID str
 
 		TxId: txID,
 
-		BlockHash:      hex.EncodeToString(head.Hash),
-		BlockHeight:    head.Height,
-		BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
+		BlockData: &commonpb.BlockData{
+			BlockHash:      hex.EncodeToString(head.Hash),
+			BlockHeight:    head.Height,
+			BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
+		},
 
 		ExecutionContext: &commonpb.ExecutionContext{
 
@@ -222,9 +224,11 @@ func (m *messageBuilder) buildWriteConfirmed(i requestInfo, head types.Head) *wt
 		Report:        i.reportInfo.report,
 		SignersNum:    i.reportInfo.signersNum,
 
-		BlockHash:      hex.EncodeToString(head.Hash),
-		BlockHeight:    head.Height,
-		BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
+		BlockData: &commonpb.BlockData{
+			BlockHash:      hex.EncodeToString(head.Hash),
+			BlockHeight:    head.Height,
+			BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
+		},
 
 		// Transmission Info
 		Transmitter: i.reportTransmissionState.Transmitter,

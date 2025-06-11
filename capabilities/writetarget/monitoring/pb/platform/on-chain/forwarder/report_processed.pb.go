@@ -27,24 +27,15 @@ const (
 type ReportProcessed struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Event data
-	Receiver            string `protobuf:"bytes,1,opt,name=receiver,proto3" json:"receiver,omitempty"`
-	WorkflowExecutionId string `protobuf:"bytes,2,opt,name=workflow_execution_id,json=workflowExecutionId,proto3" json:"workflow_execution_id,omitempty"` // bytes as hex string for readability
-	ReportId            uint32 `protobuf:"varint,3,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	Success             bool   `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`
-	// Head data - when was the event produced on-chain
-	BlockHash      string `protobuf:"bytes,5,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
-	BlockHeight    string `protobuf:"bytes,6,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
-	BlockTimestamp uint64 `protobuf:"varint,7,opt,name=block_timestamp,json=blockTimestamp,proto3" json:"block_timestamp,omitempty"`
-	// Transaction data - info about the tx that mained the event (optional)
-	TxId       string `protobuf:"bytes,10,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"` // TXM ref
-	TxHash     string `protobuf:"bytes,11,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
-	TxSender   string `protobuf:"bytes,12,opt,name=tx_sender,json=txSender,proto3" json:"tx_sender,omitempty"`
-	TxReceiver string `protobuf:"bytes,13,opt,name=tx_receiver,json=txReceiver,proto3" json:"tx_receiver,omitempty"`
-	TxStatus   string `protobuf:"bytes,14,opt,name=tx_status,json=txStatus,proto3" json:"tx_status,omitempty"`
-	// [Execution Context]
-	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	Receiver            string                   `protobuf:"bytes,1,opt,name=receiver,proto3" json:"receiver,omitempty"`
+	WorkflowExecutionId string                   `protobuf:"bytes,2,opt,name=workflow_execution_id,json=workflowExecutionId,proto3" json:"workflow_execution_id,omitempty"` // bytes as hex string for readability
+	ReportId            uint32                   `protobuf:"varint,3,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	Success             bool                     `protobuf:"varint,4,opt,name=success,proto3" json:"success,omitempty"`
+	BlockData           *common.BlockData        `protobuf:"bytes,6,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
+	TransactionData     *common.TransactionData  `protobuf:"bytes,10,opt,name=transaction_data,json=transactionData,proto3" json:"transaction_data,omitempty"`
+	ExecutionContext    *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *ReportProcessed) Reset() {
@@ -105,60 +96,18 @@ func (x *ReportProcessed) GetSuccess() bool {
 	return false
 }
 
-func (x *ReportProcessed) GetBlockHash() string {
+func (x *ReportProcessed) GetBlockData() *common.BlockData {
 	if x != nil {
-		return x.BlockHash
+		return x.BlockData
 	}
-	return ""
+	return nil
 }
 
-func (x *ReportProcessed) GetBlockHeight() string {
+func (x *ReportProcessed) GetTransactionData() *common.TransactionData {
 	if x != nil {
-		return x.BlockHeight
+		return x.TransactionData
 	}
-	return ""
-}
-
-func (x *ReportProcessed) GetBlockTimestamp() uint64 {
-	if x != nil {
-		return x.BlockTimestamp
-	}
-	return 0
-}
-
-func (x *ReportProcessed) GetTxId() string {
-	if x != nil {
-		return x.TxId
-	}
-	return ""
-}
-
-func (x *ReportProcessed) GetTxHash() string {
-	if x != nil {
-		return x.TxHash
-	}
-	return ""
-}
-
-func (x *ReportProcessed) GetTxSender() string {
-	if x != nil {
-		return x.TxSender
-	}
-	return ""
-}
-
-func (x *ReportProcessed) GetTxReceiver() string {
-	if x != nil {
-		return x.TxReceiver
-	}
-	return ""
-}
-
-func (x *ReportProcessed) GetTxStatus() string {
-	if x != nil {
-		return x.TxStatus
-	}
-	return ""
+	return nil
 }
 
 func (x *ReportProcessed) GetExecutionContext() *common.ExecutionContext {
@@ -172,23 +121,16 @@ var File_report_processed_proto protoreflect.FileDescriptor
 
 const file_report_processed_proto_rawDesc = "" +
 	"\n" +
-	"\x16report_processed.proto\x12\x1bplatform.on_chain.forwarder\x1a\x1ecommon/execution_context.proto\"\xd3\x03\n" +
+	"\x16report_processed.proto\x12\x1bplatform.on_chain.forwarder\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\xd5\x02\n" +
 	"\x0fReportProcessed\x12\x1a\n" +
 	"\breceiver\x18\x01 \x01(\tR\breceiver\x122\n" +
 	"\x15workflow_execution_id\x18\x02 \x01(\tR\x13workflowExecutionId\x12\x1b\n" +
 	"\treport_id\x18\x03 \x01(\rR\breportId\x12\x18\n" +
-	"\asuccess\x18\x04 \x01(\bR\asuccess\x12\x1d\n" +
+	"\asuccess\x18\x04 \x01(\bR\asuccess\x120\n" +
 	"\n" +
-	"block_hash\x18\x05 \x01(\tR\tblockHash\x12!\n" +
-	"\fblock_height\x18\x06 \x01(\tR\vblockHeight\x12'\n" +
-	"\x0fblock_timestamp\x18\a \x01(\x04R\x0eblockTimestamp\x12\x13\n" +
-	"\x05tx_id\x18\n" +
-	" \x01(\tR\x04txId\x12\x17\n" +
-	"\atx_hash\x18\v \x01(\tR\x06txHash\x12\x1b\n" +
-	"\ttx_sender\x18\f \x01(\tR\btxSender\x12\x1f\n" +
-	"\vtx_receiver\x18\r \x01(\tR\n" +
-	"txReceiver\x12\x1b\n" +
-	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12E\n" +
+	"block_data\x18\x06 \x01(\v2\x11.common.BlockDataR\tblockData\x12B\n" +
+	"\x10transaction_data\x18\n" +
+	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12E\n" +
 	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextB~Z|github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder;forwarderb\x06proto3"
 
 var (
@@ -206,15 +148,19 @@ func file_report_processed_proto_rawDescGZIP() []byte {
 var file_report_processed_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_report_processed_proto_goTypes = []any{
 	(*ReportProcessed)(nil),         // 0: platform.on_chain.forwarder.ReportProcessed
-	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
+	(*common.BlockData)(nil),        // 1: common.BlockData
+	(*common.TransactionData)(nil),  // 2: common.TransactionData
+	(*common.ExecutionContext)(nil), // 3: common.ExecutionContext
 }
 var file_report_processed_proto_depIdxs = []int32{
-	1, // 0: platform.on_chain.forwarder.ReportProcessed.execution_context:type_name -> common.ExecutionContext
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: platform.on_chain.forwarder.ReportProcessed.block_data:type_name -> common.BlockData
+	2, // 1: platform.on_chain.forwarder.ReportProcessed.transaction_data:type_name -> common.TransactionData
+	3, // 2: platform.on_chain.forwarder.ReportProcessed.execution_context:type_name -> common.ExecutionContext
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_report_processed_proto_init() }

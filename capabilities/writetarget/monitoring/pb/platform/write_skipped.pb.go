@@ -112,7 +112,7 @@ var File_write_skipped_proto protoreflect.FileDescriptor
 
 const file_write_skipped_proto_rawDesc = "" +
 	"\n" +
-	"\x13write_skipped.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\xd8\x01\n" +
+	"\x13write_skipped.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\"\xd8\x01\n" +
 	"\fWriteSkipped\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +

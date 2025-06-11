@@ -31,18 +31,9 @@ type WriteAccepted struct {
 	Forwarder string                 `protobuf:"bytes,2,opt,name=forwarder,proto3" json:"forwarder,omitempty"`
 	Receiver  string                 `protobuf:"bytes,3,opt,name=receiver,proto3" json:"receiver,omitempty"`
 	// Report Info
-	ReportId uint32 `protobuf:"varint,4,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	// When was the transaction accepted on-chain
-	BlockHash      string `protobuf:"bytes,6,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
-	BlockHeight    string `protobuf:"bytes,7,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
-	BlockTimestamp uint64 `protobuf:"varint,8,opt,name=block_timestamp,json=blockTimestamp,proto3" json:"block_timestamp,omitempty"`
-	// Transaction data - info about the tx that mained the event (optional)
-	TxId       string `protobuf:"bytes,10,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"` // TXM ref
-	TxHash     string `protobuf:"bytes,11,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
-	TxSender   string `protobuf:"bytes,12,opt,name=tx_sender,json=txSender,proto3" json:"tx_sender,omitempty"`
-	TxReceiver string `protobuf:"bytes,13,opt,name=tx_receiver,json=txReceiver,proto3" json:"tx_receiver,omitempty"`
-	TxStatus   string `protobuf:"bytes,14,opt,name=tx_status,json=txStatus,proto3" json:"tx_status,omitempty"`
-	// [Execution Context]
+	ReportId         uint32                   `protobuf:"varint,4,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	BlockData        *common.BlockData        `protobuf:"bytes,6,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
+	TransactionData  *common.TransactionData  `protobuf:"bytes,10,opt,name=transaction_data,json=transactionData,proto3" json:"transaction_data,omitempty"`
 	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -106,60 +97,18 @@ func (x *WriteAccepted) GetReportId() uint32 {
 	return 0
 }
 
-func (x *WriteAccepted) GetBlockHash() string {
+func (x *WriteAccepted) GetBlockData() *common.BlockData {
 	if x != nil {
-		return x.BlockHash
+		return x.BlockData
 	}
-	return ""
+	return nil
 }
 
-func (x *WriteAccepted) GetBlockHeight() string {
+func (x *WriteAccepted) GetTransactionData() *common.TransactionData {
 	if x != nil {
-		return x.BlockHeight
+		return x.TransactionData
 	}
-	return ""
-}
-
-func (x *WriteAccepted) GetBlockTimestamp() uint64 {
-	if x != nil {
-		return x.BlockTimestamp
-	}
-	return 0
-}
-
-func (x *WriteAccepted) GetTxId() string {
-	if x != nil {
-		return x.TxId
-	}
-	return ""
-}
-
-func (x *WriteAccepted) GetTxHash() string {
-	if x != nil {
-		return x.TxHash
-	}
-	return ""
-}
-
-func (x *WriteAccepted) GetTxSender() string {
-	if x != nil {
-		return x.TxSender
-	}
-	return ""
-}
-
-func (x *WriteAccepted) GetTxReceiver() string {
-	if x != nil {
-		return x.TxReceiver
-	}
-	return ""
-}
-
-func (x *WriteAccepted) GetTxStatus() string {
-	if x != nil {
-		return x.TxStatus
-	}
-	return ""
+	return nil
 }
 
 func (x *WriteAccepted) GetExecutionContext() *common.ExecutionContext {
@@ -173,23 +122,16 @@ var File_write_accepted_proto protoreflect.FileDescriptor
 
 const file_write_accepted_proto_rawDesc = "" +
 	"\n" +
-	"\x14write_accepted.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\xb5\x03\n" +
+	"\x14write_accepted.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\xb7\x02\n" +
 	"\rWriteAccepted\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
 	"\breceiver\x18\x03 \x01(\tR\breceiver\x12\x1b\n" +
-	"\treport_id\x18\x04 \x01(\rR\breportId\x12\x1d\n" +
+	"\treport_id\x18\x04 \x01(\rR\breportId\x120\n" +
 	"\n" +
-	"block_hash\x18\x06 \x01(\tR\tblockHash\x12!\n" +
-	"\fblock_height\x18\a \x01(\tR\vblockHeight\x12'\n" +
-	"\x0fblock_timestamp\x18\b \x01(\x04R\x0eblockTimestamp\x12\x13\n" +
-	"\x05tx_id\x18\n" +
-	" \x01(\tR\x04txId\x12\x17\n" +
-	"\atx_hash\x18\v \x01(\tR\x06txHash\x12\x1b\n" +
-	"\ttx_sender\x18\f \x01(\tR\btxSender\x12\x1f\n" +
-	"\vtx_receiver\x18\r \x01(\tR\n" +
-	"txReceiver\x12\x1b\n" +
-	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12E\n" +
+	"block_data\x18\x06 \x01(\v2\x11.common.BlockDataR\tblockData\x12B\n" +
+	"\x10transaction_data\x18\n" +
+	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12E\n" +
 	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
@@ -207,15 +149,19 @@ func file_write_accepted_proto_rawDescGZIP() []byte {
 var file_write_accepted_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_accepted_proto_goTypes = []any{
 	(*WriteAccepted)(nil),           // 0: platform.write_target.WriteAccepted
-	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
+	(*common.BlockData)(nil),        // 1: common.BlockData
+	(*common.TransactionData)(nil),  // 2: common.TransactionData
+	(*common.ExecutionContext)(nil), // 3: common.ExecutionContext
 }
 var file_write_accepted_proto_depIdxs = []int32{
-	1, // 0: platform.write_target.WriteAccepted.execution_context:type_name -> common.ExecutionContext
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: platform.write_target.WriteAccepted.block_data:type_name -> common.BlockData
+	2, // 1: platform.write_target.WriteAccepted.transaction_data:type_name -> common.TransactionData
+	3, // 2: platform.write_target.WriteAccepted.execution_context:type_name -> common.ExecutionContext
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_write_accepted_proto_init() }

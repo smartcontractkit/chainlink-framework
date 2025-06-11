@@ -129,7 +129,7 @@ var File_write_error_proto protoreflect.FileDescriptor
 
 const file_write_error_proto_rawDesc = "" +
 	"\n" +
-	"\x11write_error.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\x82\x02\n" +
+	"\x11write_error.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\"\x82\x02\n" +
 	"\n" +
 	"WriteError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\rR\x04code\x12\x18\n" +

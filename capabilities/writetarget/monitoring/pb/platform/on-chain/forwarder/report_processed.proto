@@ -2,7 +2,9 @@ syntax="proto3";
 
 package platform.on_chain.forwarder;
 
-import "common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
 
 option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder;forwarder";
 
@@ -16,18 +18,7 @@ message ReportProcessed {
   uint32 report_id = 3;
   bool success = 4;
 
-  // Head data - when was the event produced on-chain
-  string block_hash = 5;
-  string block_height = 6;
-  uint64 block_timestamp = 7;
-
-  // Transaction data - info about the tx that mained the event (optional)
-  string tx_id = 10; // TXM ref
-  string tx_hash = 11;
-  string tx_sender = 12;
-  string tx_receiver = 13;
-  string tx_status = 14;
-
-  // [Execution Context]
+  common.BlockData block_data = 6;
+  common.TransactionData transaction_data = 10;
   common.ExecutionContext execution_context = 20;
 }

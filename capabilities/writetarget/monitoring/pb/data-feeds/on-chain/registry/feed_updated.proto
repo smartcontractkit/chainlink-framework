@@ -3,7 +3,9 @@ syntax="proto3";
 package datafeeds.on_chain.registry;
 option go_package = ".;registry";
 
-import "common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
 
 // The on-chain FeedUpdated event which is extracted from the tx/event data or
 // the write-target WriteConfirmed event, after a write was confirmed (@see message: write-target.WriteConfirmed).
@@ -21,19 +23,11 @@ message FeedUpdated {
   // Set as `math.NaN()` if report data type not a number, or `+/-Inf` if number doesn't fit in double.
   double benchmark_val = 5;
 
-  // Head data - when was the event produced on-chain
-  string block_hash = 6;
-  string block_height = 7;
-  uint64 block_timestamp = 8;
-  
+  common.BlockData block_data = 6;
+
   bytes bundle = 9;
 
-  // Transaction data - info about the tx that mained the event (optional)
-  string tx_id = 10; // TXM ref
-  string tx_hash = 11;
-  string tx_sender = 12;
-  string tx_receiver = 13;
-  string tx_status = 14;
+  common.TransactionData transaction_data = 10;
 
   // [Execution Context]
   common.ExecutionContext execution_context = 20;

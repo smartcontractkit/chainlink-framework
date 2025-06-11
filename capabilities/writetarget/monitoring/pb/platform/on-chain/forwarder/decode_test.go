@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	wt_msg "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
@@ -37,10 +38,12 @@ func TestDecodeAsReportProcessed(t *testing.T) {
 				Transmitter: "example-transmitter",
 				Success:     true,
 
-				// Block Info
-				BlockHash:      "0xaa",
-				BlockHeight:    "17",
-				BlockTimestamp: 0x66f5bf69,
+				BlockData: &common.BlockData{
+					// Block Info
+					BlockHash:      "0xaa",
+					BlockHeight:    "17",
+					BlockTimestamp: 0x66f5bf69,
+				},
 			},
 			expected: ReportProcessed{
 				Receiver:            "example-receiver",
@@ -48,12 +51,17 @@ func TestDecodeAsReportProcessed(t *testing.T) {
 				ReportId:            123,
 				Success:             true,
 
-				BlockHash:      "0xaa",
-				BlockHeight:    "17",
-				BlockTimestamp: 0x66f5bf69,
+				BlockData: &common.BlockData{
+					// Block Info
+					BlockHash:      "0xaa",
+					BlockHeight:    "17",
+					BlockTimestamp: 0x66f5bf69,
+				},
 
-				TxSender:   "example-transmitter",
-				TxReceiver: "example-forwarder",
+				TransactionData: &common.TransactionData{
+					TxSender:   "example-transmitter",
+					TxReceiver: "example-forwarder",
+				},
 			},
 			wantErr: false,
 		},
@@ -74,10 +82,12 @@ func TestDecodeAsReportProcessed(t *testing.T) {
 				Transmitter: "example-transmitter",
 				Success:     true,
 
-				// Block Info
-				BlockHash:      "0xaa",
-				BlockHeight:    "17",
-				BlockTimestamp: 0x66f5bf69,
+				BlockData: &common.BlockData{
+					// Block Info
+					BlockHash:      "0xaa",
+					BlockHeight:    "17",
+					BlockTimestamp: 0x66f5bf69,
+				},
 			},
 			expected: ReportProcessed{},
 			wantErr:  true,

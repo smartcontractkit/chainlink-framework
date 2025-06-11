@@ -3,7 +3,9 @@ syntax="proto3";
 package platform.write_target;
 option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
 
-import "common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
 
 // WT sent a transaction and it was accepted on-chain
 //
@@ -16,18 +18,7 @@ message WriteAccepted {
   // Report Info
   uint32 report_id = 4;
 
-  // When was the transaction accepted on-chain
-  string block_hash = 6;
-  string block_height = 7;
-  uint64 block_timestamp = 8;
-
-  // Transaction data - info about the tx that mained the event (optional)
-  string tx_id = 10; // TXM ref
-  string tx_hash = 11;
-  string tx_sender = 12;
-  string tx_receiver = 13;
-  string tx_status = 14;
-
-  // [Execution Context]
+  common.BlockData block_data = 6;
+  common.TransactionData transaction_data = 10;
   common.ExecutionContext execution_context = 20;
 }

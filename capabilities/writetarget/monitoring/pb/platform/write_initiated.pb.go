@@ -105,7 +105,7 @@ var File_write_initiated_proto protoreflect.FileDescriptor
 
 const file_write_initiated_proto_rawDesc = "" +
 	"\n" +
-	"\x15write_initiated.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\xc2\x01\n" +
+	"\x15write_initiated.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\"\xc2\x01\n" +
 	"\x0eWriteInitiated\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +

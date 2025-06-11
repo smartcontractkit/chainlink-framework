@@ -36,18 +36,10 @@ type FeedUpdated struct {
 	// for most use-cases. For big numbers, benchmark bytes should be used instead.
 	//
 	// Set as `math.NaN()` if report data type not a number, or `+/-Inf` if number doesn't fit in double.
-	BenchmarkVal float64 `protobuf:"fixed64,5,opt,name=benchmark_val,json=benchmarkVal,proto3" json:"benchmark_val,omitempty"`
-	// Head data - when was the event produced on-chain
-	BlockHash      string `protobuf:"bytes,6,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
-	BlockHeight    string `protobuf:"bytes,7,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
-	BlockTimestamp uint64 `protobuf:"varint,8,opt,name=block_timestamp,json=blockTimestamp,proto3" json:"block_timestamp,omitempty"`
-	Bundle         []byte `protobuf:"bytes,9,opt,name=bundle,proto3" json:"bundle,omitempty"`
-	// Transaction data - info about the tx that mained the event (optional)
-	TxId       string `protobuf:"bytes,10,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"` // TXM ref
-	TxHash     string `protobuf:"bytes,11,opt,name=tx_hash,json=txHash,proto3" json:"tx_hash,omitempty"`
-	TxSender   string `protobuf:"bytes,12,opt,name=tx_sender,json=txSender,proto3" json:"tx_sender,omitempty"`
-	TxReceiver string `protobuf:"bytes,13,opt,name=tx_receiver,json=txReceiver,proto3" json:"tx_receiver,omitempty"`
-	TxStatus   string `protobuf:"bytes,14,opt,name=tx_status,json=txStatus,proto3" json:"tx_status,omitempty"`
+	BenchmarkVal    float64                 `protobuf:"fixed64,5,opt,name=benchmark_val,json=benchmarkVal,proto3" json:"benchmark_val,omitempty"`
+	BlockData       *common.BlockData       `protobuf:"bytes,6,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
+	Bundle          []byte                  `protobuf:"bytes,9,opt,name=bundle,proto3" json:"bundle,omitempty"`
+	TransactionData *common.TransactionData `protobuf:"bytes,10,opt,name=transaction_data,json=transactionData,proto3" json:"transaction_data,omitempty"`
 	// [Execution Context]
 	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -119,25 +111,11 @@ func (x *FeedUpdated) GetBenchmarkVal() float64 {
 	return 0
 }
 
-func (x *FeedUpdated) GetBlockHash() string {
+func (x *FeedUpdated) GetBlockData() *common.BlockData {
 	if x != nil {
-		return x.BlockHash
+		return x.BlockData
 	}
-	return ""
-}
-
-func (x *FeedUpdated) GetBlockHeight() string {
-	if x != nil {
-		return x.BlockHeight
-	}
-	return ""
-}
-
-func (x *FeedUpdated) GetBlockTimestamp() uint64 {
-	if x != nil {
-		return x.BlockTimestamp
-	}
-	return 0
+	return nil
 }
 
 func (x *FeedUpdated) GetBundle() []byte {
@@ -147,39 +125,11 @@ func (x *FeedUpdated) GetBundle() []byte {
 	return nil
 }
 
-func (x *FeedUpdated) GetTxId() string {
+func (x *FeedUpdated) GetTransactionData() *common.TransactionData {
 	if x != nil {
-		return x.TxId
+		return x.TransactionData
 	}
-	return ""
-}
-
-func (x *FeedUpdated) GetTxHash() string {
-	if x != nil {
-		return x.TxHash
-	}
-	return ""
-}
-
-func (x *FeedUpdated) GetTxSender() string {
-	if x != nil {
-		return x.TxSender
-	}
-	return ""
-}
-
-func (x *FeedUpdated) GetTxReceiver() string {
-	if x != nil {
-		return x.TxReceiver
-	}
-	return ""
-}
-
-func (x *FeedUpdated) GetTxStatus() string {
-	if x != nil {
-		return x.TxStatus
-	}
-	return ""
+	return nil
 }
 
 func (x *FeedUpdated) GetExecutionContext() *common.ExecutionContext {
@@ -193,25 +143,18 @@ var File_feed_updated_proto protoreflect.FileDescriptor
 
 const file_feed_updated_proto_rawDesc = "" +
 	"\n" +
-	"\x12feed_updated.proto\x12\x1bdatafeeds.on_chain.registry\x1a\x1ecommon/execution_context.proto\"\x8b\x04\n" +
+	"\x12feed_updated.proto\x12\x1bdatafeeds.on_chain.registry\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\x8d\x03\n" +
 	"\vFeedUpdated\x12\x17\n" +
 	"\afeed_id\x18\x01 \x01(\tR\x06feedId\x125\n" +
 	"\x16observations_timestamp\x18\x02 \x01(\rR\x15observationsTimestamp\x12\x1c\n" +
 	"\tbenchmark\x18\x03 \x01(\fR\tbenchmark\x12\x16\n" +
 	"\x06report\x18\x04 \x01(\fR\x06report\x12#\n" +
-	"\rbenchmark_val\x18\x05 \x01(\x01R\fbenchmarkVal\x12\x1d\n" +
+	"\rbenchmark_val\x18\x05 \x01(\x01R\fbenchmarkVal\x120\n" +
 	"\n" +
-	"block_hash\x18\x06 \x01(\tR\tblockHash\x12!\n" +
-	"\fblock_height\x18\a \x01(\tR\vblockHeight\x12'\n" +
-	"\x0fblock_timestamp\x18\b \x01(\x04R\x0eblockTimestamp\x12\x16\n" +
-	"\x06bundle\x18\t \x01(\fR\x06bundle\x12\x13\n" +
-	"\x05tx_id\x18\n" +
-	" \x01(\tR\x04txId\x12\x17\n" +
-	"\atx_hash\x18\v \x01(\tR\x06txHash\x12\x1b\n" +
-	"\ttx_sender\x18\f \x01(\tR\btxSender\x12\x1f\n" +
-	"\vtx_receiver\x18\r \x01(\tR\n" +
-	"txReceiver\x12\x1b\n" +
-	"\ttx_status\x18\x0e \x01(\tR\btxStatus\x12E\n" +
+	"block_data\x18\x06 \x01(\v2\x11.common.BlockDataR\tblockData\x12\x16\n" +
+	"\x06bundle\x18\t \x01(\fR\x06bundle\x12B\n" +
+	"\x10transaction_data\x18\n" +
+	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12E\n" +
 	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextB\fZ\n" +
 	".;registryb\x06proto3"
 
@@ -230,15 +173,19 @@ func file_feed_updated_proto_rawDescGZIP() []byte {
 var file_feed_updated_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_feed_updated_proto_goTypes = []any{
 	(*FeedUpdated)(nil),             // 0: datafeeds.on_chain.registry.FeedUpdated
-	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
+	(*common.BlockData)(nil),        // 1: common.BlockData
+	(*common.TransactionData)(nil),  // 2: common.TransactionData
+	(*common.ExecutionContext)(nil), // 3: common.ExecutionContext
 }
 var file_feed_updated_proto_depIdxs = []int32{
-	1, // 0: datafeeds.on_chain.registry.FeedUpdated.execution_context:type_name -> common.ExecutionContext
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: datafeeds.on_chain.registry.FeedUpdated.block_data:type_name -> common.BlockData
+	2, // 1: datafeeds.on_chain.registry.FeedUpdated.transaction_data:type_name -> common.TransactionData
+	3, // 2: datafeeds.on_chain.registry.FeedUpdated.execution_context:type_name -> common.ExecutionContext
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_feed_updated_proto_init() }

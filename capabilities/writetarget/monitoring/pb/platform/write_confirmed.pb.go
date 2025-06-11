@@ -34,9 +34,7 @@ type WriteConfirmed struct {
 	Report        []byte `protobuf:"bytes,6,opt,name=report,proto3" json:"report,omitempty"`
 	SignersNum    uint32 `protobuf:"varint,7,opt,name=signers_num,json=signersNum,proto3" json:"signers_num,omitempty"`
 	// When was the report confirmed on-chain
-	BlockHash      string `protobuf:"bytes,9,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
-	BlockHeight    string `protobuf:"bytes,10,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
-	BlockTimestamp uint64 `protobuf:"varint,11,opt,name=block_timestamp,json=blockTimestamp,proto3" json:"block_timestamp,omitempty"`
+	BlockData *common.BlockData `protobuf:"bytes,9,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
 	// Transmission Info
 	Transmitter string `protobuf:"bytes,12,opt,name=transmitter,proto3" json:"transmitter,omitempty"`
 	Success     bool   `protobuf:"varint,13,opt,name=success,proto3" json:"success,omitempty"` // TODO: what about EVM's TransmissionInfo parity?
@@ -127,25 +125,11 @@ func (x *WriteConfirmed) GetSignersNum() uint32 {
 	return 0
 }
 
-func (x *WriteConfirmed) GetBlockHash() string {
+func (x *WriteConfirmed) GetBlockData() *common.BlockData {
 	if x != nil {
-		return x.BlockHash
+		return x.BlockData
 	}
-	return ""
-}
-
-func (x *WriteConfirmed) GetBlockHeight() string {
-	if x != nil {
-		return x.BlockHeight
-	}
-	return ""
-}
-
-func (x *WriteConfirmed) GetBlockTimestamp() uint64 {
-	if x != nil {
-		return x.BlockTimestamp
-	}
-	return 0
+	return nil
 }
 
 func (x *WriteConfirmed) GetTransmitter() string {
@@ -180,7 +164,7 @@ var File_write_confirmed_proto protoreflect.FileDescriptor
 
 const file_write_confirmed_proto_rawDesc = "" +
 	"\n" +
-	"\x15write_confirmed.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\x85\x04\n" +
+	"\x15write_confirmed.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\"\xcc\x03\n" +
 	"\x0eWriteConfirmed\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
@@ -189,12 +173,9 @@ const file_write_confirmed_proto_rawDesc = "" +
 	"\x0ereport_context\x18\x05 \x01(\fR\rreportContext\x12\x16\n" +
 	"\x06report\x18\x06 \x01(\fR\x06report\x12\x1f\n" +
 	"\vsigners_num\x18\a \x01(\rR\n" +
-	"signersNum\x12\x1d\n" +
+	"signersNum\x120\n" +
 	"\n" +
-	"block_hash\x18\t \x01(\tR\tblockHash\x12!\n" +
-	"\fblock_height\x18\n" +
-	" \x01(\tR\vblockHeight\x12'\n" +
-	"\x0fblock_timestamp\x18\v \x01(\x04R\x0eblockTimestamp\x12 \n" +
+	"block_data\x18\t \x01(\v2\x11.common.BlockDataR\tblockData\x12 \n" +
 	"\vtransmitter\x18\f \x01(\tR\vtransmitter\x12\x18\n" +
 	"\asuccess\x18\r \x01(\bR\asuccess\x12E\n" +
 	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContext\x12:\n" +
@@ -215,15 +196,17 @@ func file_write_confirmed_proto_rawDescGZIP() []byte {
 var file_write_confirmed_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_confirmed_proto_goTypes = []any{
 	(*WriteConfirmed)(nil),          // 0: platform.write_target.WriteConfirmed
-	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
+	(*common.BlockData)(nil),        // 1: common.BlockData
+	(*common.ExecutionContext)(nil), // 2: common.ExecutionContext
 }
 var file_write_confirmed_proto_depIdxs = []int32{
-	1, // 0: platform.write_target.WriteConfirmed.execution_context:type_name -> common.ExecutionContext
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: platform.write_target.WriteConfirmed.block_data:type_name -> common.BlockData
+	2, // 1: platform.write_target.WriteConfirmed.execution_context:type_name -> common.ExecutionContext
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_write_confirmed_proto_init() }

@@ -131,10 +131,10 @@ func (m *Metrics) OnFeedUpdated(ctx context.Context, msg *FeedUpdated, attrKVs .
 	m.feedUpdated.benchmark.Record(ctx, msg.BenchmarkVal, attrs)
 
 	// Block timestamp
-	m.feedUpdated.blockTimestamp.Record(ctx, int64(msg.BlockTimestamp), attrs)
+	m.feedUpdated.blockTimestamp.Record(ctx, int64(msg.BlockData.BlockTimestamp), attrs)
 
 	// Block number
-	blockHeightVal, err := strconv.ParseInt(msg.BlockHeight, 10, 64)
+	blockHeightVal, err := strconv.ParseInt(msg.BlockData.BlockHeight, 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse block height: %w", err)
 	}
@@ -168,8 +168,8 @@ func (m *FeedUpdated) Attributes() []attribute.KeyValue {
 
 	attrs := []attribute.KeyValue{
 		// Transaction Data
-		attribute.String("tx_sender", m.TxSender),
-		attribute.String("tx_receiver", m.TxReceiver),
+		attribute.String("tx_sender", m.TransactionData.TxSender),
+		attribute.String("tx_receiver", m.TransactionData.TxReceiver),
 
 		// Event Data
 		attribute.String("feed_id", m.FeedId),
@@ -178,7 +178,7 @@ func (m *FeedUpdated) Attributes() []attribute.KeyValue {
 
 		// We mark confrmations by transmitter so we can query for only initial (fast) confirmations
 		// with PromQL, and ignore the slower confirmations by other signers for SLA measurements.
-		attribute.Bool("observed_by_transmitter", m.TxSender == m.ExecutionContext.MetaSourceId), // source_id == node account
+		attribute.Bool("observed_by_transmitter", m.TransactionData.TxSender == m.ExecutionContext.MetaSourceId), // source_id == node account
 	}
 
 	return append(attrs, context.Attributes()...)

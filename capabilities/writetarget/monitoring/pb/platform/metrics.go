@@ -185,10 +185,10 @@ func (m *Metrics) OnWriteSent(ctx context.Context, msg *WriteSent, attrKVs ...an
 	m.writeSent.basic.RecordEmit(ctx, start, emit, msg.Attributes()...)
 
 	// Block timestamp
-	m.writeSent.blockTimestamp.Record(ctx, int64(msg.BlockTimestamp), attrs)
+	m.writeSent.blockTimestamp.Record(ctx, int64(msg.BlockData.BlockTimestamp), attrs)
 
 	// Block number
-	blockHeightVal, err := strconv.ParseInt(msg.BlockHeight, 10, 64)
+	blockHeightVal, err := strconv.ParseInt(msg.BlockData.BlockHeight, 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse block height: %w", err)
 	}
@@ -208,10 +208,10 @@ func (m *Metrics) OnWriteConfirmed(ctx context.Context, msg *WriteConfirmed, att
 	m.writeConfirmed.signersNumber.Record(ctx, int64(msg.SignersNum), attrs)
 
 	// Block timestamp
-	m.writeConfirmed.blockTimestamp.Record(ctx, int64(msg.BlockTimestamp), attrs)
+	m.writeConfirmed.blockTimestamp.Record(ctx, int64(msg.BlockData.BlockTimestamp), attrs)
 
 	// Block number
-	blockHeightVal, err := strconv.ParseInt(msg.BlockHeight, 10, 64)
+	blockHeightVal, err := strconv.ParseInt(msg.BlockData.BlockHeight, 10, 64)
 	if err != nil {
 		return fmt.Errorf("failed to parse block height: %w", err)
 	}

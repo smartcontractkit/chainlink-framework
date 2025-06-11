@@ -35,9 +35,7 @@ type WriteSent struct {
 	// Transaction ID - tx reference as created by the WT, to be used for tracking TXM execution
 	TxId string `protobuf:"bytes,5,opt,name=tx_id,json=txId,proto3" json:"tx_id,omitempty"`
 	// When was the transaction submitted
-	BlockHash      string `protobuf:"bytes,7,opt,name=block_hash,json=blockHash,proto3" json:"block_hash,omitempty"`
-	BlockHeight    string `protobuf:"bytes,8,opt,name=block_height,json=blockHeight,proto3" json:"block_height,omitempty"`
-	BlockTimestamp uint64 `protobuf:"varint,9,opt,name=block_timestamp,json=blockTimestamp,proto3" json:"block_timestamp,omitempty"`
+	BlockData *common.BlockData `protobuf:"bytes,7,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
 	// [Execution Context]
 	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
@@ -109,25 +107,11 @@ func (x *WriteSent) GetTxId() string {
 	return ""
 }
 
-func (x *WriteSent) GetBlockHash() string {
+func (x *WriteSent) GetBlockData() *common.BlockData {
 	if x != nil {
-		return x.BlockHash
+		return x.BlockData
 	}
-	return ""
-}
-
-func (x *WriteSent) GetBlockHeight() string {
-	if x != nil {
-		return x.BlockHeight
-	}
-	return ""
-}
-
-func (x *WriteSent) GetBlockTimestamp() uint64 {
-	if x != nil {
-		return x.BlockTimestamp
-	}
-	return 0
+	return nil
 }
 
 func (x *WriteSent) GetExecutionContext() *common.ExecutionContext {
@@ -141,17 +125,15 @@ var File_write_sent_proto protoreflect.FileDescriptor
 
 const file_write_sent_proto_rawDesc = "" +
 	"\n" +
-	"\x10write_sent.proto\x12\x15platform.write_target\x1a\x1ecommon/execution_context.proto\"\xbd\x02\n" +
+	"\x10write_sent.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\"\x84\x02\n" +
 	"\tWriteSent\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
 	"\breceiver\x18\x03 \x01(\tR\breceiver\x12\x1b\n" +
 	"\treport_id\x18\x04 \x01(\rR\breportId\x12\x13\n" +
-	"\x05tx_id\x18\x05 \x01(\tR\x04txId\x12\x1d\n" +
+	"\x05tx_id\x18\x05 \x01(\tR\x04txId\x120\n" +
 	"\n" +
-	"block_hash\x18\a \x01(\tR\tblockHash\x12!\n" +
-	"\fblock_height\x18\b \x01(\tR\vblockHeight\x12'\n" +
-	"\x0fblock_timestamp\x18\t \x01(\x04R\x0eblockTimestamp\x12E\n" +
+	"block_data\x18\a \x01(\v2\x11.common.BlockDataR\tblockData\x12E\n" +
 	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
@@ -169,15 +151,17 @@ func file_write_sent_proto_rawDescGZIP() []byte {
 var file_write_sent_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_sent_proto_goTypes = []any{
 	(*WriteSent)(nil),               // 0: platform.write_target.WriteSent
-	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
+	(*common.BlockData)(nil),        // 1: common.BlockData
+	(*common.ExecutionContext)(nil), // 2: common.ExecutionContext
 }
 var file_write_sent_proto_depIdxs = []int32{
-	1, // 0: platform.write_target.WriteSent.execution_context:type_name -> common.ExecutionContext
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	1, // 0: platform.write_target.WriteSent.block_data:type_name -> common.BlockData
+	2, // 1: platform.write_target.WriteSent.execution_context:type_name -> common.ExecutionContext
+	2, // [2:2] is the sub-list for method output_type
+	2, // [2:2] is the sub-list for method input_type
+	2, // [2:2] is the sub-list for extension type_name
+	2, // [2:2] is the sub-list for extension extendee
+	0, // [0:2] is the sub-list for field type_name
 }
 
 func init() { file_write_sent_proto_init() }
