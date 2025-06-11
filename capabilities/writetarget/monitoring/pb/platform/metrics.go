@@ -354,8 +354,6 @@ func (m *WriteConfirmed) Attributes() []attribute.KeyValue {
 		// We mark confrmations by transmitter so we can query for only initial (fast) confirmations
 		// with PromQL, and ignore the slower confirmations by other signers for SLA measurements.
 		attribute.Bool("observed_by_transmitter", m.Transmitter == m.Node),
-		// TODO: remove once NOT_SET bug with non-string labels is fixed
-		attribute.String("observed_by_transmitter_str", strconv.FormatBool(m.Transmitter == m.Node)),
 	}
 
 	return append(attrs, context.Attributes()...)
