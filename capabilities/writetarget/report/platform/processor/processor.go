@@ -12,7 +12,7 @@ import (
 )
 
 // Product-agnostic processors to be injected into WriteTarget Monitor
-func NewPlatformProcessors(emitter beholder.ProtoEmitter) ([]beholder.ProtoProcessor, error) {
+func NewPlatformProcessors(emitter beholder.ProtoEmitter) (map[string]beholder.ProtoProcessor, error) {
 	forwarderMetrics, err := forwarder.NewMetrics()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new forwarder metrics: %w", err)
@@ -22,15 +22,19 @@ func NewPlatformProcessors(emitter beholder.ProtoEmitter) ([]beholder.ProtoProce
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new write target metrics: %w", err)
 	}
-	return []beholder.ProtoProcessor{
-		&keystoneProcessor{
+	return map[string]beholder.ProtoProcessor{
+		"keystone": &keystoneProcessor{
 			emitter: emitter,
 			metrics: forwarderMetrics,
 		},
-		&wtProcessor{
+		"writetarget": &wtProcessor{
 			metrics: wtMetrics,
 		},
 	}, nil
+}
+
+func GetDefaultPlatformProcessors() []string {
+	return []string{"writetarget", "keystone"}
 }
 
 // Write-Target specific processor decodes write messages to derive metrics

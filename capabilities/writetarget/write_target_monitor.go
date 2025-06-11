@@ -26,10 +26,10 @@ func NewMonitorEmitter(lggr logger.Logger) beholder.ProtoEmitter {
 }
 
 type MonitorOpts struct {
-	Lggr                      logger.Logger
-	ProductAgnosticProcessors []beholder.ProtoProcessor
-	ProductSpecificProcessors map[string]beholder.ProtoProcessor
-	Emitter                   beholder.ProtoEmitter
+	Lggr              logger.Logger
+	Processors        map[string]beholder.ProtoProcessor
+	EnabledProcessors []string
+	Emitter           beholder.ProtoEmitter
 }
 
 // NewMonitor initializes a Beholder client for the Write Target
@@ -44,20 +44,20 @@ func NewMonitor(opts MonitorOpts) (*beholder.BeholderClient, error) {
 
 	// Proxy ProtoEmitter with additional processing
 	protoEmitterProxy := protoEmitter{
-		lggr:                      opts.Lggr,
-		emitter:                   opts.Emitter,
-		processors:                opts.ProductAgnosticProcessors,
-		productSpecificProcessors: opts.ProductSpecificProcessors,
+		lggr:              opts.Lggr,
+		emitter:           opts.Emitter,
+		processors:        opts.Processors,
+		enabledProcessors: opts.EnabledProcessors,
 	}
 	return &beholder.BeholderClient{Client: &client, ProtoEmitter: &protoEmitterProxy}, nil
 }
 
 // ProtoEmitter proxy specific to the WT
 type protoEmitter struct {
-	lggr                      logger.Logger
-	emitter                   beholder.ProtoEmitter
-	processors                []beholder.ProtoProcessor
-	productSpecificProcessors map[string]beholder.ProtoProcessor
+	lggr              logger.Logger
+	emitter           beholder.ProtoEmitter
+	processors        map[string]beholder.ProtoProcessor
+	enabledProcessors []string
 }
 
 // Emit emits a proto.Message and runs additional processing
@@ -85,7 +85,13 @@ func (e *protoEmitter) EmitWithLog(ctx context.Context, m proto.Message, attrKVs
 // Process aggregates further processing for emitted messages
 func (e *protoEmitter) Process(ctx context.Context, m proto.Message, attrKVs ...any) error {
 	// Further processing for emitted messages
-	for _, p := range e.processors {
+	for _, processorName := range e.enabledProcessors {
+		p, ok := e.processors[processorName]
+		if !ok {
+			// no processor matching configured one, log error but continue
+			e.lggr.Errorf("no required processor with name %s", processorName)
+			continue
+		}
 		err := p.Process(ctx, m, attrKVs...)
 		if err != nil {
 			// Notice: we swallow and log processing errors
@@ -102,7 +108,7 @@ func (e *protoEmitter) Process(ctx context.Context, m proto.Message, attrKVs ...
 			return nil
 		}
 
-		if p, ok := e.productSpecificProcessors[msg.MetaCapabilityProcessor]; ok {
+		if p, ok := e.processors[msg.MetaCapabilityProcessor]; ok {
 			if err := p.Process(ctx, msg, attrKVs...); err != nil {
 				e.lggr.Errorw("failed to process emitted message", "err", err)
 			}

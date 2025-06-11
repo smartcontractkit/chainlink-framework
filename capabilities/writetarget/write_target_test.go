@@ -40,11 +40,10 @@ func setupWriteTarget(
 	platformProcessors, err := processor.NewPlatformProcessors(emitter)
 	require.NoError(t, err)
 
-	var psp map[string]beholder.ProtoProcessor
 	if productSpecificProcessor {
-		psp = map[string]beholder.ProtoProcessor{"test": newMockProductSpecificProcessor(t)}
+		platformProcessors["test"] = newMockProductSpecificProcessor(t)
 	}
-	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, psp, emitter})
+	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, processor.GetDefaultPlatformProcessors(), emitter})
 	require.NoError(t, err)
 
 	pollPeriod := 100 * time.Millisecond

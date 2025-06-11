@@ -22,8 +22,8 @@ func TestWriteTargetMonitor(t *testing.T) {
 
 	m, err := writetarget.NewMonitor(writetarget.MonitorOpts{
 		lggr,
-		[]beholder.ProtoProcessor{},
 		map[string]beholder.ProtoProcessor{"test": processor},
+		[]string{},
 		writetarget.NewMonitorEmitter(lggr),
 	})
 	require.NoError(t, err)
@@ -43,7 +43,7 @@ func TestWriteTargetMonitor(t *testing.T) {
 	})
 
 	t.Run("Logs when config name is not found", func(t *testing.T) {
-		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, []beholder.ProtoProcessor{}, map[string]beholder.ProtoProcessor{"other": processor}, writetarget.NewMonitorEmitter(lggr)})
+		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, map[string]beholder.ProtoProcessor{"other": processor}, []string{}, writetarget.NewMonitorEmitter(lggr)})
 
 		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
 		require.NoError(t, err)
@@ -61,5 +61,14 @@ func TestWriteTargetMonitor(t *testing.T) {
 		require.NoError(t, err)
 
 		tests.RequireLogMessage(t, observed, "No product specific processor specified; skipping.")
+	})
+
+	t.Run("Logs when required processor is not found", func(t *testing.T) {
+		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, map[string]beholder.ProtoProcessor{}, []string{"other"}, writetarget.NewMonitorEmitter(lggr)})
+
+		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
+		require.NoError(t, err)
+
+		tests.RequireLogMessage(t, observed, "no required processor with name other")
 	})
 }
