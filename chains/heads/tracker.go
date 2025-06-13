@@ -39,6 +39,8 @@ type Tracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain H, prevHeadWithChain H) (err error)
 	LatestChain() H
+	// LatestSafeBlock returns the latest block that is considered safe to use.
+	LatestSafeBlock(ctx context.Context) (safe H, err error)
 	// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
 	// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized H, err error)
