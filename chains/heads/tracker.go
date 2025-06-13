@@ -47,6 +47,7 @@ type Tracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 type ChainConfig interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	FinalityDepth() uint32
+	SafeBlockDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
 }
@@ -394,6 +395,42 @@ func (t *tracker[HTH, S, ID, BHASH]) backfillLoop(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (t *tracker[HTH, S, ID, BHASH]) LatestSafeBlock(ctx context.Context) (safe HTH, err error) {
+	if t.config.FinalityTagEnabled() {
+		latestSafe, err := t.client.LatestSafeBlock(ctx)
+		if err != nil {
+			return latestSafe, fmt.Errorf("failed to get latest finalized block: %w", err)
+		}
+
+		if !latestSafe.IsValid() {
+			return latestSafe, fmt.Errorf("failed to get valid latest finalized block")
+		}
+		return latestSafe, nil
+	}
+	latest, err := t.client.HeadByNumber(ctx, nil)
+	if err != nil {
+		err = fmt.Errorf("failed to get latest block: %w", err)
+		return
+	}
+
+	if !latest.IsValid() {
+		err = fmt.Errorf("expected latest block to be valid")
+		return
+	}
+	if t.instantFinality() {
+		return latest, nil
+	}
+	safeDepth := int64(t.config.SafeBlockDepth())
+	if safeDepth <= 0 {
+		safeDepth = int64(t.config.FinalityDepth())
+	}
+	safeBlockNumber := latest.BlockNumber() - safeDepth
+	if safeBlockNumber <= 0 {
+		safeBlockNumber = 0
+	}
+	return t.getHeadAtHeight(ctx, latest.BlockHash(), safeBlockNumber)
 }
 
 // LatestAndFinalizedBlock - returns latest and latest finalized blocks.
