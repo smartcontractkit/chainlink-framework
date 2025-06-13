@@ -15,6 +15,8 @@ type Client[H chains.Head[BLOCK_HASH], S chains.Subscription, ID chains.ID, BLOC
 	// SubscribeToHeads is the method in which the client receives new Head.
 	// It can be implemented differently for each chain i.e websocket, polling, etc
 	SubscribeToHeads(ctx context.Context) (<-chan H, S, error)
+	// LatestSafeBlock - returns the latest block that was marked as safe
+	LatestSafeBlock(ctx context.Context) (safe H, err error)
 	// LatestFinalizedBlock - returns the latest block that was marked as finalized
 	LatestFinalizedBlock(ctx context.Context) (head H, err error)
 }
