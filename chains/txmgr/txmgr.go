@@ -59,6 +59,8 @@ type TxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (count uint32, err error)
 	GetTransactionStatus(ctx context.Context, transactionID string) (state commontypes.TransactionStatus, err error)
 	GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error)
+	GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error)
+	CalculateFee(feeParts FeeParts) *big.Int
 }
 
 type TxmV2Wrapper[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
@@ -714,8 +716,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionStatus(c
 		// Return pending for ConfirmedMissingReceipt since a receipt is required to consider it as unconfirmed
 		return commontypes.Pending, nil
 	case TxConfirmed:
-		// Return unconfirmed for confirmed transactions because they are not yet finalized
-		return commontypes.Unconfirmed, nil
+		return commontypes.Confirmed, nil
 	case TxFinalized:
 		return commontypes.Finalized, nil
 	case TxFatalError:
@@ -743,23 +744,52 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return fee, fmt.Errorf("failed to find receipt with IdempotencyKey %s", transactionID)
 	}
 
+	txFee := b.CalculateFee(FeeParts{
+		GasUsed:           receipt.GetFeeUsed(),
+		EffectiveGasPrice: receipt.GetEffectiveGasPrice(),
+		L1Fee:             receipt.GetL1Fee(),
+	})
+
+	fee = &evmtypes.TransactionFee{
+		TransactionFee: txFee,
+	}
+
+	return fee, nil
+}
+
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error) {
+	foundReceipt, err := b.txStore.FindReceiptWithIdempotencyKey(ctx, transactionID, b.chainID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find receipt with IdempotencyKey %s: %w", transactionID, err)
+	}
+
+	// This check is required since a no-rows error returns nil err
+	if foundReceipt == nil {
+		return nil, fmt.Errorf("failed to find receipt with IdempotencyKey %s", transactionID)
+	}
+	return &foundReceipt, nil
+}
+
+type FeeParts struct {
+	GasUsed           uint64
+	EffectiveGasPrice *big.Int
+	L1Fee             *big.Int
+}
+
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) CalculateFee(feeParts FeeParts) *big.Int {
 	totalFee := new(big.Int)
 
-	gasUsed := new(big.Int).SetUint64(receipt.GetFeeUsed())
-	price := receipt.GetEffectiveGasPrice()
+	gasUsed := new(big.Int).SetUint64(feeParts.GasUsed)
+	price := feeParts.EffectiveGasPrice
 	if price != nil {
 		totalFee.Mul(gasUsed, price)
 	}
-	l1Fee := receipt.GetL1Fee()
+	l1Fee := feeParts.L1Fee
 	if l1Fee != nil {
 		totalFee.Add(totalFee, l1Fee)
 	}
 
-	fee = &evmtypes.TransactionFee{
-		TransactionFee: totalFee,
-	}
-
-	return fee, nil
+	return totalFee
 }
 
 // Deprecated: use txmgrtest.ErrTxManager
@@ -844,6 +874,14 @@ func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionS
 }
 
 func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error) {
+	return
+}
+
+func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) CalculateFee(feeParts FeeParts) *big.Int {
+	return nil
+}
+
+func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error) {
 	return
 }
 
