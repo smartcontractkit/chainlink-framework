@@ -401,9 +401,9 @@ func (t *tracker[HTH, S, ID, BHASH]) backfillLoop(ctx context.Context) {
 
 func (t *tracker[HTH, S, ID, BHASH]) LatestSafeBlock(ctx context.Context) (safe HTH, err error) {
 	if t.config.FinalityTagEnabled() {
-		latestSafe, err := t.client.LatestSafeBlock(ctx)
-		if err != nil {
-			return latestSafe, fmt.Errorf("failed to get latest finalized block: %w", err)
+		latestSafe, err2 := t.client.LatestSafeBlock(ctx)
+		if err2 != nil {
+			return latestSafe, fmt.Errorf("failed to get latest finalized block: %w", err2)
 		}
 
 		if !latestSafe.IsValid() {
