@@ -49,7 +49,7 @@ type Tracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 type ChainConfig interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	FinalityDepth() uint32
-	SafeBlockDepth() uint32
+	SafeDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
 }
@@ -424,7 +424,7 @@ func (t *tracker[HTH, S, ID, BHASH]) LatestSafeBlock(ctx context.Context) (safe 
 	if t.instantFinality() {
 		return latest, nil
 	}
-	safeDepth := int64(t.config.SafeBlockDepth())
+	safeDepth := int64(t.config.SafeDepth())
 	if safeDepth <= 0 {
 		safeDepth = int64(t.config.FinalityDepth())
 	}
