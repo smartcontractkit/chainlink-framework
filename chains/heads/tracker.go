@@ -39,6 +39,8 @@ type Tracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 	// Backfill given a head will fill in any missing heads up to latestFinalized
 	Backfill(ctx context.Context, headWithChain H, prevHeadWithChain H) (err error)
 	LatestChain() H
+	// LatestSafeBlock returns the latest block that is considered safe to use.
+	LatestSafeBlock(ctx context.Context) (safe H, err error)
 	// LatestAndFinalizedBlock - returns latest and latest finalized blocks.
 	// NOTE: Returns latest finalized block as is, ignoring the FinalityTagBypass feature flag.
 	LatestAndFinalizedBlock(ctx context.Context) (latest, finalized H, err error)
@@ -47,6 +49,7 @@ type Tracker[H chains.Head[BLOCK_HASH], BLOCK_HASH chains.Hashable] interface {
 type ChainConfig interface {
 	BlockEmissionIdleWarningThreshold() time.Duration
 	FinalityDepth() uint32
+	SafeDepth() uint32
 	FinalityTagEnabled() bool
 	FinalizedBlockOffset() uint32
 }
@@ -394,6 +397,42 @@ func (t *tracker[HTH, S, ID, BHASH]) backfillLoop(ctx context.Context) {
 			}
 		}
 	}
+}
+
+func (t *tracker[HTH, S, ID, BHASH]) LatestSafeBlock(ctx context.Context) (safe HTH, err error) {
+	if t.config.FinalityTagEnabled() {
+		latestSafe, err2 := t.client.LatestSafeBlock(ctx)
+		if err2 != nil {
+			return latestSafe, fmt.Errorf("failed to get latest finalized block: %w", err2)
+		}
+
+		if !latestSafe.IsValid() {
+			return latestSafe, fmt.Errorf("failed to get valid latest finalized block")
+		}
+		return latestSafe, nil
+	}
+	latest, err := t.client.HeadByNumber(ctx, nil)
+	if err != nil {
+		err = fmt.Errorf("failed to get latest block: %w", err)
+		return
+	}
+
+	if !latest.IsValid() {
+		err = fmt.Errorf("expected latest block to be valid")
+		return
+	}
+	if t.instantFinality() {
+		return latest, nil
+	}
+	safeDepth := int64(t.config.SafeDepth())
+	if safeDepth <= 0 {
+		safeDepth = int64(t.config.FinalityDepth())
+	}
+	safeBlockNumber := latest.BlockNumber() - safeDepth
+	if safeBlockNumber <= 0 {
+		safeBlockNumber = 0
+	}
+	return t.getHeadAtHeight(ctx, latest.BlockHash(), safeBlockNumber)
 }
 
 // LatestAndFinalizedBlock - returns latest and latest finalized blocks.
