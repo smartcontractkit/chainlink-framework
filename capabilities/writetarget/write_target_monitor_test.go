@@ -39,39 +39,32 @@ func TestWriteTargetMonitor(t *testing.T) {
 		Report:                  encoded,
 	}
 
-	t.Run("Uses processor when name equals config", func(t *testing.T) {
-		processor.On("Process", t.Context(), msg, mock.Anything).Return(nil).Once()
-		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
-		require.NoError(t, err)
-	})
+	processor.On("Process", t.Context(), msg, mock.Anything).Return(nil).Once()
+	err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
+	require.NoError(t, err)
 
-	t.Run("Logs when config name is not found", func(t *testing.T) {
-		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, map[string]beholder.ProtoProcessor{"other": processor}, []string{}, writetarget.NewMonitorEmitter(lggr)})
+	m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, map[string]beholder.ProtoProcessor{"other": processor}, []string{}, writetarget.NewMonitorEmitter(lggr)})
 
-		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
-		require.NoError(t, err)
+	err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
+	require.NoError(t, err)
 
-		tests.RequireLogMessage(t, observed, "no matching processor for MetaCapabilityProcessor=test")
-	})
+	tests.RequireLogMessage(t, observed, "no matching processor for MetaCapabilityProcessor=test")
 
-	t.Run("Does not use processor when none is configured", func(t *testing.T) {
-		// get new processor
-		processor = mocks.NewProtoProcessor(t)
-		msg.MetaCapabilityProcessor = ""
-		processor.AssertNotCalled(t, "Process", mock.Anything, mock.Anything, mock.Anything)
+	// get new processor
+	processor = mocks.NewProtoProcessor(t)
+	msg.MetaCapabilityProcessor = ""
+	processor.AssertNotCalled(t, "Process", mock.Anything, mock.Anything, mock.Anything)
 
-		err := m.ProtoEmitter.EmitWithLog(t.Context(), msg)
-		require.NoError(t, err)
+	err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
+	require.NoError(t, err)
 
-		tests.RequireLogMessage(t, observed, "No product specific processor specified; skipping.")
-	})
+	tests.RequireLogMessage(t, observed, "No product specific processor specified; skipping.")
 
-	t.Run("Logs when required processor is not found", func(t *testing.T) {
-		m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, map[string]beholder.ProtoProcessor{}, []string{"other"}, writetarget.NewMonitorEmitter(lggr)})
+	m, err = writetarget.NewMonitor(writetarget.MonitorOpts{lggr, map[string]beholder.ProtoProcessor{}, []string{"other"}, writetarget.NewMonitorEmitter(lggr)})
 
-		err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
-		require.NoError(t, err)
+	err = m.ProtoEmitter.EmitWithLog(t.Context(), msg)
+	require.NoError(t, err)
 
-		tests.RequireLogMessage(t, observed, "no required processor with name other")
-	})
+	tests.RequireLogMessage(t, observed, "no required processor with name other")
+
 }
