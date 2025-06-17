@@ -1,4 +1,4 @@
-//nolint:gosec, revive // disable G115, revive
+//nolint:gosec // disable G115
 package registry
 
 import (
