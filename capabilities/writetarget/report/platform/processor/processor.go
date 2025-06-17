@@ -11,6 +11,11 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder"
 )
 
+const WriteTargetProcessorName = "writetarget"
+const KeystoneProcessorName = "keystone"
+
+var PlatformDefaultProcessors = []string{WriteTargetProcessorName, KeystoneProcessorName}
+
 // Product-agnostic processors to be injected into WriteTarget Monitor
 func NewPlatformProcessors(emitter beholder.ProtoEmitter) (map[string]beholder.ProtoProcessor, error) {
 	forwarderMetrics, err := forwarder.NewMetrics()
@@ -31,10 +36,6 @@ func NewPlatformProcessors(emitter beholder.ProtoEmitter) (map[string]beholder.P
 			metrics: wtMetrics,
 		},
 	}, nil
-}
-
-func GetDefaultPlatformProcessors() []string {
-	return []string{"writetarget", "keystone"}
 }
 
 // Write-Target specific processor decodes write messages to derive metrics

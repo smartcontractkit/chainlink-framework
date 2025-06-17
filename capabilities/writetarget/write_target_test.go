@@ -43,7 +43,7 @@ func setupWriteTarget(
 	if productSpecificProcessor {
 		platformProcessors["test"] = newMockProductSpecificProcessor(t)
 	}
-	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, processor.GetDefaultPlatformProcessors(), emitter})
+	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, processor.PlatformDefaultProcessors, emitter})
 	require.NoError(t, err)
 
 	pollPeriod := 100 * time.Millisecond
@@ -53,8 +53,8 @@ func setupWriteTarget(
 	opts := writetarget.WriteTargetOpts{
 		ID: "write_generic-testnet@1.0.0",
 		Config: writetarget.Config{
-			ConfirmerPollPeriod: pollPeriod,
-			ConfirmerTimeout:    timeout,
+			PollPeriod:        pollPeriod,
+			AcceptanceTimeout: timeout,
 		},
 		ChainInfo:            monitor.ChainInfo{},
 		Logger:               lggr,
