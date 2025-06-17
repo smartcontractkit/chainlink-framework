@@ -55,3 +55,10 @@ func TestLogPollerMetrics_IncrementBlocksInserted(t *testing.T) {
 		0.001,
 	)
 }
+
+func TestLogPollerMetrics_RecordLogDiscoveryLatency(t *testing.T) {
+	m := setupTestLogPollerMetrics(t)
+
+	m.RecordLogDiscoveryLatency(t.Context(), 0.5)
+	require.Positive(t, testutil.CollectAndCount(PromLpDiscoveryLatency))
+}

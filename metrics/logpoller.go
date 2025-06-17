@@ -61,6 +61,10 @@ var (
 		Name: "log_poller_blocks_inserted",
 		Help: "Counter to track number of blocks inserted by Log Poller",
 	}, []string{"chainFamily", "chainID"})
+	PromLpDiscoveryLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "logpoller_log_discovery_latency",
+		Help: "Measures duration between block insertion time and block timestamp",
+	}, []string{"chainFamily", "chainID"})
 )
 
 type GenericLogPollerMetrics interface {
@@ -68,6 +72,7 @@ type GenericLogPollerMetrics interface {
 	RecordQueryDatasetSize(ctx context.Context, queryName string, queryType QueryType, size int64)
 	IncrementLogsInserted(ctx context.Context, numLogs int64)
 	IncrementBlocksInserted(ctx context.Context, numBlocks int64)
+	RecordLogDiscoveryLatency(ctx context.Context, latency float64)
 }
 
 var _ GenericLogPollerMetrics = &logPollerMetrics{}
@@ -79,6 +84,7 @@ type logPollerMetrics struct {
 	queryDatasetsSize metric.Int64Gauge
 	logsInserted      metric.Int64Counter
 	blocksInserted    metric.Int64Counter
+	discoveryLatency  metric.Float64Histogram
 }
 
 func NewGenericLogPollerMetrics(chainID string, chainFamily string) (GenericLogPollerMetrics, error) {
@@ -102,6 +108,11 @@ func NewGenericLogPollerMetrics(chainID string, chainFamily string) (GenericLogP
 		return nil, fmt.Errorf("failed to register blocks inserted metric: %w", err)
 	}
 
+	discoveryLatency, err := beholder.GetMeter().Float64Histogram("logpoller_log_discovery_latency")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register logpoller discovery latency metric: %w", err)
+	}
+
 	return &logPollerMetrics{
 		chainID:           chainID,
 		chainFamily:       chainFamily,
@@ -109,6 +120,7 @@ func NewGenericLogPollerMetrics(chainID string, chainFamily string) (GenericLogP
 		queryDatasetsSize: queryDatasetSize,
 		logsInserted:      logsInserted,
 		blocksInserted:    blocksInserted,
+		discoveryLatency:  discoveryLatency,
 	}, nil
 }
 
@@ -142,4 +154,12 @@ func (m *logPollerMetrics) IncrementBlocksInserted(ctx context.Context, numBlock
 	m.blocksInserted.Add(ctx, numBlocks, metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID)))
+}
+
+func (m *logPollerMetrics) RecordLogDiscoveryLatency(ctx context.Context, latency float64) {
+	PromLpDiscoveryLatency.WithLabelValues(m.chainFamily, m.chainID).Observe(latency)
+	m.discoveryLatency.Record(ctx, latency, metric.WithAttributes(
+		attribute.String("chainFamily", m.chainFamily),
+		attribute.String("chainID", m.chainID),
+	))
 }
