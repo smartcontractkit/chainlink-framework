@@ -1,0 +1,23 @@
+syntax="proto3";
+
+package platform.write_target;
+option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
+
+import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+
+// WT errored while processing write request
+message WriteError {
+  uint32 code = 1;
+  string summary = 2;
+  string cause = 3;
+
+  string node = 4;
+  string forwarder = 5;
+  string receiver = 6;
+
+  // Report Info
+  uint32 report_id = 7;
+
+  // [Execution Context]
+  common.ExecutionContext execution_context = 20;
+}
