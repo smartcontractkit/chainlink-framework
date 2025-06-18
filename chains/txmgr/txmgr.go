@@ -716,7 +716,8 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionStatus(c
 		// Return pending for ConfirmedMissingReceipt since a receipt is required to consider it as unconfirmed
 		return commontypes.Pending, nil
 	case TxConfirmed:
-		return commontypes.Confirmed, nil
+		// Return unconfirmed for confirmed transactions because they are not yet finalized
+		return commontypes.Unconfirmed, nil
 	case TxFinalized:
 		return commontypes.Finalized, nil
 	case TxFatalError:
