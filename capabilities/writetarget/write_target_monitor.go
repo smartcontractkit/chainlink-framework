@@ -13,10 +13,9 @@ import (
 )
 
 const (
-	repoCLLCommon = "https://raw.githubusercontent.com/smartcontractkit/chainlink-framework"
-	// TODO: replace with main when merged
-	versionRefsDevelop = "refs/heads/refactor-write-target"
-	schemaBasePath     = repoCLLCommon + "/" + versionRefsDevelop + "/capabilities/capabilities/writetarget/pb"
+	repoCLLFramework = "https://raw.githubusercontent.com/smartcontractkit/chainlink-framework"
+	versionRefsMain  = "refs/heads/main"
+	schemaBasePath   = repoCLLFramework + "/" + versionRefsMain + "/capabilities/writetarget/monitoring/pb"
 )
 
 func NewMonitorEmitter(lggr logger.Logger) beholder.ProtoEmitter {
