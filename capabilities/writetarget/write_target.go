@@ -60,7 +60,7 @@ type TargetStrategy interface {
 	// Wrapper around the ChainWriter to get the transaction status
 	GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error)
 	// Wrapper around the ChainWriter to get the fee esimate
-	GetEstimateFee(ctx context.Context, contract string, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error)
+	GetEstimateFee(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (commontypes.EstimateFee, error)
 	// GetTransactionFee retrieves the actual transaction fee in native currency from the transaction receipt.
 	// This method should be implemented by chain-specific services and handle the conversion of gas units to native currency.
 	GetTransactionFee(ctx context.Context, transactionID string) (decimal.Decimal, error)
@@ -195,9 +195,9 @@ func (c *writeTarget) getGasSpendLimit(request capabilities.CapabilityRequest) (
 }
 
 // checkGasEstimate verifies if the estimated gas fee is within the spend limit and returns the fee
-func (c *writeTarget) checkGasEstimate(ctx context.Context, spendLimit string) (*big.Int, uint32, error) {
+func (c *writeTarget) checkGasEstimate(ctx context.Context, spendLimit string, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (*big.Int, uint32, error) {
 	// Get gas estimate from ContractWriter
-	fee, err := c.targetStrategy.GetEstimateFee(ctx, "", "", nil, "", nil, nil)
+	fee, err := c.targetStrategy.GetEstimateFee(ctx, report, reportContext, signatures, request)
 	if err != nil {
 		return nil, 0, fmt.Errorf("failed to get gas estimate: %w", err)
 	}
@@ -237,31 +237,6 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	capInfo, _ := c.Info(ctx)
 
 	c.lggr.Debugw("Execute", "request", request, "capInfo", capInfo)
-
-	// Get gas spend limit first
-	spendLimit, err := c.getGasSpendLimit(request)
-	if err != nil {
-		// No spend limit provided, skip gas estimation and continue with execution
-		c.lggr.Debugw("No gas spend limit found, skipping gas estimation", "err", err)
-	} else {
-		// Check gas estimate before proceeding
-		// TODO: discuss if we should release this in a separate PR
-		_, _, err := c.checkGasEstimate(ctx, spendLimit)
-		if err != nil {
-			// Build error message
-			info := &requestInfo{
-				tsStart: tsStart,
-				node:    c.nodeAddress,
-				request: request,
-			}
-			errMsg := c.asEmittedError(ctx, &wt.WriteError{
-				Code:    uint32(TransmissionStateFatal),
-				Summary: "InsufficientFunds",
-				Cause:   err.Error(),
-			}, "info", info)
-			return capabilities.CapabilityResponse{}, errMsg
-		}
-	}
 
 	// Helper to keep track of the request info
 	info := requestInfo{
@@ -308,6 +283,31 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 
 	// Source the report ID from the input
 	info.reportInfo.reportID = binary.BigEndian.Uint16(inputs.ID)
+
+	// Get gas spend limit first
+	spendLimit, err := c.getGasSpendLimit(request)
+	if err != nil {
+		// No spend limit provided, skip gas estimation and continue with execution
+		c.lggr.Debugw("No gas spend limit found, skipping gas estimation", "err", err)
+	} else {
+		// Check gas estimate before proceeding
+		// TODO: discuss if we should release this in a separate PR
+		_, _, err := c.checkGasEstimate(ctx, spendLimit, inputs.Report, inputs.Context, inputs.Signatures, request)
+		if err != nil {
+			// Build error message
+			info := &requestInfo{
+				tsStart: tsStart,
+				node:    c.nodeAddress,
+				request: request,
+			}
+			errMsg := c.asEmittedError(ctx, &wt.WriteError{
+				Code:    uint32(TransmissionStateFatal),
+				Summary: "InsufficientFunds",
+				Cause:   err.Error(),
+			}, "info", info)
+			return capabilities.CapabilityResponse{}, errMsg
+		}
+	}
 
 	err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteInitiated(info))
 	if err != nil {
