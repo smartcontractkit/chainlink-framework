@@ -13,6 +13,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -60,6 +61,9 @@ type TargetStrategy interface {
 	GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error)
 	// Wrapper around the ChainWriter to get the fee esimate
 	GetEstimateFee(ctx context.Context, contract string, method string, args any, toAddress string, meta *commontypes.TxMeta, val *big.Int) (commontypes.EstimateFee, error)
+	// GetTransactionFee retrieves the actual transaction fee in native currency from the transaction receipt.
+	// This method should be implemented by chain-specific services and handle the conversion of gas units to native currency.
+	GetTransactionFee(ctx context.Context, transactionID string) (decimal.Decimal, error)
 }
 
 var (
@@ -77,7 +81,6 @@ const (
 
 type chainService interface {
 	LatestHead(ctx context.Context) (commontypes.Head, error)
-	GetTransactionFee(ctx context.Context, transactionID string) (commontypes.ChainFeeComponents, error)
 }
 
 type writeTarget struct {
@@ -192,12 +195,7 @@ func (c *writeTarget) getGasSpendLimit(request capabilities.CapabilityRequest) (
 }
 
 // checkGasEstimate verifies if the estimated gas fee is within the spend limit and returns the fee
-func (c *writeTarget) checkGasEstimate(ctx context.Context, request capabilities.CapabilityRequest) (*big.Int, uint32, error) {
-	spendLimit, err := c.getGasSpendLimit(request)
-	if err != nil {
-		return nil, 0, fmt.Errorf("failed to get gas spend limit, not performing gas estimation: %w", err)
-	}
-
+func (c *writeTarget) checkGasEstimate(ctx context.Context, spendLimit string) (*big.Int, uint32, error) {
 	// Get gas estimate from ContractWriter
 	fee, err := c.targetStrategy.GetEstimateFee(ctx, "", "", nil, "", nil, nil)
 	if err != nil {
@@ -240,22 +238,29 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 
 	c.lggr.Debugw("Execute", "request", request, "capInfo", capInfo)
 
-	// Check gas estimate before proceeding
-	// TODO: discuss if we should release this in a separate PR
-	fee, _, err := c.checkGasEstimate(ctx, request)
+	// Get gas spend limit first
+	spendLimit, err := c.getGasSpendLimit(request)
 	if err != nil {
-		// Build error message
-		info := &requestInfo{
-			tsStart: tsStart,
-			node:    c.nodeAddress,
-			request: request,
+		// No spend limit provided, skip gas estimation and continue with execution
+		c.lggr.Debugw("No gas spend limit found, skipping gas estimation", "err", err)
+	} else {
+		// Check gas estimate before proceeding
+		// TODO: discuss if we should release this in a separate PR
+		_, _, err := c.checkGasEstimate(ctx, spendLimit)
+		if err != nil {
+			// Build error message
+			info := &requestInfo{
+				tsStart: tsStart,
+				node:    c.nodeAddress,
+				request: request,
+			}
+			errMsg := c.asEmittedError(ctx, &wt.WriteError{
+				Code:    uint32(TransmissionStateFatal),
+				Summary: "InsufficientFunds",
+				Cause:   err.Error(),
+			}, "info", info)
+			return capabilities.CapabilityResponse{}, errMsg
 		}
-		errMsg := c.asEmittedError(ctx, &wt.WriteError{
-			Code:    uint32(TransmissionStateFatal),
-			Summary: "InsufficientFunds",
-			Cause:   err.Error(),
-		}, "info", info)
-		return capabilities.CapabilityResponse{}, errMsg
 	}
 
 	// Helper to keep track of the request info
@@ -413,8 +418,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	}
 
 	// Get the transaction fee
-	feeComponents, err := c.cs.GetTransactionFee(ctx, txID)
-	// TODO: implement in EVM + Aptos chain service
+	fee, err := c.targetStrategy.GetTransactionFee(ctx, txID)
 	if err != nil {
 		return capabilities.CapabilityResponse{}, fmt.Errorf("failed to get transaction fee: %w", err)
 	}
@@ -425,7 +429,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 				{
 					Peer2PeerID: "ignored_by_engine",
 					SpendUnit:   "GAS." + c.chainInfo.ChainID,
-					SpendValue:  feeComponents.ExecutionFee.String(),
+					SpendValue:  fee.String(),
 				},
 			},
 		},
