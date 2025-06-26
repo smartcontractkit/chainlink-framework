@@ -10,10 +10,10 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
-	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
@@ -292,8 +292,8 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	} else {
 		// Check gas estimate before proceeding
 		// TODO: discuss if we should release this in a separate PR
-		_, _, err := c.checkGasEstimate(ctx, spendLimit, inputs.Report, inputs.Context, inputs.Signatures, request)
-		if err != nil {
+		_, _, gasEstimateErr := c.checkGasEstimate(ctx, spendLimit, inputs.Report, inputs.Context, inputs.Signatures, request)
+		if gasEstimateErr != nil {
 			// Build error message
 			info := &requestInfo{
 				tsStart: tsStart,
@@ -303,7 +303,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 			errMsg := c.asEmittedError(ctx, &wt.WriteError{
 				Code:    uint32(TransmissionStateFatal),
 				Summary: "InsufficientFunds",
-				Cause:   err.Error(),
+				Cause:   gasEstimateErr.Error(),
 			}, "info", info)
 			return capabilities.CapabilityResponse{}, errMsg
 		}
