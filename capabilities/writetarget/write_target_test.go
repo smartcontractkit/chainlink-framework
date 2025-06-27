@@ -3,9 +3,11 @@ package writetarget_test
 import (
 	"context"
 	"errors"
+	"math/big"
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -36,6 +38,7 @@ func setupWriteTarget(
 	chainSvc *wtmocks.ChainService,
 	productSpecificProcessor bool,
 	emitter beholder.ProtoEmitter,
+	spendLimits []capabilities.SpendLimit,
 ) (capabilities.ExecutableCapability, capabilities.CapabilityRequest) {
 	platformProcessors, err := processor.NewPlatformProcessors(emitter)
 	require.NoError(t, err)
@@ -43,6 +46,8 @@ func setupWriteTarget(
 	if productSpecificProcessor {
 		platformProcessors["test"] = newMockProductSpecificProcessor(t)
 	}
+	// Always add a mock for the default processor (writetarget) to prevent nil pointer dereference
+	platformProcessors["writetarget"] = newMockProductSpecificProcessor(t)
 	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, processor.PlatformDefaultProcessors, emitter})
 	require.NoError(t, err)
 
@@ -56,7 +61,7 @@ func setupWriteTarget(
 			PollPeriod:        pollPeriod,
 			AcceptanceTimeout: timeout,
 		},
-		ChainInfo:            monitor.ChainInfo{},
+		ChainInfo:            monitor.ChainInfo{ChainID: "1"},
 		Logger:               lggr,
 		Beholder:             monClient,
 		ChainService:         chainSvc,
@@ -94,6 +99,7 @@ func setupWriteTarget(
 		WorkflowOwner:       repDecoded.WorkflowOwner,
 		WorkflowName:        repDecoded.WorkflowName,
 		WorkflowExecutionID: repDecoded.ExecutionID,
+		SpendLimits:         spendLimits,
 	}
 
 	cfg, err := values.NewMap(map[string]any{"address": "0x1", "processor": "test"})
@@ -105,7 +111,9 @@ func setupWriteTarget(
 
 func newMockProductSpecificProcessor(t *testing.T) beholder.ProtoProcessor {
 	processor := monmocks.NewProtoProcessor(t)
-	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	// Handle both 3-arg and 4-arg Process calls
+	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	return processor
 }
 
@@ -118,6 +126,13 @@ type testCase struct {
 	errorContains            string
 	productSpecificProcessor bool
 	requiredLogMessage       string
+	// Gas estimation and transaction fee fields
+	spendLimits          []capabilities.SpendLimit
+	gasEstimateError     error
+	gasEstimateFee       *commontypes.EstimateFee
+	transactionFeeError  error
+	transactionFee       decimal.Decimal
+	expectTransactionFee bool
 }
 
 func TestWriteTarget_Execute(t *testing.T) {
@@ -128,6 +143,8 @@ func TestWriteTarget_Execute(t *testing.T) {
 			txState:                  commontypes.Finalized,
 			expectError:              false,
 			requiredLogMessage:       "no matching processor for MetaCapabilityProcessor=test",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
 		},
 		{
 			name:                     "succeeds transmission state is already succeeded",
@@ -142,6 +159,8 @@ func TestWriteTarget_Execute(t *testing.T) {
 			expectError:              false,
 			productSpecificProcessor: true,
 			requiredLogMessage:       "confirmed - transmission state visible",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
 		},
 		{
 			name:                     "already succeeded with product specific processor",
@@ -204,6 +223,8 @@ func TestWriteTarget_Execute(t *testing.T) {
 			simulateTxError:          false,
 			expectError:              false,
 			requiredLogMessage:       "confirmed - transmission state visible but submitted by another node. This node's tx failed",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
 		},
 		{
 			name:                     "Returns success if report is on-chain but tx is failed",
@@ -212,6 +233,49 @@ func TestWriteTarget_Execute(t *testing.T) {
 			simulateTxError:          false,
 			expectError:              false,
 			requiredLogMessage:       "confirmed - transmission state visible but submitted by another node. This node's tx failed",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
+		},
+		// Gas estimation and transaction fee test cases
+		{
+			name:                     "succeeds when no spend limit is specified",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Finalized,
+			expectError:              false,
+			spendLimits:              []capabilities.SpendLimit{},
+			transactionFee:           decimal.NewFromFloat(0.0005),
+			expectTransactionFee:     true,
+			requiredLogMessage:       "No gas spend limit found, skipping gas estimation",
+		},
+		{
+			name:                     "fails when gas estimate exceeds spend limit",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Unknown,
+			expectError:              true,
+			errorContains:            "InsufficientFunds",
+			spendLimits: []capabilities.SpendLimit{
+				{SpendType: "GAS.1", Limit: "0.001"},
+			},
+			gasEstimateFee: &commontypes.EstimateFee{
+				Fee:      big.NewInt(2000000000000000), // 0.002 ETH in wei (exceeds limit)
+				Decimals: 18,
+			},
+		},
+		{
+			name:                     "succeeds when gas estimate is within spend limit and includes transaction fee",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Finalized,
+			expectError:              false,
+			spendLimits: []capabilities.SpendLimit{
+				{SpendType: "GAS.1", Limit: "0.001"},
+			},
+			gasEstimateFee: &commontypes.EstimateFee{
+				Fee:      big.NewInt(500000000000000), // 0.0005 ETH in wei (within limit)
+				Decimals: 18,
+			},
+			transactionFee:       decimal.NewFromFloat(0.0005),
+			expectTransactionFee: true,
+			requiredLogMessage:   "confirmed - transmission state visible",
 		},
 	}
 
@@ -225,12 +289,17 @@ func TestWriteTarget_Execute(t *testing.T) {
 			mockTransmissionState(tc, strategy)
 			mockBeholderMessages(tc, emitter)
 			mockTransmit(tc, strategy, emitter)
+			mockGasEstimation(tc, strategy)
+			mockTransactionFee(tc, strategy)
 
 			chainSvc := wtmocks.NewChainService(t)
-			chainSvc.EXPECT().LatestHead(mock.Anything).
-				Return(commontypes.Head{Height: "100"}, nil)
+			// Only set up LatestHead mock if gas estimation doesn't fail
+			if !(tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0) {
+				chainSvc.EXPECT().LatestHead(mock.Anything).
+					Return(commontypes.Head{Height: "100"}, nil)
+			}
 
-			target, req := setupWriteTarget(t, lggr, strategy, chainSvc, tc.productSpecificProcessor, emitter)
+			target, req := setupWriteTarget(t, lggr, strategy, chainSvc, tc.productSpecificProcessor, emitter, tc.spendLimits)
 
 			resp, err := target.Execute(t.Context(), req)
 			if tc.expectError {
@@ -239,6 +308,14 @@ func TestWriteTarget_Execute(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, resp)
+
+				// Verify transaction fee in response metadata for successful cases
+				if tc.expectTransactionFee && tc.transactionFeeError == nil {
+					require.NotEmpty(t, resp.Metadata.Metering)
+					require.Equal(t, "ignored_by_engine", resp.Metadata.Metering[0].Peer2PeerID)
+					require.Equal(t, "GAS.1", resp.Metadata.Metering[0].SpendUnit)
+					require.Equal(t, tc.transactionFee.String(), resp.Metadata.Metering[0].SpendValue)
+				}
 			}
 
 			if tc.requiredLogMessage != "" {
@@ -255,7 +332,7 @@ func TestWriteTarget_Execute(t *testing.T) {
 		emitter := monmocks.NewProtoEmitter(t)
 		emitter.EXPECT().EmitWithLog(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		target, _ := setupWriteTarget(t, logger.Test(t), strategy, chainSvc, false, emitter)
+		target, _ := setupWriteTarget(t, logger.Test(t), strategy, chainSvc, false, emitter, nil)
 
 		inputs, _ := values.NewMap(map[string]any{})
 		config, _ := values.NewMap(map[string]any{"address": "x", "processor": "y"})
@@ -300,6 +377,11 @@ func TestWriteTarget_Execute(t *testing.T) {
 }
 
 func mockTransmissionState(tc testCase, strategy *wtmocks.TargetStrategy) {
+	// Skip transmission state mocks if gas estimation fails
+	if tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0 {
+		return
+	}
+
 	// initial query for transmission state
 	strategy.EXPECT().QueryTransmissionState(mock.Anything, mock.Anything, mock.Anything).
 		Return(&tc.initialTransmissionState, nil).Once()
@@ -315,6 +397,12 @@ func mockTransmissionState(tc testCase, strategy *wtmocks.TargetStrategy) {
 }
 
 func mockBeholderMessages(tc testCase, emitter *monmocks.ProtoEmitter) {
+	// For gas estimation errors, only expect WriteError (no WriteInitiated)
+	if tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0 {
+		emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteError"), mock.Anything, mock.Anything).Return(nil).Once()
+		return
+	}
+
 	// Ensure the correct beholder messages are emitted for each case
 	emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteInitiated"), mock.Anything).Return(nil).Once()
 	if tc.expectError {
@@ -326,6 +414,11 @@ func mockBeholderMessages(tc testCase, emitter *monmocks.ProtoEmitter) {
 }
 
 func mockTransmit(tc testCase, strategy *wtmocks.TargetStrategy, emitter *monmocks.ProtoEmitter) {
+	// Skip transmission mocks if gas estimation fails
+	if tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0 {
+		return
+	}
+
 	if tc.txState != commontypes.Unknown {
 		ex := strategy.EXPECT().TransmitReport(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		if tc.simulateTxError {
@@ -334,6 +427,30 @@ func mockTransmit(tc testCase, strategy *wtmocks.TargetStrategy, emitter *monmoc
 			ex.Return("tx123", nil)
 			emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteSent"), mock.Anything).Return(nil).Once()
 			strategy.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(tc.txState, nil)
+		}
+	}
+}
+
+func mockGasEstimation(tc testCase, strategy *wtmocks.TargetStrategy) {
+	// Only set up gas estimation mock if we have spend limits
+	if len(tc.spendLimits) > 0 {
+		ex := strategy.EXPECT().GetEstimateFee(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+		if tc.gasEstimateError != nil {
+			ex.Return(commontypes.EstimateFee{}, tc.gasEstimateError)
+		} else if tc.gasEstimateFee != nil {
+			ex.Return(*tc.gasEstimateFee, nil)
+		}
+	}
+}
+
+func mockTransactionFee(tc testCase, strategy *wtmocks.TargetStrategy) {
+	// Only set up transaction fee mock if we expect the execution to reach that point
+	if !tc.expectError && tc.expectTransactionFee {
+		ex := strategy.EXPECT().GetTransactionFee(mock.Anything, mock.Anything)
+		if tc.transactionFeeError != nil {
+			ex.Return(decimal.Decimal{}, tc.transactionFeeError)
+		} else {
+			ex.Return(tc.transactionFee, nil)
 		}
 	}
 }
