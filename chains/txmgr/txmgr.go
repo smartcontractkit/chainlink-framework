@@ -741,10 +741,12 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 		return nil, err
 	}
 
+	r := *receipt
+
 	txFee := b.CalculateFee(FeeParts{
-		GasUsed:           receipt.GetFeeUsed(),
-		EffectiveGasPrice: receipt.GetEffectiveGasPrice(),
-		L1Fee:             receipt.GetL1Fee(),
+		GasUsed:           r.GetFeeUsed(),
+		EffectiveGasPrice: r.GetEffectiveGasPrice(),
+		L1Fee:             r.GetL1Fee(),
 	})
 
 	return &evmtypes.TransactionFee{
@@ -752,7 +754,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionFee(ctx 
 	}, nil
 }
 
-func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionReceipt(ctx context.Context, transactionID string) (receipt txmgrtypes.ChainReceipt[THASH, BHASH], err error) {
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error) {
 	foundReceipt, err := b.txStore.FindReceiptWithIdempotencyKey(ctx, transactionID, b.chainID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find receipt with IdempotencyKey %q: %w", transactionID, err)
@@ -761,7 +763,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetTransactionReceipt(
 	if foundReceipt == nil {
 		return nil, fmt.Errorf("failed to find receipt with IdempotencyKey %q", transactionID)
 	}
-	return foundReceipt, nil
+	return &foundReceipt, nil
 }
 
 type FeeParts struct {
