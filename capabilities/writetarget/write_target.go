@@ -202,13 +202,13 @@ func (c *writeTarget) checkGasEstimate(ctx context.Context, spendLimit string, r
 		return nil, 0, fmt.Errorf("failed to get gas estimate: %w", err)
 	}
 
-	// Convert spend limit from ETH to wei
+	// Convert spend limit from chain currency to gas units
 	limitFloat, ok := new(big.Float).SetString(spendLimit)
 	if !ok {
 		return nil, 0, fmt.Errorf("invalid gas spend limit format: %s", spendLimit)
 	}
 
-	// Multiply by 10^decimals to convert from ETH to wei
+	// Multiply by 10^decimals to convert from chain currency to gas units
 	multiplier := new(big.Float).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(fee.Decimals)), nil))
 	limitFloat.Mul(limitFloat, multiplier)
 
