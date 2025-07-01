@@ -3,7 +3,6 @@ package writetarget_test
 import (
 	"context"
 	"errors"
-	"math/big"
 	"testing"
 	"time"
 
@@ -38,7 +37,6 @@ func setupWriteTarget(
 	chainSvc *wtmocks.ChainService,
 	productSpecificProcessor bool,
 	emitter beholder.ProtoEmitter,
-	spendLimits []capabilities.SpendLimit,
 ) (capabilities.ExecutableCapability, capabilities.CapabilityRequest) {
 	platformProcessors, err := processor.NewPlatformProcessors(emitter)
 	require.NoError(t, err)
@@ -99,7 +97,6 @@ func setupWriteTarget(
 		WorkflowOwner:       repDecoded.WorkflowOwner,
 		WorkflowName:        repDecoded.WorkflowName,
 		WorkflowExecutionID: repDecoded.ExecutionID,
-		SpendLimits:         spendLimits,
 	}
 
 	cfg, err := values.NewMap(map[string]any{"address": "0x1", "processor": "test"})
@@ -127,9 +124,6 @@ type testCase struct {
 	productSpecificProcessor bool
 	requiredLogMessage       string
 	// Gas estimation and transaction fee fields
-	spendLimits          []capabilities.SpendLimit
-	gasEstimateError     error
-	gasEstimateFee       *commontypes.EstimateFee
 	transactionFeeError  error
 	transactionFee       decimal.Decimal
 	expectTransactionFee bool
@@ -242,7 +236,6 @@ func TestWriteTarget_Execute(t *testing.T) {
 			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
 			txState:                  commontypes.Finalized,
 			expectError:              false,
-			spendLimits:              []capabilities.SpendLimit{},
 			transactionFee:           decimal.NewFromFloat(0.0005),
 			expectTransactionFee:     true,
 			requiredLogMessage:       "no matching processor for MetaCapabilityProcessor=test",
@@ -262,13 +255,9 @@ func TestWriteTarget_Execute(t *testing.T) {
 			mockTransactionFee(tc, strategy)
 
 			chainSvc := wtmocks.NewChainService(t)
-			// Only set up LatestHead mock if gas estimation doesn't fail
-			if !(tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0) {
-				chainSvc.EXPECT().LatestHead(mock.Anything).
-					Return(commontypes.Head{Height: "100"}, nil)
-			}
+			chainSvc.EXPECT().LatestHead(mock.Anything).Return(commontypes.Head{Height: "100"}, nil)
 
-			target, req := setupWriteTarget(t, lggr, strategy, chainSvc, tc.productSpecificProcessor, emitter, tc.spendLimits)
+			target, req := setupWriteTarget(t, lggr, strategy, chainSvc, tc.productSpecificProcessor, emitter)
 
 			resp, err := target.Execute(t.Context(), req)
 			if tc.expectError {
@@ -301,7 +290,7 @@ func TestWriteTarget_Execute(t *testing.T) {
 		emitter := monmocks.NewProtoEmitter(t)
 		emitter.EXPECT().EmitWithLog(mock.Anything, mock.Anything, mock.Anything).Return(nil)
 
-		target, _ := setupWriteTarget(t, logger.Test(t), strategy, chainSvc, false, emitter, nil)
+		target, _ := setupWriteTarget(t, logger.Test(t), strategy, chainSvc, false, emitter)
 
 		inputs, _ := values.NewMap(map[string]any{})
 		config, _ := values.NewMap(map[string]any{"address": "x", "processor": "y"})
@@ -346,11 +335,6 @@ func TestWriteTarget_Execute(t *testing.T) {
 }
 
 func mockTransmissionState(tc testCase, strategy *wtmocks.TargetStrategy) {
-	// Skip transmission state mocks if gas estimation fails
-	if tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0 {
-		return
-	}
-
 	// initial query for transmission state
 	strategy.EXPECT().QueryTransmissionState(mock.Anything, mock.Anything, mock.Anything).
 		Return(&tc.initialTransmissionState, nil).Once()
@@ -366,12 +350,6 @@ func mockTransmissionState(tc testCase, strategy *wtmocks.TargetStrategy) {
 }
 
 func mockBeholderMessages(tc testCase, emitter *monmocks.ProtoEmitter) {
-	// For gas estimation errors, only expect WriteError (no WriteInitiated)
-	if tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0 {
-		emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteError"), mock.Anything, mock.Anything).Return(nil).Once()
-		return
-	}
-
 	// Ensure the correct beholder messages are emitted for each case
 	emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteInitiated"), mock.Anything).Return(nil).Once()
 	if tc.expectError {
@@ -383,11 +361,6 @@ func mockBeholderMessages(tc testCase, emitter *monmocks.ProtoEmitter) {
 }
 
 func mockTransmit(tc testCase, strategy *wtmocks.TargetStrategy, emitter *monmocks.ProtoEmitter) {
-	// Skip transmission mocks if gas estimation fails
-	if tc.expectError && len(tc.spendLimits) > 0 && tc.gasEstimateFee != nil && tc.gasEstimateFee.Fee.Cmp(big.NewInt(1000000000000000)) > 0 {
-		return
-	}
-
 	if tc.txState != commontypes.Unknown {
 		ex := strategy.EXPECT().TransmitReport(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 		if tc.simulateTxError {
