@@ -181,18 +181,6 @@ func success() capabilities.CapabilityResponse {
 	return capabilities.CapabilityResponse{}
 }
 
-// getGasSpendLimit returns the gas spend limit for the given chain ID from the request metadata
-func (c *writeTarget) getGasSpendLimit(request capabilities.CapabilityRequest) (string, error) {
-	spendType := "GAS." + c.chainInfo.ChainID
-
-	for _, limit := range request.Metadata.SpendLimits {
-		if spendType == string(limit.SpendType) {
-			return limit.Limit, nil
-		}
-	}
-	return "", fmt.Errorf("no gas spend limit found for chain %s", c.chainInfo.ChainID)
-}
-
 func (c *writeTarget) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
 	// Take the local timestamp
 	tsStart := time.Now().UnixMilli()
@@ -373,8 +361,8 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 			Metering: []capabilities.MeteringNodeDetail{
 				{
 					// Peer2PeerID from remote peers is ignored by engine
-					SpendUnit:   "GAS." + c.chainInfo.ChainID,
-					SpendValue:  fee.String(),
+					SpendUnit:  "GAS." + c.chainInfo.ChainID,
+					SpendValue: fee.String(),
 				},
 			},
 		},
