@@ -7,6 +7,8 @@ import (
 
 	capabilities "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 
+	decimal "github.com/shopspring/decimal"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -25,6 +27,123 @@ type TargetStrategy_Expecter struct {
 
 func (_m *TargetStrategy) EXPECT() *TargetStrategy_Expecter {
 	return &TargetStrategy_Expecter{mock: &_m.Mock}
+}
+
+// GetEstimateFee provides a mock function with given fields: ctx, report, reportContext, signatures, request
+func (_m *TargetStrategy) GetEstimateFee(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (types.EstimateFee, error) {
+	ret := _m.Called(ctx, report, reportContext, signatures, request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetEstimateFee")
+	}
+
+	var r0 types.EstimateFee
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, []byte, [][]byte, capabilities.CapabilityRequest) (types.EstimateFee, error)); ok {
+		return rf(ctx, report, reportContext, signatures, request)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, []byte, []byte, [][]byte, capabilities.CapabilityRequest) types.EstimateFee); ok {
+		r0 = rf(ctx, report, reportContext, signatures, request)
+	} else {
+		r0 = ret.Get(0).(types.EstimateFee)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, []byte, []byte, [][]byte, capabilities.CapabilityRequest) error); ok {
+		r1 = rf(ctx, report, reportContext, signatures, request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TargetStrategy_GetEstimateFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetEstimateFee'
+type TargetStrategy_GetEstimateFee_Call struct {
+	*mock.Call
+}
+
+// GetEstimateFee is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report []byte
+//   - reportContext []byte
+//   - signatures [][]byte
+//   - request capabilities.CapabilityRequest
+func (_e *TargetStrategy_Expecter) GetEstimateFee(ctx interface{}, report interface{}, reportContext interface{}, signatures interface{}, request interface{}) *TargetStrategy_GetEstimateFee_Call {
+	return &TargetStrategy_GetEstimateFee_Call{Call: _e.mock.On("GetEstimateFee", ctx, report, reportContext, signatures, request)}
+}
+
+func (_c *TargetStrategy_GetEstimateFee_Call) Run(run func(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest)) *TargetStrategy_GetEstimateFee_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].([]byte), args[2].([]byte), args[3].([][]byte), args[4].(capabilities.CapabilityRequest))
+	})
+	return _c
+}
+
+func (_c *TargetStrategy_GetEstimateFee_Call) Return(_a0 types.EstimateFee, _a1 error) *TargetStrategy_GetEstimateFee_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *TargetStrategy_GetEstimateFee_Call) RunAndReturn(run func(context.Context, []byte, []byte, [][]byte, capabilities.CapabilityRequest) (types.EstimateFee, error)) *TargetStrategy_GetEstimateFee_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetTransactionFee provides a mock function with given fields: ctx, transactionID
+func (_m *TargetStrategy) GetTransactionFee(ctx context.Context, transactionID string) (decimal.Decimal, error) {
+	ret := _m.Called(ctx, transactionID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTransactionFee")
+	}
+
+	var r0 decimal.Decimal
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) (decimal.Decimal, error)); ok {
+		return rf(ctx, transactionID)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) decimal.Decimal); ok {
+		r0 = rf(ctx, transactionID)
+	} else {
+		r0 = ret.Get(0).(decimal.Decimal)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, transactionID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TargetStrategy_GetTransactionFee_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTransactionFee'
+type TargetStrategy_GetTransactionFee_Call struct {
+	*mock.Call
+}
+
+// GetTransactionFee is a helper method to define mock.On call
+//   - ctx context.Context
+//   - transactionID string
+func (_e *TargetStrategy_Expecter) GetTransactionFee(ctx interface{}, transactionID interface{}) *TargetStrategy_GetTransactionFee_Call {
+	return &TargetStrategy_GetTransactionFee_Call{Call: _e.mock.On("GetTransactionFee", ctx, transactionID)}
+}
+
+func (_c *TargetStrategy_GetTransactionFee_Call) Run(run func(ctx context.Context, transactionID string)) *TargetStrategy_GetTransactionFee_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *TargetStrategy_GetTransactionFee_Call) Return(_a0 decimal.Decimal, _a1 error) *TargetStrategy_GetTransactionFee_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *TargetStrategy_GetTransactionFee_Call) RunAndReturn(run func(context.Context, string) (decimal.Decimal, error)) *TargetStrategy_GetTransactionFee_Call {
+	_c.Call.Return(run)
+	return _c
 }
 
 // GetTransactionStatus provides a mock function with given fields: ctx, transactionID

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 
@@ -57,6 +58,11 @@ type TargetStrategy interface {
 	TransmitReport(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (string, error)
 	// Wrapper around the ChainWriter to get the transaction status
 	GetTransactionStatus(ctx context.Context, transactionID string) (commontypes.TransactionStatus, error)
+	// Wrapper around the ChainWriter to get the fee esimate
+	GetEstimateFee(ctx context.Context, report []byte, reportContext []byte, signatures [][]byte, request capabilities.CapabilityRequest) (commontypes.EstimateFee, error)
+	// GetTransactionFee retrieves the actual transaction fee in native currency from the transaction receipt.
+	// This method should be implemented by chain-specific services and handle the conversion of gas units to native currency.
+	GetTransactionFee(ctx context.Context, transactionID string) (decimal.Decimal, error)
 }
 
 var (
@@ -342,7 +348,25 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	if err != nil {
 		return capabilities.CapabilityResponse{}, err
 	}
-	return success(), nil
+
+	// Get the transaction fee
+	fee, err := c.targetStrategy.GetTransactionFee(ctx, txID)
+	if err != nil {
+		c.lggr.Errorw("failed to get transaction fee: %w", err)
+		return capabilities.CapabilityResponse{}, nil
+	}
+
+	return capabilities.CapabilityResponse{
+		Metadata: capabilities.ResponseMetadata{
+			Metering: []capabilities.MeteringNodeDetail{
+				{
+					// Peer2PeerID from remote peers is ignored by engine
+					SpendUnit:  "GAS." + c.chainInfo.ChainID,
+					SpendValue: fee.String(),
+				},
+			},
+		},
+	}, nil
 }
 
 func (c *writeTarget) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {

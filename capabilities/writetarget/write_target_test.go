@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,8 @@ func setupWriteTarget(
 	if productSpecificProcessor {
 		platformProcessors["test"] = newMockProductSpecificProcessor(t)
 	}
+	// Always add a mock for the default processor (writetarget) to prevent nil pointer dereference
+	platformProcessors["writetarget"] = newMockProductSpecificProcessor(t)
 	monClient, err := writetarget.NewMonitor(writetarget.MonitorOpts{lggr, platformProcessors, processor.PlatformDefaultProcessors, emitter})
 	require.NoError(t, err)
 
@@ -56,7 +59,7 @@ func setupWriteTarget(
 			PollPeriod:        pollPeriod,
 			AcceptanceTimeout: timeout,
 		},
-		ChainInfo:            monitor.ChainInfo{},
+		ChainInfo:            monitor.ChainInfo{ChainID: "1"},
 		Logger:               lggr,
 		Beholder:             monClient,
 		ChainService:         chainSvc,
@@ -105,7 +108,9 @@ func setupWriteTarget(
 
 func newMockProductSpecificProcessor(t *testing.T) beholder.ProtoProcessor {
 	processor := monmocks.NewProtoProcessor(t)
-	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+	// Handle both 3-arg and 4-arg Process calls
+	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
+	processor.EXPECT().Process(mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe()
 	return processor
 }
 
@@ -118,6 +123,10 @@ type testCase struct {
 	errorContains            string
 	productSpecificProcessor bool
 	requiredLogMessage       string
+	// Gas estimation and transaction fee fields
+	transactionFeeError  error
+	transactionFee       decimal.Decimal
+	expectTransactionFee bool
 }
 
 func TestWriteTarget_Execute(t *testing.T) {
@@ -128,6 +137,8 @@ func TestWriteTarget_Execute(t *testing.T) {
 			txState:                  commontypes.Finalized,
 			expectError:              false,
 			requiredLogMessage:       "no matching processor for MetaCapabilityProcessor=test",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
 		},
 		{
 			name:                     "succeeds transmission state is already succeeded",
@@ -142,6 +153,8 @@ func TestWriteTarget_Execute(t *testing.T) {
 			expectError:              false,
 			productSpecificProcessor: true,
 			requiredLogMessage:       "confirmed - transmission state visible",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
 		},
 		{
 			name:                     "already succeeded with product specific processor",
@@ -204,6 +217,8 @@ func TestWriteTarget_Execute(t *testing.T) {
 			simulateTxError:          false,
 			expectError:              false,
 			requiredLogMessage:       "confirmed - transmission state visible but submitted by another node. This node's tx failed",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
 		},
 		{
 			name:                     "Returns success if report is on-chain but tx is failed",
@@ -212,6 +227,18 @@ func TestWriteTarget_Execute(t *testing.T) {
 			simulateTxError:          false,
 			expectError:              false,
 			requiredLogMessage:       "confirmed - transmission state visible but submitted by another node. This node's tx failed",
+			transactionFee:           decimal.NewFromFloat(0.0001),
+			expectTransactionFee:     true,
+		},
+		// Gas estimation and transaction fee test cases
+		{
+			name:                     "succeeds when no spend limit is specified",
+			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateNotAttempted},
+			txState:                  commontypes.Finalized,
+			expectError:              false,
+			transactionFee:           decimal.NewFromFloat(0.0005),
+			expectTransactionFee:     true,
+			requiredLogMessage:       "no matching processor for MetaCapabilityProcessor=test",
 		},
 	}
 
@@ -225,10 +252,10 @@ func TestWriteTarget_Execute(t *testing.T) {
 			mockTransmissionState(tc, strategy)
 			mockBeholderMessages(tc, emitter)
 			mockTransmit(tc, strategy, emitter)
+			mockTransactionFee(tc, strategy)
 
 			chainSvc := wtmocks.NewChainService(t)
-			chainSvc.EXPECT().LatestHead(mock.Anything).
-				Return(commontypes.Head{Height: "100"}, nil)
+			chainSvc.EXPECT().LatestHead(mock.Anything).Return(commontypes.Head{Height: "100"}, nil)
 
 			target, req := setupWriteTarget(t, lggr, strategy, chainSvc, tc.productSpecificProcessor, emitter)
 
@@ -239,6 +266,14 @@ func TestWriteTarget_Execute(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.NotNil(t, resp)
+
+				// Verify transaction fee in response metadata for successful cases
+				if tc.expectTransactionFee && tc.transactionFeeError == nil {
+					require.NotEmpty(t, resp.Metadata.Metering)
+					require.Empty(t, resp.Metadata.Metering[0].Peer2PeerID)
+					require.Equal(t, "GAS.1", resp.Metadata.Metering[0].SpendUnit)
+					require.Equal(t, tc.transactionFee.String(), resp.Metadata.Metering[0].SpendValue)
+				}
 			}
 
 			if tc.requiredLogMessage != "" {
@@ -334,6 +369,18 @@ func mockTransmit(tc testCase, strategy *wtmocks.TargetStrategy, emitter *monmoc
 			ex.Return("tx123", nil)
 			emitter.EXPECT().EmitWithLog(mock.Anything, mock.AnythingOfType("*writetarget.WriteSent"), mock.Anything).Return(nil).Once()
 			strategy.EXPECT().GetTransactionStatus(mock.Anything, mock.Anything).Return(tc.txState, nil)
+		}
+	}
+}
+
+func mockTransactionFee(tc testCase, strategy *wtmocks.TargetStrategy) {
+	// Only set up transaction fee mock if we expect the execution to reach that point
+	if !tc.expectError && tc.expectTransactionFee {
+		ex := strategy.EXPECT().GetTransactionFee(mock.Anything, mock.Anything)
+		if tc.transactionFeeError != nil {
+			ex.Return(decimal.Decimal{}, tc.transactionFeeError)
+		} else {
+			ex.Return(tc.transactionFee, nil)
 		}
 	}
 }
