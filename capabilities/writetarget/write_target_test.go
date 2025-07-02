@@ -19,8 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	writetarget "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 	utils "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform/on-chain/forwarder"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform/processor"
@@ -59,7 +58,7 @@ func setupWriteTarget(
 			PollPeriod:        pollPeriod,
 			AcceptanceTimeout: timeout,
 		},
-		ChainInfo:            monitor.ChainInfo{ChainID: "1"},
+		ChainInfo:            commontypes.ChainInfo{ChainID: "1"},
 		Logger:               lggr,
 		Beholder:             monClient,
 		ChainService:         chainSvc,
@@ -313,7 +312,7 @@ func TestWriteTarget_Execute(t *testing.T) {
 		opts := writetarget.WriteTargetOpts{
 			ID:               "test@1.0.0",
 			Config:           writetarget.Config{},
-			ChainInfo:        monitor.ChainInfo{},
+			ChainInfo:        commontypes.ChainInfo{},
 			Logger:           lggr,
 			Beholder:         monClient,
 			ChainService:     chainSvc,

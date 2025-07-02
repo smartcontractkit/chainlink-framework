@@ -45,34 +45,34 @@ func NewMetrics() (*Metrics, error) {
 	feedUpdated := struct {
 		basic beholder.MetricsInfoCapBasic
 		// specific to FeedUpdated
-		observationsTimestamp beholder.MetricInfo
-		duration              beholder.MetricInfo // ts.emit - ts.observation
-		benchmark             beholder.MetricInfo
-		blockTimestamp        beholder.MetricInfo
-		blockNumber           beholder.MetricInfo
+		observationsTimestamp beholdercommon.MetricInfo
+		duration              beholdercommon.MetricInfo // ts.emit - ts.observation
+		benchmark             beholdercommon.MetricInfo
+		blockTimestamp        beholdercommon.MetricInfo
+		blockNumber           beholdercommon.MetricInfo
 	}{
 		basic: beholder.NewMetricsInfoCapBasic(ns("feed_updated"), beholdercommon.ToSchemaFullName(&FeedUpdated{})),
-		observationsTimestamp: beholder.MetricInfo{
+		observationsTimestamp: beholdercommon.MetricInfo{
 			Name:        ns("feed_updated_observations_timestamp"),
 			Unit:        "ms",
 			Description: "The observations timestamp for the latest confirmed update (as reported)",
 		},
-		duration: beholder.MetricInfo{
+		duration: beholdercommon.MetricInfo{
 			Name:        ns("feed_updated_duration"),
 			Unit:        "ms",
 			Description: "The duration (local) since observation to message: 'datafeeds.on-chain.registry.FeedUpdated' emit",
 		},
-		benchmark: beholder.MetricInfo{
+		benchmark: beholdercommon.MetricInfo{
 			Name:        ns("feed_updated_benchmark"),
 			Unit:        "",
 			Description: "The benchmark value for the latest confirmed update (as reported)",
 		},
-		blockTimestamp: beholder.MetricInfo{
+		blockTimestamp: beholdercommon.MetricInfo{
 			Name:        ns("feed_updated_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp at the latest confirmed update (as observed)",
 		},
-		blockNumber: beholder.MetricInfo{
+		blockNumber: beholdercommon.MetricInfo{
 			Name:        ns("feed_updated_block_number"),
 			Unit:        "",
 			Description: "The block number at the latest confirmed update (as observed)",

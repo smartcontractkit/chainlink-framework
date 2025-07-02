@@ -68,16 +68,16 @@ func NewMetrics() (*Metrics, error) {
 	writeSent := struct {
 		basic beholder.MetricsInfoCapBasic
 		// specific to WriteSent
-		blockTimestamp beholder.MetricInfo
-		blockNumber    beholder.MetricInfo
+		blockTimestamp beholdercommon.MetricInfo
+		blockNumber    beholdercommon.MetricInfo
 	}{
 		basic: beholder.NewMetricsInfoCapBasic(ns("write_sent"), beholdercommon.ToSchemaFullName(&WriteSent{})),
-		blockTimestamp: beholder.MetricInfo{
+		blockTimestamp: beholdercommon.MetricInfo{
 			Name:        ns("write_sent_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp at the latest sent write (as observed)",
 		},
-		blockNumber: beholder.MetricInfo{
+		blockNumber: beholdercommon.MetricInfo{
 			Name:        ns("write_sent_block_number"),
 			Unit:        "",
 			Description: "The block number at the latest sent write (as observed)",
@@ -86,22 +86,22 @@ func NewMetrics() (*Metrics, error) {
 	writeConfirmed := struct {
 		basic beholder.MetricsInfoCapBasic
 		// specific to WriteSent
-		blockTimestamp beholder.MetricInfo
-		blockNumber    beholder.MetricInfo
-		signersNumber  beholder.MetricInfo
+		blockTimestamp beholdercommon.MetricInfo
+		blockNumber    beholdercommon.MetricInfo
+		signersNumber  beholdercommon.MetricInfo
 	}{
 		basic: beholder.NewMetricsInfoCapBasic(ns("write_confirmed"), beholdercommon.ToSchemaFullName(&WriteConfirmed{})),
-		blockTimestamp: beholder.MetricInfo{
+		blockTimestamp: beholdercommon.MetricInfo{
 			Name:        ns("write_confirmed_block_timestamp"),
 			Unit:        "ms",
 			Description: "The block timestamp for latest confirmed write (as observed)",
 		},
-		blockNumber: beholder.MetricInfo{
+		blockNumber: beholdercommon.MetricInfo{
 			Name:        ns("write_confirmed_block_number"),
 			Unit:        "",
 			Description: "The block number for latest confirmed write (as observed)",
 		},
-		signersNumber: beholder.MetricInfo{
+		signersNumber: beholdercommon.MetricInfo{
 			Name:        ns("write_confirmed_signers_number"),
 			Unit:        "",
 			Description: "The number of signers attached to the processed and confirmed write request",
