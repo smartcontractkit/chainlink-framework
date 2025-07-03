@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/report/platform"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/retry"
 
@@ -86,7 +85,7 @@ type writeTarget struct {
 	capabilities.CapabilityInfo
 
 	config    Config
-	chainInfo monitor.ChainInfo
+	chainInfo commontypes.ChainInfo
 
 	lggr logger.Logger
 	// Local beholder client, also hosting the protobuf emitter
@@ -108,7 +107,7 @@ type WriteTargetOpts struct {
 	Config Config
 	// ChainInfo contains the chain information (used as execution context)
 	// TODO: simplify by passing via ChainService.GetChainStatus fn
-	ChainInfo monitor.ChainInfo
+	ChainInfo commontypes.ChainInfo
 
 	Logger   logger.Logger
 	Beholder *beholder.BeholderClient

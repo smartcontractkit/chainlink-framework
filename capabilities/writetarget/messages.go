@@ -7,20 +7,18 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	monitor "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder"
-
 	commonpb "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	wt "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform"
 )
 
 // messageBuilder is a helper component to build monitoring messages
 type messageBuilder struct {
-	ChainInfo monitor.ChainInfo
+	ChainInfo types.ChainInfo
 	CapInfo   capabilities.CapabilityInfo
 }
 
 // NewMessageBuilder creates a new message builder
-func NewMessageBuilder(chainInfo monitor.ChainInfo, capInfo capabilities.CapabilityInfo) *messageBuilder {
+func NewMessageBuilder(chainInfo types.ChainInfo, capInfo capabilities.CapabilityInfo) *messageBuilder {
 	return &messageBuilder{
 		ChainInfo: chainInfo,
 		CapInfo:   capInfo,
