@@ -3,7 +3,6 @@ package metrics
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -22,28 +21,11 @@ const (
 )
 
 var (
-	sqlLatencyBuckets = []float64{
-		float64(1 * time.Millisecond),
-		float64(5 * time.Millisecond),
-		float64(10 * time.Millisecond),
-		float64(20 * time.Millisecond),
-		float64(30 * time.Millisecond),
-		float64(40 * time.Millisecond),
-		float64(50 * time.Millisecond),
-		float64(60 * time.Millisecond),
-		float64(70 * time.Millisecond),
-		float64(80 * time.Millisecond),
-		float64(90 * time.Millisecond),
-		float64(100 * time.Millisecond),
-		float64(200 * time.Millisecond),
-		float64(300 * time.Millisecond),
-		float64(400 * time.Millisecond),
-		float64(500 * time.Millisecond),
-		float64(750 * time.Millisecond),
-		float64(1 * time.Second),
-		float64(2 * time.Second),
-		float64(5 * time.Second),
-	}
+	sqlLatencyBuckets = prometheus.ExponentialBuckets(
+		0.01, // Start: 10ms
+		2.0,  // Factor: double each time
+		10,   // Count: 10 buckets
+	)
 	PromLpQueryDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "log_poller_query_duration",
 		Help:    "Measures duration of Log Poller's queries fetching logs",
