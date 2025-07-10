@@ -7,7 +7,7 @@
 package writetarget
 
 import (
-	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
+	monitoring "github.com/smartcontractkit/capabilities/libs/monitoring"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -34,7 +34,7 @@ type WriteError struct {
 	// Report Info
 	ReportId uint32 `protobuf:"varint,7,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
 	// [Execution Context]
-	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *monitoring.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -118,7 +118,7 @@ func (x *WriteError) GetReportId() uint32 {
 	return 0
 }
 
-func (x *WriteError) GetExecutionContext() *common.ExecutionContext {
+func (x *WriteError) GetExecutionContext() *monitoring.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -129,7 +129,7 @@ var File_write_error_proto protoreflect.FileDescriptor
 
 const file_write_error_proto_rawDesc = "" +
 	"\n" +
-	"\x11write_error.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\"\x82\x02\n" +
+	"\x11write_error.proto\x12\x15platform.write_target\x1a\"monitoring/execution_context.proto\"\x86\x02\n" +
 	"\n" +
 	"WriteError\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\rR\x04code\x12\x18\n" +
@@ -138,8 +138,8 @@ const file_write_error_proto_rawDesc = "" +
 	"\x04node\x18\x04 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x05 \x01(\tR\tforwarder\x12\x1a\n" +
 	"\breceiver\x18\x06 \x01(\tR\breceiver\x12\x1b\n" +
-	"\treport_id\x18\a \x01(\rR\breportId\x12E\n" +
-	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
+	"\treport_id\x18\a \x01(\rR\breportId\x12I\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x1c.monitoring.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
 	file_write_error_proto_rawDescOnce sync.Once
@@ -155,11 +155,11 @@ func file_write_error_proto_rawDescGZIP() []byte {
 
 var file_write_error_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_error_proto_goTypes = []any{
-	(*WriteError)(nil),              // 0: platform.write_target.WriteError
-	(*common.ExecutionContext)(nil), // 1: common.ExecutionContext
+	(*WriteError)(nil),                  // 0: platform.write_target.WriteError
+	(*monitoring.ExecutionContext)(nil), // 1: monitoring.ExecutionContext
 }
 var file_write_error_proto_depIdxs = []int32{
-	1, // 0: platform.write_target.WriteError.execution_context:type_name -> common.ExecutionContext
+	1, // 0: platform.write_target.WriteError.execution_context:type_name -> monitoring.ExecutionContext
 	1, // [1:1] is the sub-list for method output_type
 	1, // [1:1] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name

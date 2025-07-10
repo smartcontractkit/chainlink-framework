@@ -2,7 +2,7 @@ syntax="proto3";
 
 package platform.on_chain.forwarder;
 
-import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "monitoring/execution_context.proto";
 import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
 import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
 
@@ -20,5 +20,5 @@ message ReportProcessed {
 
   common.BlockData block_data = 6;
   common.TransactionData transaction_data = 10;
-  common.ExecutionContext execution_context = 20;
+  monitoring.ExecutionContext execution_context = 20;
 }

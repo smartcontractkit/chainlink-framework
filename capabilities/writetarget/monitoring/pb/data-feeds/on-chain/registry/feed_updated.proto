@@ -3,7 +3,7 @@ syntax="proto3";
 package datafeeds.on_chain.registry;
 option go_package = ".;registry";
 
-import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "monitoring/execution_context.proto";
 import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
 import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
 
@@ -30,5 +30,5 @@ message FeedUpdated {
   common.TransactionData transaction_data = 10;
 
   // [Execution Context]
-  common.ExecutionContext execution_context = 20;
+  monitoring.ExecutionContext execution_context = 20;
 }

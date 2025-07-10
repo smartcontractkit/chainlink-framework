@@ -3,7 +3,7 @@ syntax="proto3";
 package platform.write_target;
 option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
 
-import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "monitoring/execution_context.proto";
 import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
 
 // WT confirmed the report was successfully written on-chain
@@ -29,7 +29,7 @@ message WriteConfirmed {
   // TODO: what about EVM's TransmissionInfo parity?
 
   // [Execution Context]
-  common.ExecutionContext execution_context = 20;
+  monitoring.ExecutionContext execution_context = 20;
 
   // encoder processor info
   string meta_capability_processor = 21;

@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"time"
 
+	monitoring "github.com/smartcontractkit/capabilities/libs/monitoring"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	commonpb "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
@@ -60,7 +61,7 @@ func (m *messageBuilder) buildWriteError(i requestInfo, code uint32, summary, ca
 		ReportId:  uint32(i.reportInfo.reportID),
 
 		// Execution Context - Source
-		ExecutionContext: &commonpb.ExecutionContext{
+		ExecutionContext: &monitoring.ExecutionContext{
 			MetaSourceId: i.node,
 
 			// Execution Context - Chain
@@ -94,7 +95,7 @@ func (m *messageBuilder) buildWriteInitiated(i requestInfo) *wt.WriteInitiated {
 		Receiver:  i.receiver,
 		ReportId:  uint32(i.reportInfo.reportID),
 
-		ExecutionContext: &commonpb.ExecutionContext{
+		ExecutionContext: &monitoring.ExecutionContext{
 			// Execution Context - Source
 			MetaSourceId: i.node,
 
@@ -130,7 +131,7 @@ func (m *messageBuilder) buildWriteSkipped(i requestInfo, reason string) *wt.Wri
 		ReportId:  uint32(i.reportInfo.reportID),
 		Reason:    reason,
 
-		ExecutionContext: &commonpb.ExecutionContext{
+		ExecutionContext: &monitoring.ExecutionContext{
 			// Execution Context - Source
 			MetaSourceId: i.node,
 
@@ -173,7 +174,7 @@ func (m *messageBuilder) buildWriteSent(i requestInfo, head types.Head, txID str
 			BlockTimestamp: head.Timestamp * 1000, // convert to milliseconds
 		},
 
-		ExecutionContext: &commonpb.ExecutionContext{
+		ExecutionContext: &monitoring.ExecutionContext{
 
 			// Execution Context - Source
 			MetaSourceId: i.node,
@@ -232,7 +233,7 @@ func (m *messageBuilder) buildWriteConfirmed(i requestInfo, head types.Head) *wt
 		Transmitter: i.reportTransmissionState.Transmitter,
 		Success:     i.reportTransmissionState.Status == TransmissionStateSucceeded,
 
-		ExecutionContext: &commonpb.ExecutionContext{
+		ExecutionContext: &monitoring.ExecutionContext{
 			// Execution Context - Source
 			MetaSourceId: i.node,
 

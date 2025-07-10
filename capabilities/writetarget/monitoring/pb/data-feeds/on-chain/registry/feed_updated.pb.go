@@ -7,6 +7,7 @@
 package registry
 
 import (
+	monitoring "github.com/smartcontractkit/capabilities/libs/monitoring"
 	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -41,7 +42,7 @@ type FeedUpdated struct {
 	Bundle          []byte                  `protobuf:"bytes,9,opt,name=bundle,proto3" json:"bundle,omitempty"`
 	TransactionData *common.TransactionData `protobuf:"bytes,10,opt,name=transaction_data,json=transactionData,proto3" json:"transaction_data,omitempty"`
 	// [Execution Context]
-	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *monitoring.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -132,7 +133,7 @@ func (x *FeedUpdated) GetTransactionData() *common.TransactionData {
 	return nil
 }
 
-func (x *FeedUpdated) GetExecutionContext() *common.ExecutionContext {
+func (x *FeedUpdated) GetExecutionContext() *monitoring.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -143,7 +144,7 @@ var File_feed_updated_proto protoreflect.FileDescriptor
 
 const file_feed_updated_proto_rawDesc = "" +
 	"\n" +
-	"\x12feed_updated.proto\x12\x1bdatafeeds.on_chain.registry\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\x8d\x03\n" +
+	"\x12feed_updated.proto\x12\x1bdatafeeds.on_chain.registry\x1a\"monitoring/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\x91\x03\n" +
 	"\vFeedUpdated\x12\x17\n" +
 	"\afeed_id\x18\x01 \x01(\tR\x06feedId\x125\n" +
 	"\x16observations_timestamp\x18\x02 \x01(\rR\x15observationsTimestamp\x12\x1c\n" +
@@ -154,8 +155,8 @@ const file_feed_updated_proto_rawDesc = "" +
 	"block_data\x18\x06 \x01(\v2\x11.common.BlockDataR\tblockData\x12\x16\n" +
 	"\x06bundle\x18\t \x01(\fR\x06bundle\x12B\n" +
 	"\x10transaction_data\x18\n" +
-	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12E\n" +
-	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextB\fZ\n" +
+	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12I\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x1c.monitoring.ExecutionContextR\x10executionContextB\fZ\n" +
 	".;registryb\x06proto3"
 
 var (
@@ -172,15 +173,15 @@ func file_feed_updated_proto_rawDescGZIP() []byte {
 
 var file_feed_updated_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_feed_updated_proto_goTypes = []any{
-	(*FeedUpdated)(nil),             // 0: datafeeds.on_chain.registry.FeedUpdated
-	(*common.BlockData)(nil),        // 1: common.BlockData
-	(*common.TransactionData)(nil),  // 2: common.TransactionData
-	(*common.ExecutionContext)(nil), // 3: common.ExecutionContext
+	(*FeedUpdated)(nil),                 // 0: datafeeds.on_chain.registry.FeedUpdated
+	(*common.BlockData)(nil),            // 1: common.BlockData
+	(*common.TransactionData)(nil),      // 2: common.TransactionData
+	(*monitoring.ExecutionContext)(nil), // 3: monitoring.ExecutionContext
 }
 var file_feed_updated_proto_depIdxs = []int32{
 	1, // 0: datafeeds.on_chain.registry.FeedUpdated.block_data:type_name -> common.BlockData
 	2, // 1: datafeeds.on_chain.registry.FeedUpdated.transaction_data:type_name -> common.TransactionData
-	3, // 2: datafeeds.on_chain.registry.FeedUpdated.execution_context:type_name -> common.ExecutionContext
+	3, // 2: datafeeds.on_chain.registry.FeedUpdated.execution_context:type_name -> monitoring.ExecutionContext
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

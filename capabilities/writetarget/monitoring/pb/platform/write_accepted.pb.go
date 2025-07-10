@@ -7,6 +7,7 @@
 package writetarget
 
 import (
+	monitoring "github.com/smartcontractkit/capabilities/libs/monitoring"
 	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -31,10 +32,10 @@ type WriteAccepted struct {
 	Forwarder string                 `protobuf:"bytes,2,opt,name=forwarder,proto3" json:"forwarder,omitempty"`
 	Receiver  string                 `protobuf:"bytes,3,opt,name=receiver,proto3" json:"receiver,omitempty"`
 	// Report Info
-	ReportId         uint32                   `protobuf:"varint,4,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
-	BlockData        *common.BlockData        `protobuf:"bytes,6,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
-	TransactionData  *common.TransactionData  `protobuf:"bytes,10,opt,name=transaction_data,json=transactionData,proto3" json:"transaction_data,omitempty"`
-	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ReportId         uint32                       `protobuf:"varint,4,opt,name=report_id,json=reportId,proto3" json:"report_id,omitempty"`
+	BlockData        *common.BlockData            `protobuf:"bytes,6,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
+	TransactionData  *common.TransactionData      `protobuf:"bytes,10,opt,name=transaction_data,json=transactionData,proto3" json:"transaction_data,omitempty"`
+	ExecutionContext *monitoring.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -111,7 +112,7 @@ func (x *WriteAccepted) GetTransactionData() *common.TransactionData {
 	return nil
 }
 
-func (x *WriteAccepted) GetExecutionContext() *common.ExecutionContext {
+func (x *WriteAccepted) GetExecutionContext() *monitoring.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -122,7 +123,7 @@ var File_write_accepted_proto protoreflect.FileDescriptor
 
 const file_write_accepted_proto_rawDesc = "" +
 	"\n" +
-	"\x14write_accepted.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\xb7\x02\n" +
+	"\x14write_accepted.proto\x12\x15platform.write_target\x1a\"monitoring/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\x1aDcapabilities/writetarget/monitoring/pb/common/transaction_data.proto\"\xbb\x02\n" +
 	"\rWriteAccepted\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
@@ -131,8 +132,8 @@ const file_write_accepted_proto_rawDesc = "" +
 	"\n" +
 	"block_data\x18\x06 \x01(\v2\x11.common.BlockDataR\tblockData\x12B\n" +
 	"\x10transaction_data\x18\n" +
-	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12E\n" +
-	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
+	" \x01(\v2\x17.common.TransactionDataR\x0ftransactionData\x12I\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x1c.monitoring.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
 	file_write_accepted_proto_rawDescOnce sync.Once
@@ -148,15 +149,15 @@ func file_write_accepted_proto_rawDescGZIP() []byte {
 
 var file_write_accepted_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_accepted_proto_goTypes = []any{
-	(*WriteAccepted)(nil),           // 0: platform.write_target.WriteAccepted
-	(*common.BlockData)(nil),        // 1: common.BlockData
-	(*common.TransactionData)(nil),  // 2: common.TransactionData
-	(*common.ExecutionContext)(nil), // 3: common.ExecutionContext
+	(*WriteAccepted)(nil),               // 0: platform.write_target.WriteAccepted
+	(*common.BlockData)(nil),            // 1: common.BlockData
+	(*common.TransactionData)(nil),      // 2: common.TransactionData
+	(*monitoring.ExecutionContext)(nil), // 3: monitoring.ExecutionContext
 }
 var file_write_accepted_proto_depIdxs = []int32{
 	1, // 0: platform.write_target.WriteAccepted.block_data:type_name -> common.BlockData
 	2, // 1: platform.write_target.WriteAccepted.transaction_data:type_name -> common.TransactionData
-	3, // 2: platform.write_target.WriteAccepted.execution_context:type_name -> common.ExecutionContext
+	3, // 2: platform.write_target.WriteAccepted.execution_context:type_name -> monitoring.ExecutionContext
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name

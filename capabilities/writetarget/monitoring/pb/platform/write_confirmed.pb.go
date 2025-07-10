@@ -7,6 +7,7 @@
 package writetarget
 
 import (
+	monitoring "github.com/smartcontractkit/capabilities/libs/monitoring"
 	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -39,7 +40,7 @@ type WriteConfirmed struct {
 	Transmitter string `protobuf:"bytes,12,opt,name=transmitter,proto3" json:"transmitter,omitempty"`
 	Success     bool   `protobuf:"varint,13,opt,name=success,proto3" json:"success,omitempty"` // TODO: what about EVM's TransmissionInfo parity?
 	// [Execution Context]
-	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *monitoring.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	// encoder processor info
 	MetaCapabilityProcessor string `protobuf:"bytes,21,opt,name=meta_capability_processor,json=metaCapabilityProcessor,proto3" json:"meta_capability_processor,omitempty"`
 	unknownFields           protoimpl.UnknownFields
@@ -146,7 +147,7 @@ func (x *WriteConfirmed) GetSuccess() bool {
 	return false
 }
 
-func (x *WriteConfirmed) GetExecutionContext() *common.ExecutionContext {
+func (x *WriteConfirmed) GetExecutionContext() *monitoring.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -164,7 +165,7 @@ var File_write_confirmed_proto protoreflect.FileDescriptor
 
 const file_write_confirmed_proto_rawDesc = "" +
 	"\n" +
-	"\x15write_confirmed.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\"\xcc\x03\n" +
+	"\x15write_confirmed.proto\x12\x15platform.write_target\x1a\"monitoring/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\"\xd0\x03\n" +
 	"\x0eWriteConfirmed\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
@@ -177,8 +178,8 @@ const file_write_confirmed_proto_rawDesc = "" +
 	"\n" +
 	"block_data\x18\t \x01(\v2\x11.common.BlockDataR\tblockData\x12 \n" +
 	"\vtransmitter\x18\f \x01(\tR\vtransmitter\x12\x18\n" +
-	"\asuccess\x18\r \x01(\bR\asuccess\x12E\n" +
-	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContext\x12:\n" +
+	"\asuccess\x18\r \x01(\bR\asuccess\x12I\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x1c.monitoring.ExecutionContextR\x10executionContext\x12:\n" +
 	"\x19meta_capability_processor\x18\x15 \x01(\tR\x17metaCapabilityProcessorBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
@@ -195,13 +196,13 @@ func file_write_confirmed_proto_rawDescGZIP() []byte {
 
 var file_write_confirmed_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_confirmed_proto_goTypes = []any{
-	(*WriteConfirmed)(nil),          // 0: platform.write_target.WriteConfirmed
-	(*common.BlockData)(nil),        // 1: common.BlockData
-	(*common.ExecutionContext)(nil), // 2: common.ExecutionContext
+	(*WriteConfirmed)(nil),              // 0: platform.write_target.WriteConfirmed
+	(*common.BlockData)(nil),            // 1: common.BlockData
+	(*monitoring.ExecutionContext)(nil), // 2: monitoring.ExecutionContext
 }
 var file_write_confirmed_proto_depIdxs = []int32{
 	1, // 0: platform.write_target.WriteConfirmed.block_data:type_name -> common.BlockData
-	2, // 1: platform.write_target.WriteConfirmed.execution_context:type_name -> common.ExecutionContext
+	2, // 1: platform.write_target.WriteConfirmed.execution_context:type_name -> monitoring.ExecutionContext
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

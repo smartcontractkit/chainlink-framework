@@ -7,6 +7,7 @@
 package writetarget
 
 import (
+	monitoring "github.com/smartcontractkit/capabilities/libs/monitoring"
 	common "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/common"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -37,7 +38,7 @@ type WriteSent struct {
 	// When was the transaction submitted
 	BlockData *common.BlockData `protobuf:"bytes,7,opt,name=block_data,json=blockData,proto3" json:"block_data,omitempty"`
 	// [Execution Context]
-	ExecutionContext *common.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
+	ExecutionContext *monitoring.ExecutionContext `protobuf:"bytes,20,opt,name=execution_context,json=executionContext,proto3" json:"execution_context,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -114,7 +115,7 @@ func (x *WriteSent) GetBlockData() *common.BlockData {
 	return nil
 }
 
-func (x *WriteSent) GetExecutionContext() *common.ExecutionContext {
+func (x *WriteSent) GetExecutionContext() *monitoring.ExecutionContext {
 	if x != nil {
 		return x.ExecutionContext
 	}
@@ -125,7 +126,7 @@ var File_write_sent_proto protoreflect.FileDescriptor
 
 const file_write_sent_proto_rawDesc = "" +
 	"\n" +
-	"\x10write_sent.proto\x12\x15platform.write_target\x1aEcapabilities/writetarget/monitoring/pb/common/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\"\x84\x02\n" +
+	"\x10write_sent.proto\x12\x15platform.write_target\x1a\"monitoring/execution_context.proto\x1a>capabilities/writetarget/monitoring/pb/common/block_data.proto\"\x88\x02\n" +
 	"\tWriteSent\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x1c\n" +
 	"\tforwarder\x18\x02 \x01(\tR\tforwarder\x12\x1a\n" +
@@ -133,8 +134,8 @@ const file_write_sent_proto_rawDesc = "" +
 	"\treport_id\x18\x04 \x01(\rR\breportId\x12\x13\n" +
 	"\x05tx_id\x18\x05 \x01(\tR\x04txId\x120\n" +
 	"\n" +
-	"block_data\x18\a \x01(\v2\x11.common.BlockDataR\tblockData\x12E\n" +
-	"\x11execution_context\x18\x14 \x01(\v2\x18.common.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
+	"block_data\x18\a \x01(\v2\x11.common.BlockDataR\tblockData\x12I\n" +
+	"\x11execution_context\x18\x14 \x01(\v2\x1c.monitoring.ExecutionContextR\x10executionContextBmZkgithub.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetargetb\x06proto3"
 
 var (
 	file_write_sent_proto_rawDescOnce sync.Once
@@ -150,13 +151,13 @@ func file_write_sent_proto_rawDescGZIP() []byte {
 
 var file_write_sent_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
 var file_write_sent_proto_goTypes = []any{
-	(*WriteSent)(nil),               // 0: platform.write_target.WriteSent
-	(*common.BlockData)(nil),        // 1: common.BlockData
-	(*common.ExecutionContext)(nil), // 2: common.ExecutionContext
+	(*WriteSent)(nil),                   // 0: platform.write_target.WriteSent
+	(*common.BlockData)(nil),            // 1: common.BlockData
+	(*monitoring.ExecutionContext)(nil), // 2: monitoring.ExecutionContext
 }
 var file_write_sent_proto_depIdxs = []int32{
 	1, // 0: platform.write_target.WriteSent.block_data:type_name -> common.BlockData
-	2, // 1: platform.write_target.WriteSent.execution_context:type_name -> common.ExecutionContext
+	2, // 1: platform.write_target.WriteSent.execution_context:type_name -> monitoring.ExecutionContext
 	2, // [2:2] is the sub-list for method output_type
 	2, // [2:2] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name
