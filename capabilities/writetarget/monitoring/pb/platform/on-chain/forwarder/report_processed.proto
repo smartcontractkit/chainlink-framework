@@ -2,7 +2,7 @@ syntax="proto3";
 
 package platform.on_chain.forwarder;
 
-import "capabilities/writetarget/monitoring/pb/common/execution_context.proto";
+import "capabilities/writetarget/monitoring/pb/common/execution_context_wt.proto";
 import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
 import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
 
