@@ -105,7 +105,8 @@ type node[
 	ws   *url.URL
 	http *url.URL
 
-	rpc RPC
+	rpc        RPC
+	isRPCProxy bool
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
@@ -136,6 +137,7 @@ func NewNode[
 	nodeOrder int32,
 	rpc RPC,
 	chainFamily string,
+	isRPCProxy bool,
 ) Node[CHAIN_ID, RPC] {
 	n := new(node[CHAIN_ID, HEAD, RPC])
 	n.name = name
@@ -162,6 +164,7 @@ func NewNode[
 	)
 	n.lfcLog = logger.Named(lggr, "Lifecycle")
 	n.rpc = rpc
+	n.isRPCProxy = isRPCProxy
 	n.chainFamily = chainFamily
 	return n
 }
