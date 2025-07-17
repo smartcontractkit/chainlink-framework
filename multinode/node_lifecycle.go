@@ -164,6 +164,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, localHighestChainInfo.BlockNumber), "nodeState", n.getCachedState(), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
 			if n.poolInfoProvider != nil {
+				// if its the only node and its not a proxy, keep waiting for sync, check LatestChainInfo
+				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isRPCProxy {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
@@ -190,6 +192,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC's finalized state is out of sync; no new finalized heads received for %s (last finalized head received was %v)", noNewFinalizedBlocksTimeoutThreshold, localHighestChainInfo.FinalizedBlockNumber), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber)
 			if n.poolInfoProvider != nil {
+				// if its the only node and its not a proxy, keep waiting for sync, check LatestChainInfo
+				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isRPCProxy {
 					lggr.Criticalf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
