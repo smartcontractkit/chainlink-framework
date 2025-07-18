@@ -167,7 +167,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
 				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isRPCProxy {
-					lggr.Debug("ENTERING HERE")
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state

@@ -620,6 +620,33 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return node.State() == nodeStateUnreachable
 		})
 	})
+	t.Run("when no new finalized heads received for threshold but we are the last live node, forcibly stays alive", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
+		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
+		lggr, observed := logger.TestObserved(t, zap.DebugLevel)
+		noNewFinalizedHeadsThreshold := tests.TestInterval
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{},
+			chainConfig: clientMocks.ChainConfig{
+				NoNewFinalizedHeadsThresholdVal: noNewFinalizedHeadsThreshold,
+				IsFinalityTagEnabled:            true,
+			},
+			rpc:  rpc,
+			lggr: lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     20,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		node.declareAlive()
+		tests.AssertLogEventually(t, observed, fmt.Sprintf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState))
+		assert.Equal(t, nodeStateAlive, node.State())
+	})
 	t.Run("when no new finalized heads received for threshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
