@@ -464,11 +464,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 					if n.isRPCProxy {
 						n.declareUnreachable()
 						return
-					} else {
-						lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
-						n.declareInSync()
-						return
 					}
+					lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
+					n.declareInSync()
+					return
 				}
 			}
 		case err := <-headsSub.Errors:
