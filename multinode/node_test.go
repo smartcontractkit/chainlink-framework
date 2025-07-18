@@ -82,6 +82,7 @@ type testNodeOpts struct {
 	nodeOrder   int32
 	rpc         *mockRPCClient[ID, Head]
 	chainFamily string
+	isRPCProxy  bool
 }
 
 func newTestNode(t *testing.T, opts testNodeOpts) testNode {
@@ -109,7 +110,7 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 	require.NoError(t, err)
 
 	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr, nodeMetrics,
-		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily, false)
+		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily, opts.isRPCProxy)
 
 	return testNode{
 		nodeI.(*node[ID, Head, RPCClient[ID, Head]]),

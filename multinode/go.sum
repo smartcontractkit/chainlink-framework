@@ -74,8 +74,8 @@ github.com/rogpeppe/go-internal v1.13.1 h1:KvO1DLK/DRN07sQ1LQKScxyZJuNnedQ5/wKSR
 github.com/rogpeppe/go-internal v1.13.1/go.mod h1:uMEvuHeurkdAXX61udpOXGD/AzZDWNMNyH2VO9fmH0o=
 github.com/smartcontractkit/chainlink-common v0.7.0 h1:QThOrHKn+du8CTmzJPCha0Nwnvw0tonIEAQca+dnmE0=
 github.com/smartcontractkit/chainlink-common v0.7.0/go.mod h1:pptbsF6z90IGCewkCgDMBxNYjfSOyW9X9l2jzYyQgmk=
-github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250502183956-f93abf9d14bc h1:HXG3U4nWgzKtH8rjODkcbn4x2M2ZvD2jQotCWRpDM1Q=
-github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250502183956-f93abf9d14bc/go.mod h1:jo+cUqNcHwN8IF7SInQNXDZ8qzBsyMpnLdYbDswviFc=
+github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250717121125-2350c82883e2 h1:ysZjKH+BpWlQhF93kr/Lc668UlCvT9NjfcsGdZT19I8=
+github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250717121125-2350c82883e2/go.mod h1:jo+cUqNcHwN8IF7SInQNXDZ8qzBsyMpnLdYbDswviFc=
 github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 h1:PKiqnVOTChlH4a4ljJKL3OKGRgYfIpJS4YD1daAIKks=
 github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298/go.mod h1:Mb7+/LC4edz7HyHxX4QkE42pSuov4AV68+AxBXAap0o=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
