@@ -202,6 +202,33 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
+	t.Run("with threshold poll failures, we are the last node alive, but is a proxy, transitions to unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		const pollFailureThreshold = 3
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber: 20,
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
+		pollError := errors.New("failed to get ClientVersion")
+		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
+		assert.Equal(t, nodeStateUnreachable, node.State())
+	})
 	t.Run("when behind more than SyncThreshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
@@ -263,6 +290,42 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.SetPoolChainInfoProvider(poolInfo)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState))
+	})
+	t.Run("when behind more than SyncThreshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		const syncThreshold = 10
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				pollInterval:  tests.TestInterval,
+				syncThreshold: syncThreshold,
+				selectionMode: NodeSelectionModeRoundRobin,
+			},
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		rpc.On("ClientVersion", mock.Anything).Return("", nil)
+		const mostRecentBlock = 20
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30}).Twice()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     syncThreshold + mostRecentBlock + 1,
+			TotalDifficulty: big.NewInt(10),
+		})
+		node.SetPoolChainInfoProvider(poolInfo)
+		// tries to redial in outOfSync
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
+			assert.Equal(t, nodeStateOutOfSync, node.State())
+		}).Once()
+		rpc.On("Dial", mock.Anything).Run(func(_ mock.Arguments) {
+			require.Equal(t, nodeStateOutOfSync, node.State())
+		}).Return(errors.New("failed to dial")).Maybe()
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
+		assert.Equal(t, nodeStateUnreachable, node.State())
 	})
 	t.Run("when behind but SyncThreshold=0, stay alive", func(t *testing.T) {
 		t.Parallel()
@@ -333,7 +396,36 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
-
+	t.Run("when no new heads received for threshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{},
+			lggr:   lggr,
+			chainConfig: clientMocks.ChainConfig{
+				NoNewHeadsThresholdVal: tests.TestInterval,
+			},
+			rpc:               rpc,
+			isLoadBalancedRPC: true,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     20,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		// tries to redial in outOfSync
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
+			assert.Equal(t, nodeStateOutOfSync, node.State())
+		}).Once()
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
+		assert.Equal(t, nodeStateUnreachable, node.State())
+	})
 	t.Run("rpc closed head channel", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
@@ -554,6 +646,40 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observed, fmt.Sprintf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
+	})
+	t.Run("when no new finalized heads received for threshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Once()
+		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		noNewFinalizedHeadsThreshold := tests.TestInterval
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{},
+			chainConfig: clientMocks.ChainConfig{
+				NoNewFinalizedHeadsThresholdVal: noNewFinalizedHeadsThreshold,
+				IsFinalityTagEnabled:            true,
+			},
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+			BlockNumber:     20,
+			TotalDifficulty: big.NewInt(10),
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		// tries to redial in outOfSync
+		// tries to redial in outOfSync
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
+			assert.Equal(t, nodeStateOutOfSync, node.State())
+		}).Once()
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
+		assert.Equal(t, nodeStateUnreachable, node.State())
 	})
 	t.Run("If finalized subscription returns an error, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -935,6 +1061,42 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
+		})
+	})
+	t.Run("becomes alive if there is no other nodes, unless proxy", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
+		node := newAliveNode(t, testNodeOpts{
+			chainConfig: clientMocks.ChainConfig{
+				NoNewHeadsThresholdVal: tests.TestInterval,
+			},
+			rpc:               rpc,
+			chainID:           nodeChainID,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo").Return(0, ChainInfo{
+			BlockNumber:     100,
+			TotalDifficulty: big.NewInt(200),
+		})
+		node.SetPoolChainInfoProvider(poolInfo)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
+
+		rpc.On("Dial", mock.Anything).Return(nil).Once()
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
+
+		outOfSyncSubscription := newMockSubscription(t)
+		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
+		outOfSyncSubscription.On("Unsubscribe").Once()
+		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), outOfSyncSubscription, nil).Once()
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial")).Maybe()
+		node.declareOutOfSync(syncStatusNoNewHead)
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateUnreachable
 		})
 	})
 	t.Run("Stays out-of-sync if received new head, but lags behind pool", func(t *testing.T) {
