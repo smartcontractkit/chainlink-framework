@@ -212,9 +212,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				pollFailureThreshold: pollFailureThreshold,
 				pollInterval:         tests.TestInterval,
 			},
-			rpc:        rpc,
-			lggr:       lggr,
-			isRPCProxy: true,
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
@@ -302,9 +302,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				syncThreshold: syncThreshold,
 				selectionMode: NodeSelectionModeRoundRobin,
 			},
-			rpc:        rpc,
-			lggr:       lggr,
-			isRPCProxy: true,
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
@@ -407,8 +407,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			chainConfig: clientMocks.ChainConfig{
 				NoNewHeadsThresholdVal: tests.TestInterval,
 			},
-			rpc:        rpc,
-			isRPCProxy: true,
+			rpc:               rpc,
+			isLoadBalancedRPC: true,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
@@ -660,9 +660,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 				NoNewFinalizedHeadsThresholdVal: noNewFinalizedHeadsThreshold,
 				IsFinalityTagEnabled:            true,
 			},
-			rpc:        rpc,
-			lggr:       lggr,
-			isRPCProxy: true,
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
@@ -1072,10 +1072,10 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 			chainConfig: clientMocks.ChainConfig{
 				NoNewHeadsThresholdVal: tests.TestInterval,
 			},
-			rpc:        rpc,
-			chainID:    nodeChainID,
-			lggr:       lggr,
-			isRPCProxy: true,
+			rpc:               rpc,
+			chainID:           nodeChainID,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
