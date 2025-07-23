@@ -25,6 +25,7 @@ linters:
     - testifylint
     - unconvert
     - whitespace
+    - staticcheck
 linters-settings:
   exhaustive:
     default-signifies-exhaustive: true
