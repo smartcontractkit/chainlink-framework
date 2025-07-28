@@ -71,17 +71,18 @@ type testNode struct {
 }
 
 type testNodeOpts struct {
-	config      testNodeConfig
-	chainConfig mocks.ChainConfig
-	lggr        logger.Logger
-	wsuri       *url.URL
-	httpuri     *url.URL
-	name        string
-	id          int
-	chainID     ID
-	nodeOrder   int32
-	rpc         *mockRPCClient[ID, Head]
-	chainFamily string
+	config            testNodeConfig
+	chainConfig       mocks.ChainConfig
+	lggr              logger.Logger
+	wsuri             *url.URL
+	httpuri           *url.URL
+	name              string
+	id                int
+	chainID           ID
+	nodeOrder         int32
+	rpc               *mockRPCClient[ID, Head]
+	chainFamily       string
+	isLoadBalancedRPC bool
 }
 
 func newTestNode(t *testing.T, opts testNodeOpts) testNode {
@@ -109,7 +110,7 @@ func newTestNode(t *testing.T, opts testNodeOpts) testNode {
 	require.NoError(t, err)
 
 	nodeI := NewNode[ID, Head, RPCClient[ID, Head]](opts.config, opts.chainConfig, opts.lggr, nodeMetrics,
-		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily)
+		opts.wsuri, opts.httpuri, opts.name, opts.id, opts.chainID, opts.nodeOrder, opts.rpc, opts.chainFamily, opts.isLoadBalancedRPC)
 
 	return testNode{
 		nodeI.(*node[ID, Head, RPCClient[ID, Head]]),

@@ -105,7 +105,8 @@ type node[
 	ws   *url.URL
 	http *url.URL
 
-	rpc RPC
+	rpc               RPC
+	isLoadBalancedRPC bool
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
@@ -136,6 +137,7 @@ func NewNode[
 	nodeOrder int32,
 	rpc RPC,
 	chainFamily string,
+	isLoadBalancedRPC bool,
 ) Node[CHAIN_ID, RPC] {
 	n := new(node[CHAIN_ID, HEAD, RPC])
 	n.name = name
@@ -162,6 +164,7 @@ func NewNode[
 	)
 	n.lfcLog = logger.Named(lggr, "Lifecycle")
 	n.rpc = rpc
+	n.isLoadBalancedRPC = isLoadBalancedRPC
 	n.chainFamily = chainFamily
 	return n
 }
