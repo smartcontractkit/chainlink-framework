@@ -227,7 +227,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
-		assert.Equal(t, nodeStateUnreachable, node.State())
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateUnreachable
+		})
 	})
 	t.Run("when behind more than SyncThreshold, transitions to out of sync", func(t *testing.T) {
 		t.Parallel()

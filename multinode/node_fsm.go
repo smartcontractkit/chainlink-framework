@@ -242,6 +242,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	case nodeStateAlive:
 		n.rpc.Close()
 		n.state = nodeStateOutOfSync
+	case nodeStateOutOfSync:
+		// in case all rpcs behind a load balanced rpc are out of sync, we need to keep declaring out of sync to prevent false transition to alive
+		if n.isLoadBalancedRPC {
+			n.rpc.Close()
+			n.state = nodeStateOutOfSync
+		} else {
+			panic(transitionFail(n.state, nodeStateOutOfSync))
+		}
 	default:
 		panic(transitionFail(n.state, nodeStateOutOfSync))
 	}
