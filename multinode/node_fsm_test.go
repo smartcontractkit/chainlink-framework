@@ -49,7 +49,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	})
 	t.Run("transitionToOutOfSync", func(t *testing.T) {
 		const destinationState = nodeStateOutOfSync
-		allowedStates := []nodeState{nodeStateAlive}
+		allowedStates := []nodeState{nodeStateAlive, nodeStateOutOfSync}
 		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("Close")
 		testTransition(t, rpc, testNode.transitionToOutOfSync, destinationState, allowedStates...)

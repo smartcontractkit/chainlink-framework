@@ -239,7 +239,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateAlive:
+	case nodeStateAlive, nodeStateOutOfSync:
 		n.rpc.Close()
 		n.state = nodeStateOutOfSync
 	default:
