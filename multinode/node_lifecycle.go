@@ -462,7 +462,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 1 {
 					if n.isLoadBalancedRPC {
 						// in case all rpcs behind a load balanced rpc are out of sync, we need to declare out of sync to prevent false transition to alive
-						n.declareOutOfSync(syncStatusNoNewHead)
+						n.declareOutOfSync(syncIssues)
 						return
 					}
 					lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
