@@ -37,6 +37,7 @@ type TxStore[ADDR chains.Hashable, CID chains.ID, THASH chains.Hashable, BHASH c
 	// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
 	FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []int64, states []TxState, chainID *big.Int) (tx []*Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], err error)
 	FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID CID) (tx *Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], err error)
+	FindReceiptWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID CID) (ChainReceipt[THASH, BHASH], error)
 }
 
 // TransactionStore contains the persistence layer methods needed to manage Txs and TxAttempts
@@ -114,4 +115,6 @@ type ChainReceipt[THASH, BHASH chains.Hashable] interface {
 	GetTransactionIndex() uint
 	GetBlockHash() BHASH
 	GetRevertReason() *string
+	GetEffectiveGasPrice() *big.Int
+	GetL1Fee() *big.Int
 }

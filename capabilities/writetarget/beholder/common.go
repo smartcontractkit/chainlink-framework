@@ -14,31 +14,31 @@ import (
 // MetricInfo is a struct for metrics information
 type MetricsInfoCapBasic struct {
 	// common
-	count             MetricInfo
-	capTimestampStart MetricInfo
-	capTimestampEmit  MetricInfo
-	capDuration       MetricInfo // ts.emit - ts.start
+	count             beholder.MetricInfo
+	capTimestampStart beholder.MetricInfo
+	capTimestampEmit  beholder.MetricInfo
+	capDuration       beholder.MetricInfo // ts.emit - ts.start
 }
 
 // NewMetricsInfoCapBasic creates a new MetricsInfoCapBasic using the provided event/metric information
 func NewMetricsInfoCapBasic(metricPrefix, eventRef string) MetricsInfoCapBasic {
 	return MetricsInfoCapBasic{
-		count: MetricInfo{
+		count: beholder.MetricInfo{
 			Name:        fmt.Sprintf("%s_count", metricPrefix),
 			Unit:        "",
 			Description: fmt.Sprintf("The count of message: '%s' emitted", eventRef),
 		},
-		capTimestampStart: MetricInfo{
+		capTimestampStart: beholder.MetricInfo{
 			Name:        fmt.Sprintf("%s_cap_timestamp_start", metricPrefix),
 			Unit:        "ms",
 			Description: fmt.Sprintf("The timestamp (local) at capability exec start that resulted in message: '%s' emit", eventRef),
 		},
-		capTimestampEmit: MetricInfo{
+		capTimestampEmit: beholder.MetricInfo{
 			Name:        fmt.Sprintf("%s_cap_timestamp_emit", metricPrefix),
 			Unit:        "ms",
 			Description: fmt.Sprintf("The timestamp (local) at message: '%s' emit", eventRef),
 		},
-		capDuration: MetricInfo{
+		capDuration: beholder.MetricInfo{
 			Name:        fmt.Sprintf("%s_cap_duration", metricPrefix),
 			Unit:        "ms",
 			Description: fmt.Sprintf("The duration (local) since capability exec start to message: '%s' emit", eventRef),

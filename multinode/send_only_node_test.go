@@ -28,7 +28,7 @@ func TestNewSendOnlyNode(t *testing.T) {
 	chainID := RandomID()
 	client := newMockSendOnlyClient[ID](t)
 
-	node := NewSendOnlyNode(lggr, *u, name, chainID, client)
+	node := NewSendOnlyNode(lggr, makeMockNodeMetrics(t), *u, name, chainID, client)
 	assert.NotNil(t, node)
 
 	// Must contain name & url with redacted password
@@ -45,7 +45,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		client.On("Close").Once()
 		expectedError := errors.New("some http error")
 		client.On("Dial", mock.Anything).Return(expectedError).Once()
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), RandomID(), client)
+		s := NewSendOnlyNode(lggr, makeMockNodeMetrics(t), url.URL{}, t.Name(), RandomID(), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
@@ -61,7 +61,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil).Once()
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), NewIDFromInt(1399100), client)
+		s := NewSendOnlyNode(lggr, makeMockNodeMetrics(t), url.URL{}, t.Name(), NewIDFromInt(1399100), client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
@@ -77,12 +77,13 @@ func TestStartSendOnlyNode(t *testing.T) {
 		client := newMockSendOnlyClient[ID](t)
 		client.On("Close").Once()
 		client.On("Dial", mock.Anything).Return(nil)
+		metrics := makeMockNodeMetrics(t)
 		expectedError := errors.New("failed to get chain ID")
 		chainID := RandomID()
 		const failuresCount = 2
 		client.On("ChainID", mock.Anything).Return(RandomID(), expectedError).Times(failuresCount)
 
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), chainID, client)
+		s := NewSendOnlyNode(lggr, metrics, url.URL{}, t.Name(), chainID, client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
@@ -93,6 +94,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Verify failed: %v", expectedError), failuresCount)
 		client.On("ChainID", mock.Anything).Return(chainID, nil)
 		tests.AssertEventually(t, func() bool { return s.State() == nodeStateAlive })
+		metrics.AssertNumberOfCalls(t, "IncrementNodeTransitionsToUnreachable", 1)
+		metrics.AssertNumberOfCalls(t, "IncrementNodeTransitionsToAlive", 1)
 	})
 	t.Run("Can recover from chainID mismatch", func(t *testing.T) {
 		t.Parallel()
@@ -105,7 +108,8 @@ func TestStartSendOnlyNode(t *testing.T) {
 		const failuresCount = 2
 		client.On("ChainID", mock.Anything).Return(rpcChainID, nil).Times(failuresCount)
 		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)
+		metrics := makeMockNodeMetrics(t)
+		s := NewSendOnlyNode(lggr, metrics, url.URL{}, t.Name(), configuredChainID, client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))
@@ -117,6 +121,9 @@ func TestStartSendOnlyNode(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive
 		})
+		metrics.AssertNumberOfCalls(t, "IncrementNodeTransitionsToUnreachable", 1)
+		metrics.AssertNumberOfCalls(t, "IncrementNodeTransitionsToInvalidChainID", 1)
+		metrics.AssertNumberOfCalls(t, "IncrementNodeTransitionsToAlive", 1)
 	})
 	t.Run("Start with Random ChainID", func(t *testing.T) {
 		t.Parallel()
@@ -126,7 +133,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		client.On("Dial", mock.Anything).Return(nil).Once()
 		configuredChainID := RandomID()
 		client.On("ChainID", mock.Anything).Return(configuredChainID, nil)
-		s := NewSendOnlyNode(lggr, url.URL{}, t.Name(), configuredChainID, client)
+		s := NewSendOnlyNode(lggr, makeMockNodeMetrics(t), url.URL{}, t.Name(), configuredChainID, client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		err := s.Start(tests.Context(t))

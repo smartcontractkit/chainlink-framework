@@ -1,0 +1,34 @@
+syntax="proto3";
+
+package datafeeds.on_chain.registry;
+option go_package = ".;registry";
+
+import "capabilities/writetarget/monitoring/pb/common/execution_context_wt.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
+
+// The on-chain FeedUpdated event which is extracted from the tx/event data or
+// the write-target WriteConfirmed event, after a write was confirmed (@see message: write-target.WriteConfirmed).
+message FeedUpdated {
+  // Event data
+  string feed_id = 1; // bytes as hex string for readability
+  uint32 observations_timestamp = 2;
+  bytes benchmark = 3;
+  bytes report = 4;
+
+  // Notice: benchmark_val is the benchmark i192 on-chain value decoded as an double (float64), scaled by number of decimals (e.g., 1e-18)
+  // This is the largest type Prometheus supports, and this conversion can overflow but so far was sufficient
+  // for most use-cases. For big numbers, benchmark bytes should be used instead.
+  //
+  // Set as `math.NaN()` if report data type not a number, or `+/-Inf` if number doesn't fit in double.
+  double benchmark_val = 5;
+
+  common.BlockData block_data = 6;
+
+  bytes bundle = 9;
+
+  common.TransactionData transaction_data = 10;
+
+  // [Execution Context]
+  common.ExecutionContext execution_context = 20;
+}

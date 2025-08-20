@@ -7,39 +7,9 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
-)
-
-var (
-	promPoolRPCNodeHighestSeenBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pool_rpc_node_highest_seen_block",
-		Help: "The highest seen block for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeHighestFinalizedBlock = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "pool_rpc_node_highest_finalized_block",
-		Help: "The highest seen finalized block for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodeNumSeenBlocks = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_num_seen_blocks",
-		Help: "The total number of new blocks seen by the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePolls = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_total",
-		Help: "The total number of poll checks for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePollsFailed = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_failed",
-		Help: "The total number of failed poll checks for the given RPC node",
-	}, []string{"chainID", "nodeName"})
-	promPoolRPCNodePollsSuccess = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "pool_rpc_node_polls_success",
-		Help: "The total number of successful poll checks for the given RPC node",
-	}, []string{"chainID", "nodeName"})
 )
 
 // zombieNodeCheckInterval controls how often to re-check to see if we need to
@@ -137,27 +107,28 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		case <-ctx.Done():
 			return
 		case <-pollCh:
-			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
+			n.metrics.IncrementPolls(ctx, n.name)
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
 			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
-			err = n.RPC().Ping(pollCtx)
+			version, pingErr := n.RPC().ClientVersion(pollCtx)
 			cancel()
-			if err != nil {
+			if pingErr != nil {
 				// prevent overflow
 				if pollFailures < math.MaxUint32 {
-					promPoolRPCNodePollsFailed.WithLabelValues(n.chainID.String(), n.name).Inc()
+					n.metrics.IncrementPollsFailed(ctx, n.name)
 					pollFailures++
 				}
-				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", err, "pollFailures", pollFailures, "nodeState", n.getCachedState())
+				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", pingErr, "pollFailures", pollFailures, "nodeState", n.getCachedState())
 			} else {
 				lggr.Debugw("Ping successful", "nodeState", n.State())
-				promPoolRPCNodePollsSuccess.WithLabelValues(n.chainID.String(), n.name).Inc()
+				n.metrics.RecordNodeClientVersion(ctx, n.name, version)
+				n.metrics.IncrementPollsSuccess(ctx, n.name)
 				pollFailures = 0
 			}
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
 				if n.poolInfoProvider != nil {
-					if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 {
+					if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
 						lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
 						continue
 					}
@@ -167,7 +138,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
 				// note: there must be another live node for us to be out of sync
-				if liveNodes < 2 {
+				if liveNodes < 2 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
 				}
@@ -193,7 +164,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, localHighestChainInfo.BlockNumber), "nodeState", n.getCachedState(), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
 			if n.poolInfoProvider != nil {
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 {
+				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
+				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
+				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
@@ -219,7 +192,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC's finalized state is out of sync; no new finalized heads received for %s (last finalized head received was %v)", noNewFinalizedBlocksTimeoutThreshold, localHighestChainInfo.FinalizedBlockNumber), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber)
 			if n.poolInfoProvider != nil {
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 {
+				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
+				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
+				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
@@ -311,7 +286,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewFinalizedHead(lggr logger.SugaredLogger
 		return false
 	}
 
-	promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+	ctx, cancel := n.newCtx()
+	defer cancel()
+	n.metrics.SetHighestFinalizedBlock(ctx, n.name, latestFinalizedBN)
 	chainInfo.FinalizedBlockNumber = latestFinalizedBN
 	return true
 }
@@ -321,8 +298,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 		lggr.Warn("Latest head is not valid")
 		return false
 	}
+	ctx, cancel := n.newCtx()
+	defer cancel()
 
-	promPoolRPCNodeNumSeenBlocks.WithLabelValues(n.chainID.String(), n.name).Inc()
+	n.metrics.IncrementSeenBlocks(ctx, n.name)
 	lggr.Debugw("Got head", "head", head)
 	lggr = lggr.With("latestReceivedBlockNumber", chainInfo.BlockNumber, "blockNumber", head.BlockNumber(), "nodeState", n.getCachedState())
 	if head.BlockNumber() <= chainInfo.BlockNumber {
@@ -330,13 +309,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) onNewHead(lggr logger.SugaredLogger, chainIn
 		return false
 	}
 
-	promPoolRPCNodeHighestSeenBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(head.BlockNumber()))
+	n.metrics.SetHighestSeenBlock(ctx, n.name, head.BlockNumber())
 	chainInfo.BlockNumber = head.BlockNumber()
 
 	if !n.chainCfg.FinalityTagEnabled() {
 		latestFinalizedBN := max(head.BlockNumber()-int64(n.chainCfg.FinalityDepth()), 0)
 		if latestFinalizedBN > chainInfo.FinalizedBlockNumber {
-			promPoolRPCNodeHighestFinalizedBlock.WithLabelValues(n.chainID.String(), n.name).Set(float64(latestFinalizedBN))
+			n.metrics.SetHighestFinalizedBlock(ctx, n.name, latestFinalizedBN)
 			chainInfo.FinalizedBlockNumber = latestFinalizedBN
 		}
 	}
@@ -481,6 +460,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 		case <-time.After(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold)):
 			if n.poolInfoProvider != nil {
 				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 1 {
+					if n.isLoadBalancedRPC {
+						// in case all rpcs behind a load balanced rpc are out of sync, we need to declare out of sync to prevent false transition to alive
+						n.declareOutOfSync(syncIssues)
+						return
+					}
 					lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
 					n.declareInSync()
 					return

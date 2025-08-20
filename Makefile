@@ -8,7 +8,7 @@ gomodtidy: gomods
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.46.3
+	go install github.com/vektra/mockery/v2@v2.53.0
 
 .PHONY: generate
 generate: mockery

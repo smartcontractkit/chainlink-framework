@@ -1,0 +1,24 @@
+syntax="proto3";
+
+package platform.write_target;
+option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
+
+import "capabilities/writetarget/monitoring/pb/common/execution_context_wt.proto";
+import "capabilities/writetarget/monitoring/pb/common/block_data.proto";
+import "capabilities/writetarget/monitoring/pb/common/transaction_data.proto";
+
+// WT sent a transaction and it was accepted on-chain
+//
+// Notice: we publish txId (TXM ref) and txHash (in the future should be available here)
+message WriteAccepted {
+  string node = 1;
+  string forwarder = 2;
+  string receiver = 3;
+
+  // Report Info
+  uint32 report_id = 4;
+
+  common.BlockData block_data = 6;
+  common.TransactionData transaction_data = 10;
+  common.ExecutionContext execution_context = 20;
+}

@@ -1,0 +1,19 @@
+syntax="proto3";
+
+package platform.write_target;
+option go_package = "github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/monitoring/pb/platform;writetarget";
+
+import "capabilities/writetarget/monitoring/pb/common/execution_context_wt.proto";
+
+// WT skipped the write request
+message WriteSkipped {
+  string node = 1;
+  string forwarder = 2;
+  string receiver = 3;
+  uint32 report_id = 4;
+
+  string reason = 5;
+
+  // [Execution Context]
+  common.ExecutionContext execution_context = 20;
+}
