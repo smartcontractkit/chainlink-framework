@@ -1,9 +1,6 @@
 # Log files
 *.log
 
-# bin
-tools/bin/*
-
 # generated content
 **/*.abi
 **/*.bin
