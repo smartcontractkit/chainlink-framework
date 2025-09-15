@@ -1,6 +1,6 @@
 .PHONY: gomods
 gomods: ## Install gomods
-	go install github.com/jmank88/gomods@v0.1.5
+	go install github.com/jmank88/gomods@v0.1.6
 
 .PHONY: gomodtidy
 gomodtidy: gomods
@@ -10,8 +10,13 @@ gomodtidy: gomods
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.53.0
 
+.PHONY: modgraph
+modgraph: gomods
+	go install github.com/jmank88/modgraph@v0.1.1
+	./tools/bin/modgraph > go.md
+
 .PHONY: generate
-generate: mockery
+generate: mockery modgraph
 	find . -type f -name .mockery.yaml -execdir mockery \; ## Execute mockery for all .mockery.yaml files
 
 .PHONY: rm-mocked
