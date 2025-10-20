@@ -33,7 +33,6 @@ type MultiNode struct {
 	NoNewFinalizedHeadsThreshold *config.Duration
 	FinalityDepth                *uint32
 	FinalityTagEnabled           *bool
-	SafeTagEnabled               *bool
 	FinalizedBlockOffset         *uint32
 }
 
@@ -93,8 +92,6 @@ func (c *MultiNodeConfig) FinalityDepth() uint32 { return *c.MultiNode.FinalityD
 
 func (c *MultiNodeConfig) FinalityTagEnabled() bool { return *c.MultiNode.FinalityTagEnabled }
 
-func (c *MultiNodeConfig) SafeTagEnabled() bool { return *c.MultiNode.SafeTagEnabled }
-
 func (c *MultiNodeConfig) FinalizedBlockOffset() uint32 { return *c.MultiNode.FinalizedBlockOffset }
 
 func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
@@ -149,9 +146,6 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	}
 	if f.MultiNode.FinalityTagEnabled != nil {
 		c.MultiNode.FinalityTagEnabled = f.MultiNode.FinalityTagEnabled
-	}
-	if f.MultiNode.SafeTagEnabled != nil {
-		c.MultiNode.SafeTagEnabled = f.MultiNode.SafeTagEnabled
 	}
 	if f.MultiNode.FinalizedBlockOffset != nil {
 		c.MultiNode.FinalizedBlockOffset = f.MultiNode.FinalizedBlockOffset

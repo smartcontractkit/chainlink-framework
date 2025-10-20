@@ -34,7 +34,6 @@ type ChainConfig interface {
 	NoNewFinalizedHeadsThreshold() time.Duration
 	FinalityDepth() uint32
 	FinalityTagEnabled() bool
-	SafeTagEnabled() bool
 	FinalizedBlockOffset() uint32
 }
 

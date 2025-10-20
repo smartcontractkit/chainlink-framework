@@ -51,6 +51,7 @@ type ChainConfig interface {
 	FinalityDepth() uint32
 	SafeDepth() uint32
 	FinalityTagEnabled() bool
+	SafeTagSupported() bool
 	FinalizedBlockOffset() uint32
 }
 
@@ -402,9 +403,19 @@ func (t *tracker[HTH, S, ID, BHASH]) backfillLoop(ctx context.Context) {
 
 func (t *tracker[HTH, S, ID, BHASH]) LatestSafeBlock(ctx context.Context) (safe HTH, err error) {
 	if t.config.FinalityTagEnabled() {
-		latestSafe, err2 := t.client.LatestSafeBlock(ctx)
-		if err2 != nil {
-			return latestSafe, fmt.Errorf("failed to get latest finalized block: %w", err2)
+		var latestSafe HTH
+		if t.config.SafeTagSupported() {
+			latestSafe, err = t.client.LatestSafeBlock(ctx)
+			if err != nil {
+				return latestSafe, fmt.Errorf("failed to get latest finalized block: %w", err)
+			}
+		} else {
+			// return latest finalized block if safe tag is not enabled
+			_, finalized, err2 := t.LatestAndFinalizedBlock(ctx)
+			if err2 != nil {
+				return finalized, fmt.Errorf("failed to get latest finalized block: %w", err2)
+			}
+			latestSafe = finalized
 		}
 
 		if !latestSafe.IsValid() {
