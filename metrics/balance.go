@@ -47,7 +47,7 @@ func NewGenericBalanceMetrics(network string, chainID string) (GenericBalanceMet
 func (m *balanceMetrics) RecordNodeBalance(ctx context.Context, account string, balance float64) {
 	NodeBalance.WithLabelValues(account, m.chainID, m.network).Set(balance)
 	m.nodeBalance.Record(ctx, balance, metric.WithAttributes(
-		attribute.String("network", m.network),
+		attribute.String("chainFamily", m.network), // leaving chainFamily for backward compatibility with prom metric
 		attribute.String("chainID", m.chainID),
 		attribute.String("account", account)))
 }
