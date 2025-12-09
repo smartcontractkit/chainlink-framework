@@ -2,6 +2,7 @@ package types
 
 import (
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,4 +48,22 @@ func TestTxAttemptState(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestTxLogging(t *testing.T) {
+	tx := Tx[*big.Int, *big.Int, *big.Int, *big.Int, *big.Int, *big.Int]{
+		ID: 1,
+		TxAttempts: []TxAttempt[*big.Int, *big.Int, *big.Int, *big.Int, *big.Int, *big.Int]{
+			{
+				ID: 2,
+			},
+		},
+	}
+
+	attempt := &tx.TxAttempts[0]
+	// set recursive reference
+	attempt.Tx = tx
+	// ensure that in both cases we prevent fmt from stacking in a loop attempt->tx->attempt by defining String method on attempt.
+	println(fmt.Sprintf("%+v", *attempt))
+	println(fmt.Sprintf("%+v", attempt))
 }

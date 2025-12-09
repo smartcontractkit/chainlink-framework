@@ -188,8 +188,8 @@ type TxAttempt[
 	IsPurgeAttempt          bool
 }
 
-func (a *TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() string {
-	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d", a.ID, a.TxID, a.TxFee, a.TxType)
+func (a TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) String() string {
+	return fmt.Sprintf("TxAttempt(ID:%d,TxID:%d,Fee:%s,TxType:%d,CreatedAt:%s)", a.ID, a.TxID, a.TxFee, a.TxType, a.CreatedAt.Format(time.RFC3339))
 }
 
 type Tx[
