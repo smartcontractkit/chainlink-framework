@@ -5,6 +5,8 @@ on: [pull_request]
 jobs:
   detect-modules:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       modules: ${{ steps.set-modules.outputs.modules }}
     steps:
