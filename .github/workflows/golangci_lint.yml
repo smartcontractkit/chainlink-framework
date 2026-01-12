@@ -48,6 +48,7 @@ jobs:
   golangci-lint-result:
     needs: golangci-lint
     runs-on: ubuntu-latest
+    permissions: {}
     if: ${{ always() && needs.golangci-lint.result != 'skipped'}}
     steps:
       - if: ${{ needs.golangci-lint.result != 'success' }}
