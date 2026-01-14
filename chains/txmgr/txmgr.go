@@ -538,6 +538,11 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Trigger(addr ADDR) {
 
 // CreateTransaction inserts a new transaction
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, THASH]) (tx txmgrtypes.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], err error) {
+	b.logger.Infow("DEBUG CreateTransaction entry",
+		"txRequest.MaxGasPrice", txRequest.MaxGasPrice,
+		"maxGasPriceIsNil", txRequest.MaxGasPrice == nil,
+		"idempotencyKey", txRequest.IdempotencyKey)
+
 	// Check for existing Tx with IdempotencyKey. If found, return the Tx and do nothing
 	// Skipping CreateTransaction to avoid double send
 	if b.txmv2wrapper != nil && txRequest.Meta != nil && txRequest.Meta.DualBroadcast != nil && *txRequest.Meta.DualBroadcast {
@@ -903,10 +908,20 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) pruneQueueAndCreateTxn
 		)
 	}
 
+	b.logger.Infow("DEBUG pruneQueueAndCreateTxn BEFORE CreateTransaction",
+		"txRequest.MaxGasPrice", txRequest.MaxGasPrice,
+		"maxGasPriceIsNil", txRequest.MaxGasPrice == nil)
+
 	tx, err = b.txStore.CreateTransaction(ctx, txRequest, chainID)
 	if err != nil {
 		return tx, err
 	}
+
+	b.logger.Infow("DEBUG pruneQueueAndCreateTxn AFTER CreateTransaction",
+		"tx.ID", tx.ID,
+		"tx.MaxGasPrice", tx.MaxGasPrice,
+		"maxGasPriceIsNil", tx.MaxGasPrice == nil)
+
 	b.logger.Debugw("Created transaction",
 		"fromAddress", txRequest.FromAddress,
 		"toAddress", txRequest.ToAddress,

@@ -407,6 +407,11 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleUnstartedT
 		return fmt.Errorf("invariant violation: expected transaction %v to be unstarted, it was %s", etx.ID, etx.State), false
 	}
 
+	eb.lggr.Infow("DEBUG handleUnstartedTx loaded from DB",
+		"txID", etx.ID,
+		"maxGasPrice", etx.MaxGasPrice,
+		"maxGasPriceIsNil", etx.MaxGasPrice == nil)
+
 	attempt, _, _, retryable, err := eb.NewTxAttempt(ctx, *etx, eb.lggr)
 	// Mark transaction as fatal if provided gas limit is set too low
 	if errors.Is(err, fees.ErrFeeLimitTooLow) {
