@@ -78,6 +78,7 @@ type TxRequest[ADDR chains.Hashable, TX_HASH chains.Hashable] struct {
 	EncodedPayload   []byte
 	Value            big.Int
 	FeeLimit         uint64
+	MaxGasPrice      *big.Int
 	Meta             *TxMeta[ADDR, TX_HASH]
 	ForwarderAddress ADDR
 
@@ -208,8 +209,9 @@ type Tx[
 	Value          big.Int
 	// FeeLimit on the Tx is always the conceptual gas limit, which is not
 	// necessarily the same as the on-chain encoded value (i.e. Optimism)
-	FeeLimit uint64
-	Error    null.String
+	FeeLimit    uint64
+	MaxGasPrice *big.Int
+	Error       null.String
 	// BroadcastAt is updated every time an attempt for this tx is re-sent
 	// In almost all cases it will be within a second or so of the actual send time.
 	BroadcastAt *time.Time
