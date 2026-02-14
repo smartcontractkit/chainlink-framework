@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
 
-var ErrNodeError = fmt.Errorf("no live nodes available")
+var ErrNodeError = fmt.Errorf("no live nodes available: all configured RPC nodes are currently unreachable or unhealthy. Check network connectivity and RPC endpoint health. The system will automatically reconnect when nodes become available")
 
 type multiNodeMetrics interface {
 	RecordNodeStates(ctx context.Context, state string, count int64)
