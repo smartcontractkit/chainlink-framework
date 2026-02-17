@@ -176,6 +176,31 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return nodeStateUnreachable == node.State()
 		})
 	})
+	t.Run("optional poll health check failure counts as poll failure and transitions to unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				pollFailureThreshold: 1,
+				pollInterval:         tests.TestInterval,
+			},
+			rpc:  rpc,
+			lggr: lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("ClientVersion", mock.Anything).Return("mock-version", nil)
+		rpc.On("PollHealthCheck", mock.Anything).Return(errors.New("health check failed"))
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, "poll health check failed: health check failed")
+		tests.AssertEventually(t, func() bool {
+			return nodeStateUnreachable == node.State()
+		})
+	})
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)

@@ -29,6 +29,12 @@ const (
 	msgDegradedState = "Chainlink is now operating in a degraded state and urgent action is required to resolve the issue"
 )
 
+// pollHealthChecker is an optional RPC capability for running extra liveness checks during alive-loop polling.
+// If implemented by a chain RPC client, failures are treated the same as ClientVersion polling failures.
+type pollHealthChecker interface {
+	PollHealthCheck(context.Context) error
+}
+
 // Node is a FSM
 // Each state has a loop that goes with it, which monitors the node and moves it into another state as necessary.
 // Only one loop must run at a time.
@@ -111,6 +117,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
 			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
 			version, pingErr := n.RPC().ClientVersion(pollCtx)
+			if pingErr == nil {
+				if healthChecker, ok := any(n.RPC()).(pollHealthChecker); ok {
+					if err := healthChecker.PollHealthCheck(pollCtx); err != nil {
+						pingErr = fmt.Errorf("poll health check failed: %w", err)
+					}
+				}
+			}
 			cancel()
 			if pingErr != nil {
 				// prevent overflow
