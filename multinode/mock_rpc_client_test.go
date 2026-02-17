@@ -296,6 +296,24 @@ func (_m *mockRPCClient[CHAIN_ID, HEAD]) IsSyncing(ctx context.Context) (bool, e
 	return r0, r1
 }
 
+// PollHealthCheck provides a mock function with given fields: _a0
+func (_m *mockRPCClient[CHAIN_ID, HEAD]) PollHealthCheck(_a0 context.Context) error {
+	ret := _m.Called(_a0)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PollHealthCheck")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // mockRPCClient_IsSyncing_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IsSyncing'
 type mockRPCClient_IsSyncing_Call[CHAIN_ID ID, HEAD Head] struct {
 	*mock.Call
