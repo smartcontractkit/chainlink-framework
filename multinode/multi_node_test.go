@@ -424,7 +424,7 @@ func TestMultiNode_RandomRPC(t *testing.T) {
 	})
 	t.Run("RandomRPC is non-sticky, calls Select on every invocation", func(t *testing.T) {
 		t.Parallel()
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		chainID := RandomID()
 		node1 := newMockNode[ID, multiNodeRPCClient](t)
 		node1.On("State").Return(nodeStateAlive).Maybe()
@@ -452,7 +452,7 @@ func TestMultiNode_RandomRPC(t *testing.T) {
 	})
 	t.Run("RandomRPC does not unsubscribe previous node on selection", func(t *testing.T) {
 		t.Parallel()
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		chainID := RandomID()
 		node1 := newMockNode[ID, multiNodeRPCClient](t)
 		node1.On("State").Return(nodeStateAlive).Maybe()
@@ -482,7 +482,7 @@ func TestMultiNode_RandomRPC(t *testing.T) {
 	})
 	t.Run("RandomRPC reports error when no nodes available", func(t *testing.T) {
 		t.Parallel()
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		chainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
