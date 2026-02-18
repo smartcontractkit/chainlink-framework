@@ -296,3 +296,10 @@ func (m *RPCClientBase[HEAD]) GetInterceptedChainInfo() (latest, highestUserObse
 	defer m.chainInfoLock.RUnlock()
 	return m.latestChainInfo, m.highestUserObservations
 }
+
+// PollHealthCheck provides a default no-op implementation for the RPCClient interface.
+// Chain-specific RPC clients can override this method to perform additional health checks
+// during polling (e.g., verifying historical state availability).
+func (m *RPCClientBase[HEAD]) PollHealthCheck(ctx context.Context) error {
+	return nil
+}
