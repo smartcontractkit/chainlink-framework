@@ -82,7 +82,7 @@ func TestRandomRPCNodeSelector_Distribution(t *testing.T) {
 
 	// Each node should be selected at least once with overwhelming probability
 	for _, n := range nodes {
-		assert.Greater(t, counts[n], 0, "expected every alive node to be selected at least once")
+		assert.Positive(t, counts[n], "expected every alive node to be selected at least once")
 	}
 }
 

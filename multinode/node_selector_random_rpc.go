@@ -32,6 +32,7 @@ func (s *randomRPCSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 		return nil
 	}
 
+	// #nosec G404
 	return liveNodes[rand.IntN(len(liveNodes))]
 }
 
