@@ -164,7 +164,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) start(ctx context.Context) error {
 	}
 	c.eng.Go(c.runLoop)
 
-	if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin {
+	if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin && c.selectionMode != NodeSelectionModeRandomRPC {
 		c.lggr.Infof("The MultiNode will switch to best node every %s", c.leaseDuration.String())
 		c.eng.Go(c.checkLeaseLoop)
 	} else {
@@ -192,6 +192,10 @@ func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC(ctx context.Context) (rpc RPC, err 
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CHAIN_ID, RPC], err error) {
+	if c.selectionMode == NodeSelectionModeRandomRPC {
+		return c.selectRandomRPCNode(ctx)
+	}
+
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -236,6 +240,30 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 
 	c.lggr.Debugw("Switched to a new active node due to prev node heath issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())
 	return c.activeNode, err
+}
+
+// selectRandomRPCNode picks a random healthy node on every call without caching
+// or terminating existing subscriptions on other nodes.
+func (c *MultiNode[CHAIN_ID, RPC]) selectRandomRPCNode(ctx context.Context) (Node[CHAIN_ID, RPC], error) {
+	for {
+		node := c.nodeSelector.Select()
+		if node != nil {
+			return node, nil
+		}
+		if slices.ContainsFunc(c.primaryNodes, func(n Node[CHAIN_ID, RPC]) bool {
+			return n.State().isInitializing()
+		}) {
+			select {
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			case <-time.After(100 * time.Millisecond):
+				continue
+			}
+		}
+		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
+		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
+		return nil, ErrNodeError
+	}
 }
 
 // LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.

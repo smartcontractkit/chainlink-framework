@@ -9,6 +9,7 @@ const (
 	NodeSelectionModeRoundRobin      = "RoundRobin"
 	NodeSelectionModeTotalDifficulty = "TotalDifficulty"
 	NodeSelectionModePriorityLevel   = "PriorityLevel"
+	NodeSelectionModeRandomRPC       = "RandomRPC"
 )
 
 type NodeSelector[
@@ -35,6 +36,8 @@ func newNodeSelector[
 		return NewTotalDifficultyNodeSelector[CHAIN_ID, RPC](nodes)
 	case NodeSelectionModePriorityLevel:
 		return NewPriorityLevelNodeSelector[CHAIN_ID, RPC](nodes)
+	case NodeSelectionModeRandomRPC:
+		return NewRandomRPCSelector[CHAIN_ID, RPC](nodes)
 	default:
 		panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", selectionMode))
 	}
