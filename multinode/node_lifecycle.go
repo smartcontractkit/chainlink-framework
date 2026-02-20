@@ -111,6 +111,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			lggr.Tracew("Pinging RPC", "nodeState", n.State(), "pollFailures", pollFailures)
 			pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
 			version, pingErr := n.RPC().ClientVersion(pollCtx)
+			if pingErr == nil {
+				if healthErr := n.RPC().PollHealthCheck(pollCtx); healthErr != nil {
+					pingErr = fmt.Errorf("poll health check failed: %w", healthErr)
+				}
+			}
 			cancel()
 			if pingErr != nil {
 				// prevent overflow

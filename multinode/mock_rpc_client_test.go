@@ -324,6 +324,52 @@ func (_c *mockRPCClient_IsSyncing_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(co
 	return _c
 }
 
+// PollHealthCheck provides a mock function with given fields: ctx
+func (_m *mockRPCClient[CHAIN_ID, HEAD]) PollHealthCheck(ctx context.Context) error {
+	ret := _m.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PollHealthCheck")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = rf(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// mockRPCClient_PollHealthCheck_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PollHealthCheck'
+type mockRPCClient_PollHealthCheck_Call[CHAIN_ID ID, HEAD Head] struct {
+	*mock.Call
+}
+
+// PollHealthCheck is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *mockRPCClient_Expecter[CHAIN_ID, HEAD]) PollHealthCheck(ctx interface{}) *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD] {
+	return &mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("PollHealthCheck", ctx)}
+}
+
+func (_c *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD]) Run(run func(ctx context.Context)) *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context))
+	})
+	return _c
+}
+
+func (_c *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD]) Return(_a0 error) *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) error) *mockRPCClient_PollHealthCheck_Call[CHAIN_ID, HEAD] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SubscribeToFinalizedHeads provides a mock function with given fields: ctx
 func (_m *mockRPCClient[CHAIN_ID, HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-chan HEAD, Subscription, error) {
 	ret := _m.Called(ctx)
