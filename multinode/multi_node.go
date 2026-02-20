@@ -193,7 +193,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC(ctx context.Context) (rpc RPC, err 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CHAIN_ID, RPC], err error) {
 	if c.selectionMode == NodeSelectionModeRandomRPC {
-		return c.selectRandomRPCNode(ctx)
+		return c.awaitNodeSelection(ctx)
 	}
 
 	c.activeMu.RLock()
@@ -217,34 +217,18 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 		c.activeNode.UnsubscribeAllExceptAliveLoop()
 	}
 
-	for {
-		c.activeNode = c.nodeSelector.Select()
-		if c.activeNode != nil {
-			break
-		}
-		if slices.ContainsFunc(c.primaryNodes, func(n Node[CHAIN_ID, RPC]) bool {
-			return n.State().isInitializing()
-		}) {
-			// initial dial still in-progress - retry until done
-			select {
-			case <-ctx.Done():
-				return nil, ctx.Err()
-			case <-time.After(100 * time.Millisecond):
-				continue
-			}
-		}
-		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
-		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
-		return nil, ErrNodeError
+	c.activeNode, err = c.awaitNodeSelection(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	c.lggr.Debugw("Switched to a new active node due to prev node heath issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())
 	return c.activeNode, err
 }
 
-// selectRandomRPCNode picks a random healthy node on every call without caching
-// or terminating existing subscriptions on other nodes.
-func (c *MultiNode[CHAIN_ID, RPC]) selectRandomRPCNode(ctx context.Context) (Node[CHAIN_ID, RPC], error) {
+// awaitNodeSelection blocks until nodeSelector returns a live node or all nodes
+// finish initializing. Returns ErrNodeError when no live nodes are available.
+func (c *MultiNode[CHAIN_ID, RPC]) awaitNodeSelection(ctx context.Context) (Node[CHAIN_ID, RPC], error) {
 	for {
 		node := c.nodeSelector.Select()
 		if node != nil {

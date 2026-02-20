@@ -21,6 +21,7 @@ func TestRandomRPCNodeSelector(t *testing.T) {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			node.On("State").Return(nodeStateOutOfSync)
+			node.On("UnsubscribeAllExceptAliveLoop")
 		} else {
 			node.On("State").Return(nodeStateAlive)
 		}
@@ -50,6 +51,7 @@ func TestRandomRPCNodeSelector_None(t *testing.T) {
 		} else {
 			node.On("State").Return(nodeStateUnreachable)
 		}
+		node.On("UnsubscribeAllExceptAliveLoop")
 		nodes = append(nodes, node)
 	}
 
