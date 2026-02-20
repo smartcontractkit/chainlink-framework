@@ -406,6 +406,101 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 }
 
+func TestMultiNode_RandomRPC(t *testing.T) {
+	t.Parallel()
+	t.Run("RandomRPC disables lease check", func(t *testing.T) {
+		t.Parallel()
+		chainID := RandomID()
+		node := newHealthyNode(t, chainID)
+		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode: NodeSelectionModeRandomRPC,
+			chainID:       chainID,
+			logger:        lggr,
+			nodes:         []Node[ID, multiNodeRPCClient]{node},
+		})
+		servicetest.Run(t, mn)
+		tests.RequireLogMessage(t, observedLogs, "Best node switching is disabled")
+	})
+	t.Run("RandomRPC is non-sticky, calls Select on every invocation", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		chainID := RandomID()
+		node1 := newMockNode[ID, multiNodeRPCClient](t)
+		node1.On("State").Return(nodeStateAlive).Maybe()
+		node1.On("String").Return("node1").Maybe()
+		node2 := newMockNode[ID, multiNodeRPCClient](t)
+		node2.On("State").Return(nodeStateAlive).Maybe()
+		node2.On("String").Return("node2").Maybe()
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode: NodeSelectionModeRandomRPC,
+			chainID:       chainID,
+			nodes:         []Node[ID, multiNodeRPCClient]{node1, node2},
+		})
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
+		nodeSelector.On("Select").Return(node1).Once()
+		nodeSelector.On("Select").Return(node2).Once()
+		mn.nodeSelector = nodeSelector
+
+		first, err := mn.selectNode(ctx)
+		require.NoError(t, err)
+		assert.Same(t, node1, first)
+
+		second, err := mn.selectNode(ctx)
+		require.NoError(t, err)
+		assert.Same(t, node2, second)
+	})
+	t.Run("RandomRPC does not unsubscribe previous node on selection", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		chainID := RandomID()
+		node1 := newMockNode[ID, multiNodeRPCClient](t)
+		node1.On("State").Return(nodeStateAlive).Maybe()
+		node1.On("String").Return("node1").Maybe()
+		node2 := newMockNode[ID, multiNodeRPCClient](t)
+		node2.On("State").Return(nodeStateAlive).Maybe()
+		node2.On("String").Return("node2").Maybe()
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode: NodeSelectionModeRandomRPC,
+			chainID:       chainID,
+			nodes:         []Node[ID, multiNodeRPCClient]{node1, node2},
+		})
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
+		nodeSelector.On("Select").Return(node1).Once()
+		nodeSelector.On("Select").Return(node2).Once()
+		mn.nodeSelector = nodeSelector
+
+		_, err := mn.selectNode(ctx)
+		require.NoError(t, err)
+		_, err = mn.selectNode(ctx)
+		require.NoError(t, err)
+
+		// UnsubscribeAllExceptAliveLoop must NOT have been called on either node.
+		// mockNode would fail the test if an unexpected call was made.
+		node1.AssertNotCalled(t, "UnsubscribeAllExceptAliveLoop")
+		node2.AssertNotCalled(t, "UnsubscribeAllExceptAliveLoop")
+	})
+	t.Run("RandomRPC reports error when no nodes available", func(t *testing.T) {
+		t.Parallel()
+		ctx := t.Context()
+		chainID := RandomID()
+		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
+		mn := newTestMultiNode(t, multiNodeOpts{
+			selectionMode: NodeSelectionModeRandomRPC,
+			chainID:       chainID,
+			logger:        lggr,
+		})
+		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
+		nodeSelector.On("Select").Return(nil).Once()
+		nodeSelector.On("Name").Return("MockedNodeSelector").Once()
+		mn.nodeSelector = nodeSelector
+		node, err := mn.selectNode(ctx)
+		require.EqualError(t, err, ErrNodeError.Error())
+		require.Nil(t, node)
+		tests.RequireLogMessage(t, observedLogs, "No live RPC nodes available")
+	})
+}
+
 func TestMultiNode_ChainInfo(t *testing.T) {
 	t.Parallel()
 	type nodeParams struct {

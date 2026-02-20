@@ -164,7 +164,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) start(ctx context.Context) error {
 	}
 	c.eng.Go(c.runLoop)
 
-	if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin {
+	if c.leaseDuration.Seconds() > 0 && c.selectionMode != NodeSelectionModeRoundRobin && c.selectionMode != NodeSelectionModeRandomRPC {
 		c.lggr.Infof("The MultiNode will switch to best node every %s", c.leaseDuration.String())
 		c.eng.Go(c.checkLeaseLoop)
 	} else {
@@ -192,6 +192,10 @@ func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC(ctx context.Context) (rpc RPC, err 
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CHAIN_ID, RPC], err error) {
+	if c.selectionMode == NodeSelectionModeRandomRPC {
+		return c.awaitNodeSelection(ctx)
+	}
+
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -213,15 +217,26 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 		c.activeNode.UnsubscribeAllExceptAliveLoop()
 	}
 
+	c.activeNode, err = c.awaitNodeSelection(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	c.lggr.Debugw("Switched to a new active node due to prev node heath issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())
+	return c.activeNode, err
+}
+
+// awaitNodeSelection blocks until nodeSelector returns a live node or all nodes
+// finish initializing. Returns ErrNodeError when no live nodes are available.
+func (c *MultiNode[CHAIN_ID, RPC]) awaitNodeSelection(ctx context.Context) (Node[CHAIN_ID, RPC], error) {
 	for {
-		c.activeNode = c.nodeSelector.Select()
-		if c.activeNode != nil {
-			break
+		node := c.nodeSelector.Select()
+		if node != nil {
+			return node, nil
 		}
 		if slices.ContainsFunc(c.primaryNodes, func(n Node[CHAIN_ID, RPC]) bool {
 			return n.State().isInitializing()
 		}) {
-			// initial dial still in-progress - retry until done
 			select {
 			case <-ctx.Done():
 				return nil, ctx.Err()
@@ -233,9 +248,6 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
 		return nil, ErrNodeError
 	}
-
-	c.lggr.Debugw("Switched to a new active node due to prev node heath issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())
-	return c.activeNode, err
 }
 
 // LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
