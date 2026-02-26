@@ -44,10 +44,10 @@ func AddPercentage(value *big.Int, percentage uint16) *big.Int {
 type feeUnitToChainUnit func(fee *big.Int) string
 
 var (
-	ErrBumpFeeExceedsLimit = errors.New("fee bump exceeds limit")
-	ErrBump                = errors.New("fee bump failed")
-	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined")
-	ErrFeeLimitTooLow      = errors.New("provided fee limit too low")
+	ErrBumpFeeExceedsLimit = errors.New("fee bump exceeds limit: the bumped fee would exceed the configured maximum fee cap. Consider increasing the fee limit in your node configuration or wait for network congestion to subside")
+	ErrBump                = errors.New("fee bump failed: unable to increase the transaction fee. The transaction may be stuck. Check node logs for the specific fee estimation error")
+	ErrConnectivity        = errors.New("transaction propagation issue: transactions are not being mined. This may indicate network connectivity problems, a congested network, or gas price set too low. Check your node's connection to the blockchain network")
+	ErrFeeLimitTooLow      = errors.New("provided fee limit too low: the specified gas/fee limit is below the minimum required for this transaction type. Increase the fee limit in your transaction parameters or node configuration")
 )
 
 func IsBumpErr(err error) bool {
