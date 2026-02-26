@@ -8,7 +8,25 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
+)
+
+// zombieNodeCheckInterval controls how often to re-check to see if we need to
+// state change in case we have to force a state transition due to no available
+// nodes.
+// NOTE: This only applies to out-of-sync nodes if they are the last available node
+func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
+	interval := noNewHeadsThreshold
+	if interval <= 0 || interval > QueryTimeout {
+		interval = QueryTimeout
+	}
+	return utils.WithJitter(interval)
+}
+
+const (
+	msgCannotDisable = "but cannot disable this connection because there are no other RPC endpoints, or all other RPC endpoints are dead."
+	msgDegradedState = "Chainlink is now operating in a degraded state and urgent action is required to resolve the issue"
 )
 
 // Node is a FSM
@@ -107,15 +125,25 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.metrics.IncrementPollsSuccess(ctx, n.name)
 				pollFailures = 0
 			}
-		if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
-			lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
-			n.declareUnreachable()
-			return
-		}
-		if outOfSync, _ := n.isOutOfSyncWithPool(); outOfSync {
-			n.declareOutOfSync(syncStatusNotInSyncWithPool)
-			return
-		}
+			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
+				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
+				if n.poolInfoProvider != nil {
+					if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
+						lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
+						continue
+					}
+				}
+				n.declareUnreachable()
+				return
+			}
+			if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
+				if liveNodes < 1 && !n.isLoadBalancedRPC {
+					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
+					continue
+				}
+				n.declareOutOfSync(syncStatusNotInSyncWithPool)
+				return
+			}
 		case bh, open := <-headsSub.Heads:
 			if !open {
 				lggr.Errorw("Subscription channel unexpectedly closed", "nodeState", n.getCachedState())
@@ -134,6 +162,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// We haven't received a head on the channel for at least the
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, localHighestChainInfo.BlockNumber), "nodeState", n.getCachedState(), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
+			if n.poolInfoProvider != nil {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
+					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
+					headsSub.ResetTimer(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold))
+					continue
+				}
+			}
 			n.declareOutOfSync(syncStatusNoNewHead)
 			return
 		case latestFinalized, open := <-finalizedHeadsSub.Heads:
@@ -151,6 +186,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// We haven't received a finalized head on the channel for at least the
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC's finalized state is out of sync; no new finalized heads received for %s (last finalized head received was %v)", noNewFinalizedBlocksTimeoutThreshold, localHighestChainInfo.FinalizedBlockNumber), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber)
+			if n.poolInfoProvider != nil {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
+					lggr.Criticalf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState)
+					finalizedHeadsSub.ResetTimer(zombieNodeCheckInterval(noNewFinalizedBlocksTimeoutThreshold))
+					continue
+				}
+			}
 			n.declareOutOfSync(syncStatusNoNewFinalizedHead)
 			return
 		case <-finalizedHeadsSub.Errors:
@@ -291,7 +333,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool() (outOfSync bool, liveN
 		return // disabled
 	}
 	// Check against best node
-	ln, ci := n.poolInfoProvider.LatestChainInfo()
+	ln, ci := n.poolInfoProvider.LatestChainInfo(n.name)
 	localChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	mode := n.nodePoolCfg.SelectionMode()
 	switch mode {
@@ -406,6 +448,18 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 			}
 
 			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "syncIssues", syncIssues)
+		case <-time.After(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold)):
+			if n.poolInfoProvider != nil {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 {
+					if n.isLoadBalancedRPC {
+						n.declareOutOfSync(syncIssues)
+						return
+					}
+					lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
+					n.declareInSync()
+					return
+				}
+			}
 		case err := <-headsSub.Errors:
 			lggr.Errorw("Subscription was terminated", "err", err)
 			n.declareUnreachable()

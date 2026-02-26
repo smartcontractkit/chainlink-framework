@@ -62,9 +62,9 @@ func (_c *mockPoolChainInfoProvider_HighestUserObservations_Call) RunAndReturn(r
 	return _c
 }
 
-// LatestChainInfo provides a mock function with no fields
-func (_m *mockPoolChainInfoProvider) LatestChainInfo() (int, ChainInfo) {
-	ret := _m.Called()
+// LatestChainInfo provides a mock function with given fields: callerName
+func (_m *mockPoolChainInfoProvider) LatestChainInfo(callerName string) (int, ChainInfo) {
+	ret := _m.Called(callerName)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestChainInfo")
@@ -72,17 +72,17 @@ func (_m *mockPoolChainInfoProvider) LatestChainInfo() (int, ChainInfo) {
 
 	var r0 int
 	var r1 ChainInfo
-	if rf, ok := ret.Get(0).(func() (int, ChainInfo)); ok {
-		return rf()
+	if rf, ok := ret.Get(0).(func(string) (int, ChainInfo)); ok {
+		return rf(callerName)
 	}
-	if rf, ok := ret.Get(0).(func() int); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(string) int); ok {
+		r0 = rf(callerName)
 	} else {
 		r0 = ret.Get(0).(int)
 	}
 
-	if rf, ok := ret.Get(1).(func() ChainInfo); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(string) ChainInfo); ok {
+		r1 = rf(callerName)
 	} else {
 		r1 = ret.Get(1).(ChainInfo)
 	}
@@ -96,13 +96,14 @@ type mockPoolChainInfoProvider_LatestChainInfo_Call struct {
 }
 
 // LatestChainInfo is a helper method to define mock.On call
-func (_e *mockPoolChainInfoProvider_Expecter) LatestChainInfo() *mockPoolChainInfoProvider_LatestChainInfo_Call {
-	return &mockPoolChainInfoProvider_LatestChainInfo_Call{Call: _e.mock.On("LatestChainInfo")}
+//   - callerName string
+func (_e *mockPoolChainInfoProvider_Expecter) LatestChainInfo(callerName interface{}) *mockPoolChainInfoProvider_LatestChainInfo_Call {
+	return &mockPoolChainInfoProvider_LatestChainInfo_Call{Call: _e.mock.On("LatestChainInfo", callerName)}
 }
 
-func (_c *mockPoolChainInfoProvider_LatestChainInfo_Call) Run(run func()) *mockPoolChainInfoProvider_LatestChainInfo_Call {
+func (_c *mockPoolChainInfoProvider_LatestChainInfo_Call) Run(run func(callerName string)) *mockPoolChainInfoProvider_LatestChainInfo_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run()
+		run(args[0].(string))
 	})
 	return _c
 }
@@ -112,7 +113,7 @@ func (_c *mockPoolChainInfoProvider_LatestChainInfo_Call) Return(_a0 int, _a1 Ch
 	return _c
 }
 
-func (_c *mockPoolChainInfoProvider_LatestChainInfo_Call) RunAndReturn(run func() (int, ChainInfo)) *mockPoolChainInfoProvider_LatestChainInfo_Call {
+func (_c *mockPoolChainInfoProvider_LatestChainInfo_Call) RunAndReturn(run func(string) (int, ChainInfo)) *mockPoolChainInfoProvider_LatestChainInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }

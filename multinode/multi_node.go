@@ -291,14 +291,18 @@ func isUsableState(s nodeState) bool {
 	return s == nodeStateOutOfSync || s == nodeStateFinalizedBlockOutOfSync
 }
 
-// LatestChainInfo returns the number of alive nodes in the pool and the highest ChainInfo most recently received by those nodes.
+// LatestChainInfo returns the number of alive nodes in the pool (excluding the node identified by callerName)
+// and the highest ChainInfo most recently received by those nodes.
 // E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
-func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo() (int, ChainInfo) {
+func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo(callerName string) (int, ChainInfo) {
 	var nLiveNodes int
 	ch := ChainInfo{
 		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.primaryNodes {
+		if n.Name() == callerName {
+			continue
+		}
 		if s, nodeChainInfo := n.StateAndLatest(); s == nodeStateAlive {
 			nLiveNodes++
 			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
