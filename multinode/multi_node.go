@@ -260,7 +260,8 @@ func (c *MultiNode[CHAIN_ID, RPC]) awaitNodeSelection(ctx context.Context) (Node
 			}
 		}
 		if fallback := c.selectOutOfSyncNode(); fallback != nil {
-			c.lggr.Warnw("No alive RPC nodes available, falling back to out-of-sync node", "node", fallback.String())
+			c.lggr.Criticalw("No alive RPC nodes available, falling back to out-of-sync node", "node", fallback.String())
+			c.eng.EmitHealthErr(fmt.Errorf("no alive nodes available for chain %s, using out-of-sync fallback", c.chainID.String()))
 			return fallback, nil
 		}
 		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
@@ -287,8 +288,9 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectOutOfSyncNode() Node[CHAIN_ID, RPC] {
 }
 
 // isUsableState returns true for out-of-sync states that can still serve requests as a fallback.
+// nodeStateFinalizedBlockOutOfSync is intentionally excluded to prevent local finality violations.
 func isUsableState(s nodeState) bool {
-	return s == nodeStateOutOfSync || s == nodeStateFinalizedBlockOutOfSync
+	return s == nodeStateOutOfSync
 }
 
 // LatestChainInfo returns the number of alive nodes in the pool (excluding the node identified by callerName)
@@ -342,21 +344,10 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 	defer c.activeMu.Unlock()
 
 	if bestNode == nil {
-		// No alive node available; if the current active is still usable (out-of-sync), keep it
-		if c.activeNode != nil && isUsableState(c.activeNode.State()) {
-			return
-		}
-		// Try out-of-sync fallback
-		if fallback := c.selectOutOfSyncNode(); fallback != nil && fallback != c.activeNode {
-			if c.activeNode != nil {
-				c.activeNode.UnsubscribeAllExceptAliveLoop()
-			}
-			c.activeNode = fallback
-		}
-		return
+		bestNode = c.selectOutOfSyncNode()
 	}
 
-	if bestNode != c.activeNode {
+	if bestNode != nil && bestNode != c.activeNode {
 		if c.activeNode != nil {
 			c.activeNode.UnsubscribeAllExceptAliveLoop()
 		}
