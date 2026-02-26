@@ -378,8 +378,8 @@ func TestMultiNode_selectNode(t *testing.T) {
 		activeNode, err := mn.selectNode(ctx)
 		require.NoError(t, err)
 		require.Equal(t, oldBest.String(), activeNode.String())
-		// old best is out-of-sync, a new alive node is available via selector
-		oldBest.On("State").Return(nodeStateOutOfSync).Maybe()
+		// old best died, so we should replace it
+		oldBest.On("State").Return(nodeStateOutOfSync).Twice()
 		nodeSelector.On("Select").Return(newBest).Once()
 		newActiveNode, err := mn.selectNode(ctx)
 		require.NoError(t, err)
@@ -403,143 +403,6 @@ func TestMultiNode_selectNode(t *testing.T) {
 		require.EqualError(t, err, ErrNodeError.Error())
 		require.Nil(t, node)
 		tests.RequireLogMessage(t, observedLogs, "No live RPC nodes available")
-	})
-	t.Run("Falls back to out-of-sync node when no alive nodes available", func(t *testing.T) {
-		t.Parallel()
-		ctx := tests.Context(t)
-		chainID := RandomID()
-		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		oosNode := newMockNode[ID, multiNodeRPCClient](t)
-		oosNode.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosNode.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 50}).Maybe()
-		oosNode.On("String").Return("oosNode").Maybe()
-		unreachableNode := newMockNode[ID, multiNodeRPCClient](t)
-		unreachableNode.On("State").Return(nodeStateUnreachable).Maybe()
-		unreachableNode.On("String").Return("unreachableNode").Maybe()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-			nodes:         []Node[ID, multiNodeRPCClient]{oosNode, unreachableNode},
-			logger:        lggr,
-		})
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(nil)
-		mn.nodeSelector = nodeSelector
-		selected, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosNode, selected)
-		tests.RequireLogMessage(t, observedLogs, "No alive RPC nodes available, falling back to out-of-sync node")
-	})
-	t.Run("Does not fall back to FinalizedBlockOutOfSync node", func(t *testing.T) {
-		t.Parallel()
-		ctx := tests.Context(t)
-		chainID := RandomID()
-		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		fbOosNode := newMockNode[ID, multiNodeRPCClient](t)
-		fbOosNode.On("State").Return(nodeStateFinalizedBlockOutOfSync).Maybe()
-		fbOosNode.On("String").Return("fbOosNode").Maybe()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-			nodes:         []Node[ID, multiNodeRPCClient]{fbOosNode},
-			logger:        lggr,
-		})
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(nil)
-		nodeSelector.On("Name").Return("MockedNodeSelector")
-		mn.nodeSelector = nodeSelector
-		selected, err := mn.selectNode(ctx)
-		require.EqualError(t, err, ErrNodeError.Error())
-		require.Nil(t, selected)
-		tests.RequireLogMessage(t, observedLogs, "No live RPC nodes available")
-	})
-	t.Run("Selects best out-of-sync node by highest block number", func(t *testing.T) {
-		t.Parallel()
-		ctx := tests.Context(t)
-		chainID := RandomID()
-		lggr, _ := logger.TestObserved(t, zap.WarnLevel)
-		oosLow := newMockNode[ID, multiNodeRPCClient](t)
-		oosLow.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosLow.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 30}).Maybe()
-		oosLow.On("String").Return("oosLow").Maybe()
-		oosHigh := newMockNode[ID, multiNodeRPCClient](t)
-		oosHigh.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosHigh.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 90}).Maybe()
-		oosHigh.On("String").Return("oosHigh").Maybe()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-			nodes:         []Node[ID, multiNodeRPCClient]{oosLow, oosHigh},
-			logger:        lggr,
-		})
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(nil)
-		mn.nodeSelector = nodeSelector
-		selected, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosHigh, selected)
-	})
-	t.Run("Keeps out-of-sync active node when no alive node becomes available", func(t *testing.T) {
-		t.Parallel()
-		ctx := tests.Context(t)
-		chainID := RandomID()
-		oosNode := newMockNode[ID, multiNodeRPCClient](t)
-		oosNode.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosNode.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 50}).Maybe()
-		oosNode.On("String").Return("oosNode").Maybe()
-		oosNode2 := newMockNode[ID, multiNodeRPCClient](t)
-		oosNode2.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosNode2.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 40}).Maybe()
-		oosNode2.On("String").Return("oosNode2").Maybe()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-			nodes:         []Node[ID, multiNodeRPCClient]{oosNode, oosNode2},
-		})
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(nil)
-		mn.nodeSelector = nodeSelector
-		// First call falls back to best out-of-sync (oosNode has higher block)
-		first, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosNode, first)
-		// Second call: still no alive, keeps the same out-of-sync node (no switch to oosNode2)
-		second, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosNode, second)
-	})
-	t.Run("Upgrades from out-of-sync active to alive node when one becomes available", func(t *testing.T) {
-		t.Parallel()
-		ctx := tests.Context(t)
-		chainID := RandomID()
-		lggr, _ := logger.TestObserved(t, zap.DebugLevel)
-		oosNode := newMockNode[ID, multiNodeRPCClient](t)
-		oosNode.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosNode.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 50}).Maybe()
-		oosNode.On("String").Return("oosNode").Maybe()
-		oosNode.On("UnsubscribeAllExceptAliveLoop").Maybe()
-		aliveNode := newMockNode[ID, multiNodeRPCClient](t)
-		aliveNode.On("State").Return(nodeStateAlive).Maybe()
-		aliveNode.On("String").Return("aliveNode").Maybe()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRoundRobin,
-			chainID:       chainID,
-			nodes:         []Node[ID, multiNodeRPCClient]{oosNode, aliveNode},
-			logger:        lggr,
-		})
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		// First select returns nil (no alive), second returns alive
-		nodeSelector.On("Select").Return(nil).Once()
-		mn.nodeSelector = nodeSelector
-		// First selection falls back to out-of-sync
-		first, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosNode, first)
-		// Now an alive node becomes available
-		nodeSelector.On("Select").Return(aliveNode).Once()
-		second, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, aliveNode, second)
 	})
 }
 
@@ -616,36 +479,6 @@ func TestMultiNode_RandomRPC(t *testing.T) {
 		// mockNode would fail the test if an unexpected call was made.
 		node1.AssertNotCalled(t, "UnsubscribeAllExceptAliveLoop")
 		node2.AssertNotCalled(t, "UnsubscribeAllExceptAliveLoop")
-	})
-	t.Run("RandomRPC falls back to out-of-sync node when no alive nodes available", func(t *testing.T) {
-		t.Parallel()
-		ctx := t.Context()
-		chainID := RandomID()
-		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
-		oosNode := newMockNode[ID, multiNodeRPCClient](t)
-		oosNode.On("State").Return(nodeStateOutOfSync).Maybe()
-		oosNode.On("StateAndLatest").Return(nodeStateOutOfSync, ChainInfo{BlockNumber: 50}).Maybe()
-		oosNode.On("String").Return("oosNode").Maybe()
-		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeRandomRPC,
-			chainID:       chainID,
-			nodes:         []Node[ID, multiNodeRPCClient]{oosNode},
-			logger:        lggr,
-		})
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(nil)
-		mn.nodeSelector = nodeSelector
-
-		first, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosNode, first)
-		tests.RequireLogMessage(t, observedLogs, "No alive RPC nodes available, falling back to out-of-sync node")
-
-		second, err := mn.selectNode(ctx)
-		require.NoError(t, err)
-		assert.Equal(t, oosNode, second)
-
-		oosNode.AssertNotCalled(t, "UnsubscribeAllExceptAliveLoop")
 	})
 	t.Run("RandomRPC reports error when no nodes available", func(t *testing.T) {
 		t.Parallel()

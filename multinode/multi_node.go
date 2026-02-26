@@ -3,7 +3,6 @@ package multinode
 import (
 	"context"
 	"fmt"
-	"math"
 	"math/big"
 	"slices"
 	"sync"
@@ -192,8 +191,6 @@ func (c *MultiNode[CHAIN_ID, RPC]) SelectRPC(ctx context.Context) (rpc RPC, err 
 }
 
 // selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
-// If no alive node is available, it falls back to an out-of-sync node. If the current active node is out-of-sync,
-// it will try to upgrade to an alive node when one becomes available.
 func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CHAIN_ID, RPC], err error) {
 	if c.selectionMode == NodeSelectionModeRandomRPC {
 		return c.awaitNodeSelection(ctx)
@@ -214,17 +211,6 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 		return // another goroutine beat us here
 	}
 
-	// If the current active node is out-of-sync, try to find an alive one first
-	if node != nil && isUsableState(node.State()) {
-		if aliveNode := c.nodeSelector.Select(); aliveNode != nil {
-			c.activeNode.UnsubscribeAllExceptAliveLoop()
-			c.activeNode = aliveNode
-			c.lggr.Debugw("Upgraded from out-of-sync to alive node", "prevNode", node.String(), "newNode", aliveNode.String())
-			return c.activeNode, nil
-		}
-		return // keep using the out-of-sync node
-	}
-
 	var prevNodeName string
 	if c.activeNode != nil {
 		prevNodeName = c.activeNode.String()
@@ -241,8 +227,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 }
 
 // awaitNodeSelection blocks until nodeSelector returns a live node or all nodes
-// finish initializing. If no alive nodes are available, falls back to an out-of-sync node.
-// Returns ErrNodeError when no usable nodes are available.
+// finish initializing. Returns ErrNodeError when no live nodes are available.
 func (c *MultiNode[CHAIN_ID, RPC]) awaitNodeSelection(ctx context.Context) (Node[CHAIN_ID, RPC], error) {
 	for {
 		node := c.nodeSelector.Select()
@@ -259,42 +244,14 @@ func (c *MultiNode[CHAIN_ID, RPC]) awaitNodeSelection(ctx context.Context) (Node
 				continue
 			}
 		}
-		if fallback := c.selectOutOfSyncNode(); fallback != nil {
-			c.lggr.Criticalw("No alive RPC nodes available, falling back to out-of-sync node", "node", fallback.String())
-			c.eng.EmitHealthErr(fmt.Errorf("no alive nodes available for chain %s, using out-of-sync fallback", c.chainID.String()))
-			return fallback, nil
-		}
 		c.lggr.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
 		c.eng.EmitHealthErr(fmt.Errorf("no live nodes available for chain %s", c.chainID.String()))
 		return nil, ErrNodeError
 	}
 }
 
-// selectOutOfSyncNode picks the best out-of-sync node by highest block number.
-// Returns nil if no out-of-sync nodes are available.
-func (c *MultiNode[CHAIN_ID, RPC]) selectOutOfSyncNode() Node[CHAIN_ID, RPC] {
-	var bestNode Node[CHAIN_ID, RPC]
-	var bestBlock int64 = math.MinInt64
-	for _, n := range c.primaryNodes {
-		if isUsableState(n.State()) {
-			_, ci := n.StateAndLatest()
-			if ci.BlockNumber > bestBlock {
-				bestBlock = ci.BlockNumber
-				bestNode = n
-			}
-		}
-	}
-	return bestNode
-}
-
-// isUsableState returns true for out-of-sync states that can still serve requests as a fallback.
-// nodeStateFinalizedBlockOutOfSync is intentionally excluded to prevent local finality violations.
-func isUsableState(s nodeState) bool {
-	return s == nodeStateOutOfSync
-}
-
-// LatestChainInfo returns the number of alive nodes in the pool (excluding the node identified by callerName)
-// and the highest ChainInfo most recently received by those nodes.
+// LatestChainInfo returns the number of alive nodes in the pool (excluding the node identified by callerName
+// from the count) and the highest ChainInfo most recently received by alive nodes.
 // E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
 func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo(callerName string) (int, ChainInfo) {
 	var nLiveNodes int
@@ -302,11 +259,10 @@ func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo(callerName string) (int, Chai
 		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.primaryNodes {
-		if n.Name() == callerName {
-			continue
-		}
 		if s, nodeChainInfo := n.StateAndLatest(); s == nodeStateAlive {
-			nLiveNodes++
+			if n.Name() != callerName {
+				nLiveNodes++
+			}
 			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
 			ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
@@ -342,12 +298,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 
 	c.activeMu.Lock()
 	defer c.activeMu.Unlock()
-
-	if bestNode == nil {
-		bestNode = c.selectOutOfSyncNode()
-	}
-
-	if bestNode != nil && bestNode != c.activeNode {
+	if bestNode != c.activeNode {
 		if c.activeNode != nil {
 			c.activeNode.UnsubscribeAllExceptAliveLoop()
 		}

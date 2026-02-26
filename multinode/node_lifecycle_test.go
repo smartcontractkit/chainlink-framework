@@ -176,7 +176,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			return nodeStateUnreachable == node.State()
 		})
 	})
-	t.Run("with threshold poll failures and last node alive, transitions to unreachable", func(t *testing.T) {
+	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
@@ -190,10 +190,41 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			lggr: lggr,
 		})
 		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
+			BlockNumber: 20,
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
-		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+		node.declareAlive()
+		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
+		assert.Equal(t, nodeStateAlive, node.State())
+	})
+	t.Run("with threshold poll failures, we are the last node alive, but is a proxy, transitions to unreachable", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		const pollFailureThreshold = 3
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+			rpc:               rpc,
+			lggr:              lggr,
+			isLoadBalancedRPC: true,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+		poolInfo := newMockPoolChainInfoProvider(t)
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
+			BlockNumber: 20,
+		}).Once()
+		node.SetPoolChainInfoProvider(poolInfo)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
+		pollError := errors.New("failed to get ClientVersion")
+		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		tests.AssertEventually(t, func() bool {
@@ -287,6 +318,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			TotalDifficulty: big.NewInt(10),
 		})
 		node.SetPoolChainInfoProvider(poolInfo)
+		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
 			assert.Equal(t, nodeStateOutOfSync, node.State())
 		}).Once()
@@ -387,6 +419,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			TotalDifficulty: big.NewInt(10),
 		}).Once()
 		node.SetPoolChainInfoProvider(poolInfo)
+		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
 			assert.Equal(t, nodeStateOutOfSync, node.State())
 		}).Once()
@@ -640,6 +673,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			TotalDifficulty: big.NewInt(10),
 		}).Once()
 		node.SetPoolChainInfoProvider(poolInfo)
+		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
 			assert.Equal(t, nodeStateOutOfSync, node.State())
 		}).Once()

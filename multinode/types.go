@@ -90,7 +90,8 @@ type Head interface {
 // PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo
 type PoolChainInfoProvider interface {
 	// LatestChainInfo returns the number of live nodes available in the pool (excluding the node identified by
-	// callerName), so we can prevent the last alive node from being moved to an unhealthy state.
+	// callerName from the count), so we can prevent the last alive node in a pool from being
+	// moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	// Returns highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
 	// observed by Node A are 10 and 15; Node B - 12 and 14. This method will return 12.
 	LatestChainInfo(callerName string) (int, ChainInfo)
