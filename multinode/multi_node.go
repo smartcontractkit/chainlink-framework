@@ -222,7 +222,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) selectNode(ctx context.Context) (node Node[CH
 		return nil, err
 	}
 
-	c.lggr.Debugw("Switched to a new active node due to prev node heath issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())
+	c.lggr.Debugw("Switched to a new active node due to prev node health issues", "prevNode", prevNodeName, "newNode", c.activeNode.String())
 	return c.activeNode, err
 }
 
@@ -250,17 +250,19 @@ func (c *MultiNode[CHAIN_ID, RPC]) awaitNodeSelection(ctx context.Context) (Node
 	}
 }
 
-// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being marked as out-of-sync.
-// Return highest ChainInfo most recently received by the alive nodes.
+// LatestChainInfo returns the number of alive nodes in the pool (excluding the node identified by callerName
+// from the count) and the highest ChainInfo most recently received by alive nodes.
 // E.g. If Node A's the most recent block is 10 and highest 15 and for Node B it's - 12 and 14. This method will return 12.
-func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo() (int, ChainInfo) {
+func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo(callerName string) (int, ChainInfo) {
 	var nLiveNodes int
 	ch := ChainInfo{
 		TotalDifficulty: big.NewInt(0),
 	}
 	for _, n := range c.primaryNodes {
 		if s, nodeChainInfo := n.StateAndLatest(); s == nodeStateAlive {
-			nLiveNodes++
+			if n.Name() != callerName {
+				nLiveNodes++
+			}
 			ch.BlockNumber = max(ch.BlockNumber, nodeChainInfo.BlockNumber)
 			ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, nodeChainInfo.FinalizedBlockNumber)
 			ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, nodeChainInfo.TotalDifficulty)
