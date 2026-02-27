@@ -136,9 +136,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				n.declareUnreachable()
 				return
 			}
-		if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
-			// note: there must be another live node for us to be out of sync
-			if liveNodes < 1 && !n.isLoadBalancedRPC {
+			if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
+				// note: there must be another live node for us to be out of sync
+				if liveNodes < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
 				}
