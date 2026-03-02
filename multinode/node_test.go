@@ -66,6 +66,22 @@ func (n testNodeConfig) VerifyChainID() bool {
 	return true
 }
 
+func (n testNodeConfig) FinalizedStateCheckEnabled() bool {
+	return false
+}
+
+func (n testNodeConfig) FinalizedStateCheckFailureThreshold() uint32 {
+	return 0
+}
+
+func (n testNodeConfig) FinalizedStateCheckAddress() string {
+	return ""
+}
+
+func (n testNodeConfig) FinalizedStateUnavailableRegex() string {
+	return ""
+}
+
 type testNode struct {
 	*node[ID, Head, RPCClient[ID, Head]]
 }
