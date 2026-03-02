@@ -34,6 +34,12 @@ type MultiNode struct {
 	FinalityDepth                *uint32
 	FinalityTagEnabled           *bool
 	FinalizedBlockOffset         *uint32
+
+	// Finalized State Availability Check
+	FinalizedStateCheckEnabled          *bool
+	FinalizedStateCheckAddress          *string
+	FinalizedStateCheckFailureThreshold *uint32
+	FinalizedStateUnavailableRegex      *string
 }
 
 func (c *MultiNodeConfig) Enabled() bool {
@@ -94,6 +100,31 @@ func (c *MultiNodeConfig) FinalityTagEnabled() bool { return *c.MultiNode.Finali
 
 func (c *MultiNodeConfig) FinalizedBlockOffset() uint32 { return *c.MultiNode.FinalizedBlockOffset }
 
+func (c *MultiNodeConfig) FinalizedStateCheckEnabled() bool {
+	return c.MultiNode.FinalizedStateCheckEnabled != nil && *c.MultiNode.FinalizedStateCheckEnabled
+}
+
+func (c *MultiNodeConfig) FinalizedStateCheckAddress() string {
+	if c.MultiNode.FinalizedStateCheckAddress == nil {
+		return ""
+	}
+	return *c.MultiNode.FinalizedStateCheckAddress
+}
+
+func (c *MultiNodeConfig) FinalizedStateCheckFailureThreshold() uint32 {
+	if c.MultiNode.FinalizedStateCheckFailureThreshold == nil {
+		return 0
+	}
+	return *c.MultiNode.FinalizedStateCheckFailureThreshold
+}
+
+func (c *MultiNodeConfig) FinalizedStateUnavailableRegex() string {
+	if c.MultiNode.FinalizedStateUnavailableRegex == nil {
+		return ""
+	}
+	return *c.MultiNode.FinalizedStateUnavailableRegex
+}
+
 func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	if f.MultiNode.Enabled != nil {
 		c.MultiNode.Enabled = f.MultiNode.Enabled
@@ -149,5 +180,19 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	}
 	if f.MultiNode.FinalizedBlockOffset != nil {
 		c.MultiNode.FinalizedBlockOffset = f.MultiNode.FinalizedBlockOffset
+	}
+
+	// Finalized State Availability Check
+	if f.MultiNode.FinalizedStateCheckEnabled != nil {
+		c.MultiNode.FinalizedStateCheckEnabled = f.MultiNode.FinalizedStateCheckEnabled
+	}
+	if f.MultiNode.FinalizedStateCheckAddress != nil {
+		c.MultiNode.FinalizedStateCheckAddress = f.MultiNode.FinalizedStateCheckAddress
+	}
+	if f.MultiNode.FinalizedStateCheckFailureThreshold != nil {
+		c.MultiNode.FinalizedStateCheckFailureThreshold = f.MultiNode.FinalizedStateCheckFailureThreshold
+	}
+	if f.MultiNode.FinalizedStateUnavailableRegex != nil {
+		c.MultiNode.FinalizedStateUnavailableRegex = f.MultiNode.FinalizedStateUnavailableRegex
 	}
 }

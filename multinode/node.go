@@ -27,6 +27,10 @@ type NodeConfig interface {
 	DeathDeclarationDelay() time.Duration
 	NewHeadsPollInterval() time.Duration
 	VerifyChainID() bool
+	FinalizedStateCheckEnabled() bool
+	FinalizedStateCheckFailureThreshold() uint32
+	FinalizedStateCheckAddress() string
+	FinalizedStateUnavailableRegex() string
 }
 
 type ChainConfig interface {

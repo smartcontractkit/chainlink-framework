@@ -81,6 +81,11 @@ type RPCClient[
 	// Implementations can use this for chain-specific health verification (e.g., historical state availability).
 	// Return nil if the check passes or is not applicable, or an error if the check fails.
 	PollHealthCheck(ctx context.Context) error
+	// CheckFinalizedStateAvailability - verifies if the RPC can serve historical state at the finalized block.
+	// This is used to detect non-archive nodes that cannot serve state queries for older blocks.
+	// The probeAddress is used to call a state query (e.g., eth_getBalance) at the finalized block.
+	// Return nil if the check passes or is not applicable, or an error if the check fails.
+	CheckFinalizedStateAvailability(ctx context.Context, probeAddress string) error
 }
 
 // Head is the interface required by the NodeClient

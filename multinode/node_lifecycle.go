@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"regexp"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -102,6 +103,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
 
+	// Finalized state availability check config
+	finalizedStateCheckEnabled := n.nodePoolCfg.FinalizedStateCheckEnabled()
+	finalizedStateCheckFailureThreshold := n.nodePoolCfg.FinalizedStateCheckFailureThreshold()
+	finalizedStateCheckAddress := n.nodePoolCfg.FinalizedStateCheckAddress()
+	finalizedStateUnavailableRegex := n.nodePoolCfg.FinalizedStateUnavailableRegex()
+	var finalizedStateFailures uint32
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -149,6 +157,40 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				}
 				n.declareOutOfSync(syncStatusNotInSyncWithPool)
 				return
+			}
+			// Separate finalized state availability check
+			if finalizedStateCheckEnabled {
+				stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, pollInterval)
+				stateErr := n.RPC().CheckFinalizedStateAvailability(stateCheckCtx, finalizedStateCheckAddress)
+				stateCheckCancel()
+				if stateErr != nil {
+					if isFinalizedStateUnavailableError(stateErr, finalizedStateUnavailableRegex) {
+						if finalizedStateFailures < math.MaxUint32 {
+							finalizedStateFailures++
+						}
+						lggr.Warnw("Finalized state not available", "err", stateErr, "failures", finalizedStateFailures, "threshold", finalizedStateCheckFailureThreshold)
+						if finalizedStateCheckFailureThreshold > 0 && finalizedStateFailures >= finalizedStateCheckFailureThreshold {
+							lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
+							if n.poolInfoProvider != nil {
+								if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+									lggr.Criticalf("RPC endpoint cannot serve finalized state; %s %s", msgCannotDisable, msgDegradedState)
+									continue
+								}
+							}
+							n.declareFinalizedStateNotAvailable()
+							return
+						}
+					} else {
+						// Treat as RPC reachability error
+						if pollFailures < math.MaxUint32 {
+							n.metrics.IncrementPollsFailed(ctx, n.name)
+							pollFailures++
+						}
+						lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr, "pollFailures", pollFailures)
+					}
+				} else {
+					finalizedStateFailures = 0
+				}
 			}
 		case bh, open := <-headsSub.Heads:
 			if !open {
@@ -683,4 +725,75 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			return
 		}
 	}
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) finalizedStateNotAvailableLoop() {
+	defer n.wg.Done()
+	ctx, cancel := n.newCtx()
+	defer cancel()
+
+	{
+		state := n.getCachedState()
+		switch state {
+		case nodeStateFinalizedStateNotAvailable:
+		case nodeStateClosed:
+			return
+		default:
+			panic(fmt.Sprintf("finalizedStateNotAvailableLoop can only run for node in FinalizedStateNotAvailable state, got: %s", state))
+		}
+	}
+
+	unavailableAt := time.Now()
+
+	lggr := logger.Sugared(logger.Named(n.lfcLog, "FinalizedStateNotAvailable"))
+	lggr.Debugw("Trying to revive RPC node with unavailable finalized state", "nodeState", n.getCachedState())
+
+	dialRetryBackoff := NewRedialBackoff()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(dialRetryBackoff.Duration()):
+			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.getCachedState())
+
+			err := n.rpc.Dial(ctx)
+			if err != nil {
+				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node: %v", err), "err", err, "nodeState", n.getCachedState())
+				continue
+			}
+
+			n.setState(nodeStateDialed)
+
+			state := n.verifyConn(ctx, lggr)
+			switch state {
+			case nodeStateUnreachable:
+				n.setState(nodeStateFinalizedStateNotAvailable)
+				continue
+			case nodeStateAlive:
+				lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Finalized state was unavailable for %s", n.String(), time.Since(unavailableAt)), "nodeState", n.getCachedState())
+				fallthrough
+			default:
+				n.declareState(state)
+				return
+			}
+		}
+	}
+}
+
+// isFinalizedStateUnavailableError checks if the error indicates that the RPC cannot serve
+// historical state (as opposed to an RPC reachability issue).
+// If regexPattern is empty, all errors are treated as state unavailable errors.
+func isFinalizedStateUnavailableError(err error, regexPattern string) bool {
+	if err == nil {
+		return false
+	}
+	if regexPattern == "" {
+		return true
+	}
+	re, compileErr := regexp.Compile(regexPattern)
+	if compileErr != nil {
+		return true
+	}
+	return re.MatchString(err.Error())
 }

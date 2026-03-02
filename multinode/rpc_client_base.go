@@ -303,3 +303,11 @@ func (m *RPCClientBase[HEAD]) GetInterceptedChainInfo() (latest, highestUserObse
 func (m *RPCClientBase[HEAD]) PollHealthCheck(ctx context.Context) error {
 	return nil
 }
+
+// CheckFinalizedStateAvailability provides a default no-op implementation for the RPCClient interface.
+// Chain-specific RPC clients can override this method to verify that the RPC can serve
+// historical state at the finalized block (e.g., by calling eth_getBalance at the finalized block).
+// The probeAddress parameter is used to perform a state query at the finalized block.
+func (m *RPCClientBase[HEAD]) CheckFinalizedStateAvailability(ctx context.Context, probeAddress string) error {
+	return nil
+}
