@@ -61,6 +61,11 @@ type TxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error)
 	GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error)
 	CalculateFee(feeParts FeeParts) *big.Int
+	// SupportsDualBroadcast reports whether this TXM will route transactions marked with
+	// DualBroadcast=true to a private relay (e.g. Flashbots) rather than the public mempool.
+	// Jobs that configure a secondary EOA check this at startup and refuse to run if it
+	// returns false, preventing accidental public-mempool exposure of secondary transactions.
+	SupportsDualBroadcast() bool
 }
 
 type TxmV2Wrapper[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
@@ -603,6 +608,12 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetForwarderForEOA(ctx
 	return
 }
 
+// SupportsDualBroadcast returns false for the legacy TXM, which has no concept of private
+// relay routing. Jobs that need dual broadcast must use TXMv2 with DualBroadcast enabled.
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SupportsDualBroadcast() bool {
+	return false
+}
+
 // GetForwarderForEOAOCR2Feeds calls forwarderMgr to get a proper forwarder for a given EOA and checks if its set as a transmitter on the OCR2Aggregator contract.
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetForwarderForEOAOCR2Feeds(ctx context.Context, eoa, ocr2Aggregator ADDR) (forwarder ADDR, err error) {
 	if !b.txConfig.ForwardersEnabled() {
@@ -879,6 +890,10 @@ func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) CalculateFee(fe
 
 func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error) {
 	return
+}
+
+func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SupportsDualBroadcast() bool {
+	return false
 }
 
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
