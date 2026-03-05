@@ -2,9 +2,14 @@ package multinode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 )
+
+// ErrFinalizedStateUnavailable is returned by CheckFinalizedStateAvailability when the RPC
+// cannot serve historical state at the finalized block (e.g., pruned/non-archive node).
+var ErrFinalizedStateUnavailable = errors.New("finalized state unavailable")
 
 // ID represents the base type, for any chain's ID.
 // It should be convertible to a string, that can uniquely identify this chain
@@ -83,9 +88,9 @@ type RPCClient[
 	PollHealthCheck(ctx context.Context) error
 	// CheckFinalizedStateAvailability - verifies if the RPC can serve historical state at the finalized block.
 	// This is used to detect non-archive nodes that cannot serve state queries for older blocks.
-	// The probeAddress is used to call a state query (e.g., eth_getBalance) at the finalized block.
-	// Return nil if the check passes or is not applicable, or an error if the check fails.
-	CheckFinalizedStateAvailability(ctx context.Context, probeAddress string) error
+	// Returns ErrFinalizedStateUnavailable if the RPC cannot serve historical state.
+	// Returns nil if the check passes or is not applicable, or another error for RPC issues.
+	CheckFinalizedStateAvailability(ctx context.Context) error
 }
 
 // Head is the interface required by the NodeClient

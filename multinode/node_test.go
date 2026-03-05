@@ -15,15 +15,16 @@ import (
 )
 
 type testNodeConfig struct {
-	pollFailureThreshold       uint32
-	pollInterval               time.Duration
-	selectionMode              string
-	syncThreshold              uint32
-	nodeIsSyncingEnabled       bool
-	enforceRepeatableRead      bool
-	finalizedBlockPollInterval time.Duration
-	deathDeclarationDelay      time.Duration
-	newHeadsPollInterval       time.Duration
+	pollFailureThreshold                uint32
+	pollInterval                        time.Duration
+	selectionMode                       string
+	syncThreshold                       uint32
+	nodeIsSyncingEnabled                bool
+	enforceRepeatableRead               bool
+	finalizedBlockPollInterval          time.Duration
+	deathDeclarationDelay               time.Duration
+	newHeadsPollInterval                time.Duration
+	finalizedStateCheckFailureThreshold uint32
 }
 
 func (n testNodeConfig) NewHeadsPollInterval() time.Duration {
@@ -66,20 +67,8 @@ func (n testNodeConfig) VerifyChainID() bool {
 	return true
 }
 
-func (n testNodeConfig) FinalizedStateCheckEnabled() bool {
-	return false
-}
-
 func (n testNodeConfig) FinalizedStateCheckFailureThreshold() uint32 {
-	return 0
-}
-
-func (n testNodeConfig) FinalizedStateCheckAddress() string {
-	return ""
-}
-
-func (n testNodeConfig) FinalizedStateUnavailableRegex() string {
-	return ""
+	return n.finalizedStateCheckFailureThreshold
 }
 
 type testNode struct {
@@ -145,12 +134,14 @@ func makeMockNodeMetrics(t *testing.T) *mockNodeMetrics {
 	mockMetrics.On("IncrementNodeTransitionsToInvalidChainID", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementNodeTransitionsToUnusable", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementNodeTransitionsToSyncing", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementNodeTransitionsToFinalizedStateNotAvailable", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("SetHighestSeenBlock", mock.Anything, mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("SetHighestFinalizedBlock", mock.Anything, mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementSeenBlocks", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementPolls", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementPollsFailed", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("IncrementPollsSuccess", mock.Anything, mock.Anything).Maybe()
+	mockMetrics.On("IncrementFinalizedStateFailed", mock.Anything, mock.Anything).Maybe()
 	mockMetrics.On("RecordNodeClientVersion", mock.Anything, mock.Anything, mock.Anything).Maybe()
 	return mockMetrics
 }

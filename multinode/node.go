@@ -27,10 +27,7 @@ type NodeConfig interface {
 	DeathDeclarationDelay() time.Duration
 	NewHeadsPollInterval() time.Duration
 	VerifyChainID() bool
-	FinalizedStateCheckEnabled() bool
 	FinalizedStateCheckFailureThreshold() uint32
-	FinalizedStateCheckAddress() string
-	FinalizedStateUnavailableRegex() string
 }
 
 type ChainConfig interface {
@@ -52,6 +49,7 @@ type nodeMetrics interface {
 	IncrementNodeTransitionsToInvalidChainID(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx context.Context, nodeName string)
 	RecordNodeClientVersion(ctx context.Context, nodeName string, version string)
 	SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64)
 	SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64)
@@ -59,6 +57,7 @@ type nodeMetrics interface {
 	IncrementPolls(ctx context.Context, nodeName string)
 	IncrementPollsFailed(ctx context.Context, nodeName string)
 	IncrementPollsSuccess(ctx context.Context, nodeName string)
+	IncrementFinalizedStateFailed(ctx context.Context, nodeName string)
 }
 
 type Node[
@@ -277,7 +276,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 		// The node is already closed, and any subsequent transition is invalid.
 		// To make spotting such transitions a bit easier, return the invalid node state.
 		return nodeStateLen
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))
 	}

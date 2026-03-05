@@ -186,7 +186,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing:
+	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
@@ -368,7 +368,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareFinalizedStateNotAvailable() {
 func (n *node[CHAIN_ID, HEAD, RPC]) transitionToFinalizedStateNotAvailable(fn func()) {
 	ctx, cancel := n.stopCh.NewCtx()
 	defer cancel()
-	n.metrics.IncrementNodeTransitionsToUnreachable(ctx, n.name)
+	n.metrics.IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx, n.name)
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	if n.state == nodeStateClosed {

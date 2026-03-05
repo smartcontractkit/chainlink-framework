@@ -1,6 +1,7 @@
 package multinode
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -9,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	prom "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
@@ -2176,4 +2178,136 @@ func TestNode_State(t *testing.T) {
 			assert.Equal(t, tc.ExpectedState, node.State())
 		})
 	}
+}
+
+func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
+	t.Parallel()
+
+	newFinalizedStateNotAvailableNode := func(t *testing.T, opts testNodeOpts) testNode {
+		node := newTestNode(t, opts)
+		opts.rpc.On("Close").Return(nil)
+		node.setState(nodeStateFinalizedStateNotAvailable)
+		return node
+	}
+
+	t.Run("returns on closed", func(t *testing.T) {
+		t.Parallel()
+		node := newTestNode(t, testNodeOpts{})
+		node.setState(nodeStateClosed)
+		node.wg.Add(1)
+		node.finalizedStateNotAvailableLoop()
+	})
+
+	t.Run("on failed dial keeps trying", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newFinalizedStateNotAvailableNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			lggr:    lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
+		node.wg.Add(1)
+		go node.finalizedStateNotAvailableLoop()
+		tests.AssertLogCountEventually(t, observedLogs, "Node is unreachable", 2)
+	})
+
+	t.Run("on finalized state still unavailable keeps trying", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		node := newFinalizedStateNotAvailableNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			lggr:    lggr,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(fmt.Errorf("%w: missing trie node", ErrFinalizedStateUnavailable))
+
+		node.wg.Add(1)
+		go node.finalizedStateNotAvailableLoop()
+		tests.AssertLogCountEventually(t, observedLogs, "Finalized state still not available", 2)
+	})
+
+	t.Run("on successful verification and state check becomes alive", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		node := newFinalizedStateNotAvailableNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil)
+
+		setupRPCForAliveLoop(t, rpc)
+
+		node.wg.Add(1)
+		go node.finalizedStateNotAvailableLoop()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+	})
+
+	t.Run("transitions from alive to finalizedStateNotAvailable and back", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		node := newTestNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			config: testNodeConfig{
+				pollInterval:                        10 * time.Millisecond,
+				finalizedStateCheckFailureThreshold: 2,
+			},
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Close").Return(nil)
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
+
+		sub := newMockSubscription(t)
+		sub.On("Err").Return(nil).Maybe()
+		sub.On("Unsubscribe").Maybe()
+		headsCh := make(chan Head)
+		rpc.On("SubscribeToHeads", mock.Anything).Return((<-chan Head)(headsCh), sub, nil).Maybe()
+		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return(make(<-chan Head), sub, nil).Maybe()
+		rpc.On("SetAliveLoopSub", mock.Anything).Maybe()
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Maybe()
+		rpc.On("ClientVersion", mock.Anything).Return("test-version", nil).Maybe()
+		rpc.On("PollHealthCheck", mock.Anything).Return(nil).Maybe()
+
+		var stateCheckCallCount int32
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(func(ctx context.Context) error {
+			count := atomic.AddInt32(&stateCheckCallCount, 1)
+			if count <= 2 {
+				return fmt.Errorf("%w: missing trie node", ErrFinalizedStateUnavailable)
+			}
+			return nil
+		}).Maybe()
+
+		node.setState(nodeStateAlive)
+		node.wg.Add(1)
+		go node.aliveLoop()
+
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateFinalizedStateNotAvailable
+		})
+
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+	})
 }
