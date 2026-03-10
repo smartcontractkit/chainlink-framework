@@ -7,7 +7,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_model v0.6.2
 	github.com/smartcontractkit/chainlink-common v0.10.1-0.20260305114348-b8bbac30bfc7
-	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20250717121125-2350c82883e2
+	github.com/smartcontractkit/chainlink-framework/metrics v0.0.0-20260305141558-e2fed5909312
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.27.1
 )
