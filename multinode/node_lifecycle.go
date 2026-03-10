@@ -779,4 +779,3 @@ func (n *node[CHAIN_ID, HEAD, RPC]) finalizedStateNotAvailableLoop() {
 		}
 	}
 }
-

@@ -33,7 +33,7 @@ type MultiNode struct {
 	NoNewFinalizedHeadsThreshold *config.Duration
 	FinalityDepth                *uint32
 	FinalityTagEnabled           *bool
-	FinalizedBlockOffset *uint32
+	FinalizedBlockOffset         *uint32
 
 	// Finalized State Availability Check
 	FinalizedStateCheckFailureThreshold *uint32
