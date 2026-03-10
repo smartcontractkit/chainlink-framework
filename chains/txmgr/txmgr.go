@@ -113,6 +113,7 @@ type Txm[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH cha
 	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
 	newErrorClassifier NewErrorClassifier
 	txmv2wrapper       TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	dualBroadcastEnabled bool
 
 	enabledAddrs []ADDR // sorted as strings
 }
@@ -142,29 +143,31 @@ func NewTxm[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH 
 	finalizer txmgrtypes.Finalizer[BHASH, HEAD],
 	newErrorClassifierFunc NewErrorClassifier,
 	txmv2wrapper TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE],
+	dualBroadcastEnabled bool,
 ) *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE] {
 	b := Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]{
-		logger:             logger.Sugared(lggr),
-		txStore:            txStore,
-		config:             cfg,
-		txConfig:           txCfg,
-		keyStore:           keyStore,
-		chainID:            chainID,
-		checkerFactory:     checkerFactory,
-		chHeads:            make(chan HEAD),
-		trigger:            make(chan ADDR),
-		chStop:             make(chan struct{}),
-		chSubbed:           make(chan struct{}),
-		reset:              make(chan reset),
-		fwdMgr:             fwdMgr,
-		txAttemptBuilder:   txAttemptBuilder,
-		broadcaster:        broadcaster,
-		confirmer:          confirmer,
-		resender:           resender,
-		tracker:            tracker,
-		newErrorClassifier: newErrorClassifierFunc,
-		finalizer:          finalizer,
-		txmv2wrapper:       txmv2wrapper,
+		logger:               logger.Sugared(lggr),
+		txStore:              txStore,
+		config:               cfg,
+		txConfig:             txCfg,
+		keyStore:             keyStore,
+		chainID:              chainID,
+		checkerFactory:       checkerFactory,
+		chHeads:              make(chan HEAD),
+		trigger:              make(chan ADDR),
+		chStop:               make(chan struct{}),
+		chSubbed:             make(chan struct{}),
+		reset:                make(chan reset),
+		fwdMgr:               fwdMgr,
+		txAttemptBuilder:     txAttemptBuilder,
+		broadcaster:          broadcaster,
+		confirmer:            confirmer,
+		resender:             resender,
+		tracker:              tracker,
+		newErrorClassifier:   newErrorClassifierFunc,
+		finalizer:            finalizer,
+		txmv2wrapper:         txmv2wrapper,
+		dualBroadcastEnabled: dualBroadcastEnabled,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -608,10 +611,11 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetForwarderForEOA(ctx
 	return
 }
 
-// SupportsDualBroadcast returns false for the legacy TXM, which has no concept of private
-// relay routing. Jobs that need dual broadcast must use TXMv2 with DualBroadcast enabled.
+// SupportsDualBroadcast reports whether this TXM will route DualBroadcast transactions to a
+// private relay rather than the public mempool. The value is set at construction time by the
+// EVM txmgr builder based on the node config — without TXMv2 having to expose this knowledge.
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SupportsDualBroadcast() bool {
-	return false
+	return b.dualBroadcastEnabled
 }
 
 // GetForwarderForEOAOCR2Feeds calls forwarderMgr to get a proper forwarder for a given EOA and checks if its set as a transmitter on the OCR2Aggregator contract.
