@@ -92,6 +92,14 @@ var (
 		Name: "pool_rpc_node_polls_success",
 		Help: "The total number of successful poll checks for the given RPC node",
 	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodeFinalizedStateFailed = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_finalized_state_failed",
+		Help: "The total number of finalized state availability check failures for the given RPC node",
+	}, []string{"network", "chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToFinalizedStateNotAvailable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_finalized_state_not_available",
+		Help: "Total number of transitions to FinalizedStateNotAvailable",
+	}, []string{"network", "chainID", "nodeName"})
 
 	// Transaction Sender
 	promMultiNodeInvariantViolations = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -120,6 +128,8 @@ type GenericMultiNodeMetrics interface {
 	IncrementPolls(ctx context.Context, nodeName string)
 	IncrementPollsFailed(ctx context.Context, nodeName string)
 	IncrementPollsSuccess(ctx context.Context, nodeName string)
+	IncrementFinalizedStateFailed(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx context.Context, nodeName string)
 }
 
 var _ GenericMultiNodeMetrics = &multiNodeMetrics{}
@@ -142,10 +152,12 @@ type multiNodeMetrics struct {
 	highestSeenBlock                metric.Int64Gauge
 	highestFinalizedBlock           metric.Int64Gauge
 	seenBlocks                      metric.Int64Counter
-	polls                           metric.Int64Counter
-	pollsFailed                     metric.Int64Counter
-	pollsSuccess                    metric.Int64Counter
-	invariantViolations             metric.Int64Counter
+	polls                                        metric.Int64Counter
+	pollsFailed                                  metric.Int64Counter
+	pollsSuccess                                 metric.Int64Counter
+	finalizedStateFailed                         metric.Int64Counter
+	nodeTransitionsToFinalizedStateNotAvailable  metric.Int64Counter
+	invariantViolations                          metric.Int64Counter
 }
 
 func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNodeMetrics, error) {
@@ -239,6 +251,16 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		return nil, fmt.Errorf("failed to register node polls success metric: %w", err)
 	}
 
+	finalizedStateFailed, err := beholder.GetMeter().Int64Counter("pool_rpc_node_finalized_state_failed")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register finalized state failed metric: %w", err)
+	}
+
+	nodeTransitionsToFinalizedStateNotAvailable, err := beholder.GetMeter().Int64Counter("pool_rpc_node_num_transitions_to_finalized_state_not_available")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register node transitions to finalized state not available metric: %w", err)
+	}
+
 	invariantViolations, err := beholder.GetMeter().Int64Counter("multi_node_invariant_violations")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register invariant violations metric: %w", err)
@@ -265,6 +287,8 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		polls:                           polls,
 		pollsFailed:                     pollsFailed,
 		pollsSuccess:                    pollsSuccess,
+		finalizedStateFailed:            finalizedStateFailed,
+		nodeTransitionsToFinalizedStateNotAvailable: nodeTransitionsToFinalizedStateNotAvailable,
 		invariantViolations:             invariantViolations,
 	}, nil
 }
@@ -409,6 +433,22 @@ func (m *multiNodeMetrics) IncrementPollsFailed(ctx context.Context, nodeName st
 func (m *multiNodeMetrics) IncrementPollsSuccess(ctx context.Context, nodeName string) {
 	promPoolRPCNodePollsSuccess.WithLabelValues(m.network, m.chainID, nodeName).Inc()
 	m.pollsSuccess.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementFinalizedStateFailed(ctx context.Context, nodeName string) {
+	promPoolRPCNodeFinalizedStateFailed.WithLabelValues(m.network, m.chainID, nodeName).Inc()
+	m.finalizedStateFailed.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("network", m.network),
+		attribute.String("chainID", m.chainID),
+		attribute.String("nodeName", nodeName)))
+}
+
+func (m *multiNodeMetrics) IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx context.Context, nodeName string) {
+	promPoolRPCNodeTransitionsToFinalizedStateNotAvailable.WithLabelValues(m.network, m.chainID, nodeName).Inc()
+	m.nodeTransitionsToFinalizedStateNotAvailable.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("network", m.network),
 		attribute.String("chainID", m.chainID),
 		attribute.String("nodeName", nodeName)))
