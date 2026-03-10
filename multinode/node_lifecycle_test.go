@@ -151,6 +151,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		// PollHealthCheck is called after successful ClientVersion - return nil to pass
 		rpc.On("PollHealthCheck", mock.Anything).Return(nil).Maybe()
+		// CheckFinalizedStateAvailability is called after successful polling
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil).Maybe()
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertLogCountEventually(t, observedLogs, "Ping successful", 2)
@@ -174,6 +176,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+		// CheckFinalizedStateAvailability may be called
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil).Maybe()
 		node.declareAlive()
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertEventually(t, func() bool {
@@ -227,6 +231,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
+		// CheckFinalizedStateAvailability may be called
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil).Maybe()
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		assert.Equal(t, nodeStateAlive, node.State())
@@ -254,6 +260,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
 		pollError := errors.New("failed to get ClientVersion")
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError)
+		// CheckFinalizedStateAvailability may be called
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil).Maybe()
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		tests.AssertEventually(t, func() bool {
@@ -377,6 +385,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		rpc.On("ClientVersion", mock.Anything).Return("", nil)
 		rpc.On("PollHealthCheck", mock.Anything).Return(nil).Maybe()
+		// CheckFinalizedStateAvailability is called after successful polling
+		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil).Maybe()
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		node.declareAlive()

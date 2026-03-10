@@ -36,7 +36,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 
 	t.Run("transitionToAlive", func(t *testing.T) {
 		const destinationState = nodeStateAlive
-		allowedStates := []nodeState{nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing}
+		allowedStates := []nodeState{nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable}
 		rpc := newMockRPCClient[ID, Head](t)
 		testTransition(t, rpc, testNode.transitionToAlive, destinationState, allowedStates...)
 	})
