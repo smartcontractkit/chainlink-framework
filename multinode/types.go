@@ -82,10 +82,6 @@ type RPCClient[
 	// Ensure implementation does not have a race condition when values are reset before request completion and as
 	// a result latest ChainInfo contains information from the previous cycle.
 	GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo)
-	// PollHealthCheck - performs an optional additional health check during polling.
-	// Implementations can use this for chain-specific health verification (e.g., historical state availability).
-	// Return nil if the check passes or is not applicable, or an error if the check fails.
-	PollHealthCheck(ctx context.Context) error
 	// CheckFinalizedStateAvailability - verifies if the RPC can serve historical state at the finalized block.
 	// This is used to detect non-archive nodes that cannot serve state queries for older blocks.
 	// Returns ErrFinalizedStateUnavailable if the RPC cannot serve historical state.
