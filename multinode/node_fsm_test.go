@@ -56,21 +56,21 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	})
 	t.Run("transitionToUnreachable", func(t *testing.T) {
 		const destinationState = nodeStateUnreachable
-		allowedStates := []nodeState{nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing}
+		allowedStates := []nodeState{nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable}
 		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("Close")
 		testTransition(t, rpc, testNode.transitionToUnreachable, destinationState, allowedStates...)
 	})
 	t.Run("transitionToInvalidChain", func(t *testing.T) {
 		const destinationState = nodeStateInvalidChainID
-		allowedStates := []nodeState{nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing}
+		allowedStates := []nodeState{nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing, nodeStateFinalizedStateNotAvailable}
 		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("Close")
 		testTransition(t, rpc, testNode.transitionToInvalidChainID, destinationState, allowedStates...)
 	})
 	t.Run("transitionToSyncing", func(t *testing.T) {
 		const destinationState = nodeStateSyncing
-		allowedStates := []nodeState{nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID}
+		allowedStates := []nodeState{nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateFinalizedStateNotAvailable}
 		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("Close")
 		testTransition(t, rpc, testNode.transitionToSyncing, destinationState, allowedStates...)

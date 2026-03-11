@@ -2247,9 +2247,11 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
 		nodeChainID := RandomID()
+		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
 		node := newTestNode(t, testNodeOpts{
 			rpc:     rpc,
 			chainID: nodeChainID,
+			lggr:    lggr,
 			config: testNodeConfig{
 				pollInterval:                        10 * time.Millisecond,
 				finalizedStateCheckFailureThreshold: 2,
@@ -2284,9 +2286,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		node.wg.Add(1)
 		go node.aliveLoop()
 
-		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateFinalizedStateNotAvailable
-		})
+		tests.AssertLogEventually(t, observedLogs, "RPC Node cannot serve finalized state")
 
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
