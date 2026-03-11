@@ -739,37 +739,35 @@ func (n *node[CHAIN_ID, HEAD, RPC]) finalizedStateNotAvailableLoop() {
 	lggr := logger.Sugared(logger.Named(n.lfcLog, "FinalizedStateNotAvailable"))
 	lggr.Debugw("Trying to revive RPC node with unavailable finalized state", "nodeState", n.getCachedState())
 
-	dialRetryBackoff := NewRedialBackoff()
+	// Need to redial since finalized-state-not-available nodes are automatically disconnected
+	state := n.createVerifiedConn(ctx, lggr)
+	if state != nodeStateAlive {
+		n.declareState(state)
+		return
+	}
+
+	recheckBackoff := NewRedialBackoff()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(dialRetryBackoff.Duration()):
-			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.getCachedState())
-
-			state := n.createVerifiedConn(ctx, lggr)
-			if state != nodeStateAlive {
-				n.setState(nodeStateFinalizedStateNotAvailable)
-				continue
-			}
-
+		case <-time.After(recheckBackoff.Duration()):
 			stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, n.nodePoolCfg.PollInterval())
 			stateErr := n.RPC().CheckFinalizedStateAvailability(stateCheckCtx)
 			stateCheckCancel()
 			if stateErr != nil {
 				if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
 					lggr.Warnw("Finalized state still not available", "err", stateErr)
-					n.setState(nodeStateFinalizedStateNotAvailable)
 					continue
 				}
 				lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr)
-				n.setState(nodeStateFinalizedStateNotAvailable)
-				continue
+				n.declareUnreachable()
+				return
 			}
 
-			lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Finalized state was unavailable for %s", n.String(), time.Since(unavailableAt)), "nodeState", n.getCachedState())
-			n.declareState(nodeStateAlive)
+			lggr.Infow(fmt.Sprintf("Successfully verified RPC node %s. Finalized state was unavailable for %s", n.String(), time.Since(unavailableAt)), "nodeState", n.getCachedState())
+			n.declareAlive()
 			return
 		}
 	}
