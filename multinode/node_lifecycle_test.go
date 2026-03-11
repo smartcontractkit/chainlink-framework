@@ -2271,7 +2271,6 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Maybe()
 		rpc.On("ClientVersion", mock.Anything).Return("test-version", nil).Maybe()
 
-
 		var stateCheckCallCount int32
 		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(func(ctx context.Context) error {
 			count := atomic.AddInt32(&stateCheckCallCount, 1)
