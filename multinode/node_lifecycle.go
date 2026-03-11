@@ -161,7 +161,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 						finalizedStateFailures++
 					}
 					lggr.Warnw("Finalized state not available", "err", stateErr, "failures", finalizedStateFailures, "threshold", finalizedStateCheckFailureThreshold)
-					if finalizedStateFailures >= finalizedStateCheckFailureThreshold {
+					if finalizedStateCheckFailureThreshold > 0 && finalizedStateFailures >= finalizedStateCheckFailureThreshold {
 						lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
 						if n.poolInfoProvider != nil {
 							if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {

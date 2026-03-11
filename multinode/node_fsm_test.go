@@ -86,6 +86,13 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 			node.transitionToSyncing(fn.Fn)
 		})
 	})
+	t.Run("transitionToFinalizedStateNotAvailable", func(t *testing.T) {
+		const destinationState = nodeStateFinalizedStateNotAvailable
+		allowedStates := []nodeState{nodeStateAlive}
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("Close")
+		testTransition(t, rpc, testNode.transitionToFinalizedStateNotAvailable, destinationState, allowedStates...)
+	})
 }
 
 func testTransition(t *testing.T, rpc *mockRPCClient[ID, Head], transition func(node testNode, fn func()), destinationState nodeState, allowedStates ...nodeState) {
