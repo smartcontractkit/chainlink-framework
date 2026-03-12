@@ -62,7 +62,7 @@ type TxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error)
 	CalculateFee(feeParts FeeParts) *big.Int
 	// SupportsDualBroadcast reports whether this TXM will route transactions marked with
-	// DualBroadcast=true to a private relay (e.g. Flashbots) rather than the public mempool.
+	// DualBroadcast=true to an OFA rather than the public mempool.
 	// Jobs that configure a secondary EOA check this at startup and refuse to run if it
 	// returns false, preventing accidental public-mempool exposure of secondary transactions.
 	SupportsDualBroadcast() bool
@@ -103,16 +103,16 @@ type Txm[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH cha
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper             *Reaper[CID]
-	resender           *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
-	broadcaster        *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
-	confirmer          *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]
-	tracker            *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
-	finalizer          txmgrtypes.Finalizer[BHASH, HEAD]
-	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
-	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
-	newErrorClassifier NewErrorClassifier
-	txmv2wrapper       TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	reaper               *Reaper[CID]
+	resender             *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
+	broadcaster          *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	confirmer            *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]
+	tracker              *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
+	finalizer            txmgrtypes.Finalizer[BHASH, HEAD]
+	fwdMgr               txmgrtypes.ForwarderManager[ADDR]
+	txAttemptBuilder     txmgrtypes.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	newErrorClassifier   NewErrorClassifier
+	txmv2wrapper         TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
 	dualBroadcastEnabled bool
 
 	enabledAddrs []ADDR // sorted as strings
@@ -611,9 +611,9 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetForwarderForEOA(ctx
 	return
 }
 
-// SupportsDualBroadcast reports whether this TXM will route DualBroadcast transactions to a
-// private relay rather than the public mempool. The value is set at construction time by the
-// EVM txmgr builder based on the node config — without TXMv2 having to expose this knowledge.
+// SupportsDualBroadcast reports whether this TXM will route DualBroadcast transactions to an
+// OFA rather than the public mempool. The value is set at construction time by the
+// txmgr builder based on node config.
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SupportsDualBroadcast() bool {
 	return b.dualBroadcastEnabled
 }
