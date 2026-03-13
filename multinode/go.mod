@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink-framework/multinode
 
 go 1.25.3
 
+replace github.com/smartcontractkit/chainlink-framework/metrics => ../metrics
+
 require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/pkg/errors v0.9.1
