@@ -61,12 +61,12 @@ type RPCClientMetrics interface {
 var _ RPCClientMetrics = (*rpcClientMetrics)(nil)
 
 type rpcClientMetrics struct {
-	env          string
-	network      string
-	chainID      string
-	rpcProvider  string
-	latency      metric.Float64Histogram
-	errorsTotal  metric.Int64Counter
+	env         string
+	network     string
+	chainID     string
+	rpcProvider string
+	latency     metric.Float64Histogram
+	errorsTotal metric.Int64Counter
 }
 
 // RPCClientMetricsConfig holds labels for RPC client metrics.

@@ -135,29 +135,29 @@ type GenericMultiNodeMetrics interface {
 var _ GenericMultiNodeMetrics = &multiNodeMetrics{}
 
 type multiNodeMetrics struct {
-	network                         string
-	chainID                         string
-	nodeStates                      metric.Int64Gauge
-	nodeClientVersion               metric.Int64Gauge
-	nodeVerifies                    metric.Int64Counter
-	nodeVerifiesFailed              metric.Int64Counter
-	nodeVerifiesSuccess             metric.Int64Counter
-	nodeTransitionsToAlive          metric.Int64Counter
-	nodeTransitionsToInSync         metric.Int64Counter
-	nodeTransitionsToOutOfSync      metric.Int64Counter
-	nodeTransitionsToUnreachable    metric.Int64Counter
-	nodeTransitionsToInvalidChainID metric.Int64Counter
-	nodeTransitionsToUnusable       metric.Int64Counter
-	nodeTransitionsToSyncing        metric.Int64Counter
-	highestSeenBlock                metric.Int64Gauge
-	highestFinalizedBlock           metric.Int64Gauge
-	seenBlocks                      metric.Int64Counter
-	polls                                        metric.Int64Counter
-	pollsFailed                                  metric.Int64Counter
-	pollsSuccess                                 metric.Int64Counter
-	finalizedStateFailed                         metric.Int64Counter
-	nodeTransitionsToFinalizedStateNotAvailable  metric.Int64Counter
-	invariantViolations                          metric.Int64Counter
+	network                                     string
+	chainID                                     string
+	nodeStates                                  metric.Int64Gauge
+	nodeClientVersion                           metric.Int64Gauge
+	nodeVerifies                                metric.Int64Counter
+	nodeVerifiesFailed                          metric.Int64Counter
+	nodeVerifiesSuccess                         metric.Int64Counter
+	nodeTransitionsToAlive                      metric.Int64Counter
+	nodeTransitionsToInSync                     metric.Int64Counter
+	nodeTransitionsToOutOfSync                  metric.Int64Counter
+	nodeTransitionsToUnreachable                metric.Int64Counter
+	nodeTransitionsToInvalidChainID             metric.Int64Counter
+	nodeTransitionsToUnusable                   metric.Int64Counter
+	nodeTransitionsToSyncing                    metric.Int64Counter
+	highestSeenBlock                            metric.Int64Gauge
+	highestFinalizedBlock                       metric.Int64Gauge
+	seenBlocks                                  metric.Int64Counter
+	polls                                       metric.Int64Counter
+	pollsFailed                                 metric.Int64Counter
+	pollsSuccess                                metric.Int64Counter
+	finalizedStateFailed                        metric.Int64Counter
+	nodeTransitionsToFinalizedStateNotAvailable metric.Int64Counter
+	invariantViolations                         metric.Int64Counter
 }
 
 func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNodeMetrics, error) {
@@ -289,7 +289,7 @@ func NewGenericMultiNodeMetrics(network string, chainID string) (GenericMultiNod
 		pollsSuccess:                    pollsSuccess,
 		finalizedStateFailed:            finalizedStateFailed,
 		nodeTransitionsToFinalizedStateNotAvailable: nodeTransitionsToFinalizedStateNotAvailable,
-		invariantViolations:             invariantViolations,
+		invariantViolations:                         invariantViolations,
 	}, nil
 }
 
