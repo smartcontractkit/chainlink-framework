@@ -106,6 +106,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	// Finalized state availability check config
 	finalizedStateCheckFailureThreshold := n.nodePoolCfg.FinalizedStateCheckFailureThreshold()
 	var finalizedStateFailures uint32
+	if finalizedStateCheckFailureThreshold > 0 {
+		lggr.Debugw("Finalized state availability check enabled", "finalizedStateCheckFailureThreshold", finalizedStateCheckFailureThreshold)
+	} else {
+		lggr.Debug("Finalized state availability check disabled")
+	}
 
 	for {
 		select {
@@ -151,37 +156,39 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				return
 			}
 			// Separate finalized state availability check
-			stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, pollInterval)
-			stateErr := n.RPC().CheckFinalizedStateAvailability(stateCheckCtx)
-			stateCheckCancel()
-			if stateErr != nil {
-				if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
-					if finalizedStateFailures < math.MaxUint32 {
-						n.metrics.IncrementFinalizedStateFailed(ctx, n.name)
-						finalizedStateFailures++
-					}
-					lggr.Warnw("Finalized state not available", "err", stateErr, "failures", finalizedStateFailures, "threshold", finalizedStateCheckFailureThreshold)
-					if finalizedStateCheckFailureThreshold > 0 && finalizedStateFailures >= finalizedStateCheckFailureThreshold {
-						lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
-						if n.poolInfoProvider != nil {
-							if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
-								lggr.Criticalf("RPC endpoint cannot serve finalized state; %s %s", msgCannotDisable, msgDegradedState)
-								continue
-							}
+			if finalizedStateCheckFailureThreshold > 0 {
+				stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, pollInterval)
+				stateErr := n.RPC().CheckFinalizedStateAvailability(stateCheckCtx)
+				stateCheckCancel()
+				if stateErr != nil {
+					if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
+						if finalizedStateFailures < math.MaxUint32 {
+							n.metrics.IncrementFinalizedStateFailed(ctx, n.name)
+							finalizedStateFailures++
 						}
-						n.declareFinalizedStateNotAvailable()
-						return
+						lggr.Warnw("Finalized state not available", "err", stateErr, "failures", finalizedStateFailures, "threshold", finalizedStateCheckFailureThreshold)
+						if finalizedStateFailures >= finalizedStateCheckFailureThreshold {
+							lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
+							if n.poolInfoProvider != nil {
+								if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+									lggr.Criticalf("RPC endpoint cannot serve finalized state; %s %s", msgCannotDisable, msgDegradedState)
+									continue
+								}
+							}
+							n.declareFinalizedStateNotAvailable()
+							return
+						}
+					} else {
+						// Treat as RPC reachability error
+						if pollFailures < math.MaxUint32 {
+							n.metrics.IncrementPollsFailed(ctx, n.name)
+							pollFailures++
+						}
+						lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr, "pollFailures", pollFailures)
 					}
 				} else {
-					// Treat as RPC reachability error
-					if pollFailures < math.MaxUint32 {
-						n.metrics.IncrementPollsFailed(ctx, n.name)
-						pollFailures++
-					}
-					lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr, "pollFailures", pollFailures)
+					finalizedStateFailures = 0
 				}
-			} else {
-				finalizedStateFailures = 0
 			}
 		case bh, open := <-headsSub.Heads:
 			if !open {
