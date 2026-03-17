@@ -45,3 +45,10 @@ Labels: `env`, `network`, `chain_id`, `rpc_provider`, `call` (e.g. `latest_block
 ## Enabling metrics
 
 Create `RPCClientMetrics` with `metrics.NewRPCClientMetrics(metrics.RPCClientMetricsConfig{...})` and pass it as the last argument to `multinode.NewRPCClientBase(...)`. The follow-up interface refactor will make it easier for multinode/chain integrations to supply `env`, `network`, `chain_id`, and `rpc_provider`.
+
+## Follow-up: multinode integration (PR 2)
+
+After the metrics module changes are merged, a second PR will:
+
+1. Update `multinode/go.mod`: bump `github.com/smartcontractkit/chainlink-framework/metrics` to the new version that includes `RPCClientMetrics`.
+2. Add RPC metrics support in multinode: add optional `rpcMetrics metrics.RPCClientMetrics` to `RPCClientBase` and `NewRPCClientBase`, and call `RecordRequest` in `LatestBlock` and `LatestFinalizedBlock` (with latency and error recording).

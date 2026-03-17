@@ -9,8 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
-	"github.com/smartcontractkit/chainlink-framework/metrics"
 )
 
 type RPCClientBaseConfig interface {
@@ -48,18 +46,13 @@ type RPCClientBase[HEAD Head] struct {
 	highestUserObservations ChainInfo
 	// most recent chain info observed during current lifecycle
 	latestChainInfo ChainInfo
-
-	// rpcMetrics is optional; when set, RPC latency and errors are reported to Beholder/Prometheus.
-	rpcMetrics metrics.RPCClientMetrics
 }
 
-// NewRPCClientBase creates an RPC client base. rpcMetrics is optional; when non-nil,
-// latency and error metrics are emitted to Beholder for observability in Prometheus/Grafana.
+// NewRPCClientBase creates an RPC client base.
 func NewRPCClientBase[HEAD Head](
 	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
-	rpcMetrics metrics.RPCClientMetrics,
 ) *RPCClientBase[HEAD] {
 	return &RPCClientBase[HEAD]{
 		cfg:                  cfg,
@@ -69,7 +62,6 @@ func NewRPCClientBase[HEAD Head](
 		latestFinalizedBlock: latestFinalizedBlock,
 		subs:                 make(map[Subscription]struct{}),
 		lifeCycleCh:          make(chan struct{}),
-		rpcMetrics:           rpcMetrics,
 	}
 }
 
@@ -160,24 +152,14 @@ func (m *RPCClientBase[HEAD]) SubscribeToFinalizedHeads(ctx context.Context) (<-
 	return channel, sub, nil
 }
 
-const (
-	callLatestBlock          = "latest_block"
-	callLatestFinalizedBlock = "latest_finalized_block"
-)
-
 func (m *RPCClientBase[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 	// capture lifeCycleCh to ensure we are not updating chainInfo with observations related to previous life cycle
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
-	start := time.Now()
 	head, err := m.latestBlock(ctx)
-	latencyMs := float64(time.Since(start).Milliseconds())
 	if err == nil && !head.IsValid() {
 		err = errors.New("invalid head")
-	}
-	if m.rpcMetrics != nil {
-		m.rpcMetrics.RecordRequest(ctx, callLatestBlock, latencyMs, err)
 	}
 	if err != nil {
 		return head, err
@@ -191,14 +173,9 @@ func (m *RPCClientBase[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, e
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
-	start := time.Now()
 	head, err := m.latestFinalizedBlock(ctx)
-	latencyMs := float64(time.Since(start).Milliseconds())
 	if err == nil && !head.IsValid() {
 		err = errors.New("invalid head")
-	}
-	if m.rpcMetrics != nil {
-		m.rpcMetrics.RecordRequest(ctx, callLatestFinalizedBlock, latencyMs, err)
 	}
 	if err != nil {
 		return head, err
