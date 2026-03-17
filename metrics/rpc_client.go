@@ -14,7 +14,6 @@
 //
 //   - Request rate by call type:
 //     sum(rate(rpc_request_latency_ms_count[5m])) by (call, env, network)
-//
 package metrics
 
 import (
