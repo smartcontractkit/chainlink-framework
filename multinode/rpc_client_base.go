@@ -48,7 +48,6 @@ type RPCClientBase[HEAD Head] struct {
 	latestChainInfo ChainInfo
 }
 
-// NewRPCClientBase creates an RPC client base.
 func NewRPCClientBase[HEAD Head](
 	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
@@ -158,11 +157,12 @@ func (m *RPCClientBase[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 	defer cancel()
 
 	head, err := m.latestBlock(ctx)
-	if err == nil && !head.IsValid() {
-		err = errors.New("invalid head")
-	}
 	if err != nil {
 		return head, err
+	}
+
+	if !head.IsValid() {
+		return head, errors.New("invalid head")
 	}
 
 	m.OnNewHead(ctx, lifeCycleCh, head)
@@ -174,11 +174,12 @@ func (m *RPCClientBase[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, e
 	defer cancel()
 
 	head, err := m.latestFinalizedBlock(ctx)
-	if err == nil && !head.IsValid() {
-		err = errors.New("invalid head")
-	}
 	if err != nil {
 		return head, err
+	}
+
+	if !head.IsValid() {
+		return head, errors.New("invalid head")
 	}
 
 	m.OnNewFinalizedHead(ctx, lifeCycleCh, head)
