@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-framework/metrics"
 )
 
 type RPCClientBaseConfig interface {
@@ -33,6 +34,9 @@ type RPCClientBase[HEAD Head] struct {
 	latestBlock          func(ctx context.Context) (HEAD, error)
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error)
 
+	// rpcMetrics is optional; when non-nil, LatestBlock and LatestFinalizedBlock record latency and errors.
+	rpcMetrics metrics.RPCClientMetrics
+
 	// lifeCycleCh can be closed to immediately cancel all in-flight requests on
 	// this RPC. Closing and replacing should be serialized through
 	// lifeCycleMu since it can happen on state transitions as well as RPCClientBase Close.
@@ -52,6 +56,7 @@ func NewRPCClientBase[HEAD Head](
 	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
+	rpcMetrics metrics.RPCClientMetrics,
 ) *RPCClientBase[HEAD] {
 	return &RPCClientBase[HEAD]{
 		cfg:                  cfg,
@@ -59,6 +64,7 @@ func NewRPCClientBase[HEAD Head](
 		ctxTimeout:           ctxTimeout,
 		latestBlock:          latestBlock,
 		latestFinalizedBlock: latestFinalizedBlock,
+		rpcMetrics:           rpcMetrics,
 		subs:                 make(map[Subscription]struct{}),
 		lifeCycleCh:          make(chan struct{}),
 	}
@@ -156,15 +162,25 @@ func (m *RPCClientBase[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
+	start := time.Now()
 	head, err := m.latestBlock(ctx)
+	latencyMs := float64(time.Since(start).Milliseconds())
 	if err != nil {
+		if m.rpcMetrics != nil {
+			m.rpcMetrics.RecordRequest(ctx, "latest_block", latencyMs, err)
+		}
 		return head, err
 	}
-
 	if !head.IsValid() {
-		return head, errors.New("invalid head")
+		err := errors.New("invalid head")
+		if m.rpcMetrics != nil {
+			m.rpcMetrics.RecordRequest(ctx, "latest_block", latencyMs, err)
+		}
+		return head, err
 	}
-
+	if m.rpcMetrics != nil {
+		m.rpcMetrics.RecordRequest(ctx, "latest_block", latencyMs, nil)
+	}
 	m.OnNewHead(ctx, lifeCycleCh, head)
 	return head, nil
 }
@@ -173,15 +189,25 @@ func (m *RPCClientBase[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, e
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
 
+	start := time.Now()
 	head, err := m.latestFinalizedBlock(ctx)
+	latencyMs := float64(time.Since(start).Milliseconds())
 	if err != nil {
+		if m.rpcMetrics != nil {
+			m.rpcMetrics.RecordRequest(ctx, "latest_finalized_block", latencyMs, err)
+		}
 		return head, err
 	}
-
 	if !head.IsValid() {
-		return head, errors.New("invalid head")
+		err := errors.New("invalid head")
+		if m.rpcMetrics != nil {
+			m.rpcMetrics.RecordRequest(ctx, "latest_finalized_block", latencyMs, err)
+		}
+		return head, err
 	}
-
+	if m.rpcMetrics != nil {
+		m.rpcMetrics.RecordRequest(ctx, "latest_finalized_block", latencyMs, nil)
+	}
 	m.OnNewFinalizedHead(ctx, lifeCycleCh, head)
 	return head, nil
 }

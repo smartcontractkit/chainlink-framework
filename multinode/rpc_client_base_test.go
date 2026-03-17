@@ -67,7 +67,7 @@ func newTestRPC(t *testing.T) *testRPC {
 	}
 
 	rpc := &testRPC{}
-	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock)
+	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, nil)
 	t.Cleanup(rpc.Close)
 	return rpc
 }
