@@ -347,6 +347,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 			continue
 		}
 		confirmedTxIDs = append(confirmedTxIDs, tx.ID)
+		ec.lggr.Infow("Transaction confirmed", "etxID", tx.ID, "tracingID", tx.GetTracingID(ec.lggr))
 		observeUntilTxConfirmed(ctx, ec.metrics, tx, head)
 	}
 	// Mark the transactions included on-chain with a purge attempt as fatal error with the terminally stuck error message
@@ -796,12 +797,14 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ForceRebroadcas
 				continue
 			}
 			attempt.Tx = *etx // for logging
-			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt)
-			if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != multinode.Successful && err != nil {
-				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v, gas limit %v, and caller provided fee Limit %v	: %s", etx.ID, *etx.Sequence, attempt.ChainSpecificFeeLimit, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
-				continue
+			errType, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr)
+			if errType == multinode.Successful || errType == multinode.TransactionAlreadyKnown {
+				ec.lggr.Infow("ForceRebroadcast: Broadcasted transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "meta", etx.Meta, "feeLimit",
+					attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+			} else {
+				ec.lggr.Errorw("ForceRebroadcast: Broadcasted transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "meta", etx.Meta, "feeLimit",
+					attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 			}
-			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast tx %v with hash: 0x%x", etx.ID, attempt.Hash)
 		}
 	}
 	return nil

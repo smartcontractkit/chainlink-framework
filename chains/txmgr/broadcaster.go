@@ -463,8 +463,9 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 	}
 
 	lgr := etx.GetLogger(logger.With(eb.lggr, "fee", attempt.TxFee))
-	lgr.Infow("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "meta", etx.Meta, "feeLimit", attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etx", etx)
 	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
+	lgr.Infow("Broadcasted transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "tracingID", etx.GetTracingID(lgr), "meta", etx.Meta, "feeLimit",
+		attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 
 	// The validation below is only applicable to Hedera because it has instant finality and a unique sequence behavior
 	if eb.chainType == hederaChainType {
