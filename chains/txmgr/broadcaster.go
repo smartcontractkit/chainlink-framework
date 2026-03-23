@@ -228,6 +228,10 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) closeInternal() 
 	return nil
 }
 
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SetEnabledAddresses(addrs []ADDR) {
+	eb.enabledAddresses = addrs
+}
+
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
 	eb.resumeCallback = callback
 }
@@ -238,6 +242,10 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Name() string {
 
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) HealthReport() map[string]error {
 	return map[string]error{eb.Name(): eb.Healthy()}
+}
+
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Ready() error {
+	return eb.StateMachine.Ready()
 }
 
 // Trigger forces the monitor for a particular address to recheck for new txes
