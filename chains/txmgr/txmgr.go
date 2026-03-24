@@ -926,11 +926,12 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) pruneQueueAndCreateTxn
 	if err != nil {
 		return tx, err
 	}
-	b.logger.Debugw("Created transaction",
+	b.logger.Infow("Created transaction",
 		"fromAddress", txRequest.FromAddress,
 		"toAddress", txRequest.ToAddress,
 		"meta", txRequest.Meta,
 		"transactionID", tx.ID,
+		"tracingID", tx.GetTracingID(b.logger),
 	)
 
 	return tx, nil
