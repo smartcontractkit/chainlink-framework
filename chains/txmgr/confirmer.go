@@ -811,11 +811,9 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ForceRebroadcas
 			attempt.Tx = *etx // for logging
 			errType, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr)
 			if errType == multinode.Successful || errType == multinode.TransactionAlreadyKnown {
-				ec.lggr.Infow("ForceRebroadcast: Broadcasted transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "meta", etx.Meta, "feeLimit",
-					attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+				ec.lggr.Infow("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 			} else {
-				ec.lggr.Errorw("ForceRebroadcast: Broadcasted transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "meta", etx.Meta, "feeLimit",
-					attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+				ec.lggr.Errorw("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 			}
 		}
 	}
