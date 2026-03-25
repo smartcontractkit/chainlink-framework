@@ -169,6 +169,14 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) closeInternal()
 	return nil
 }
 
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Deliver(head HEAD) {
+	ec.mb.Deliver(head)
+}
+
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SetEnabledAddresses(addrs []ADDR) {
+	ec.enabledAddresses = addrs
+}
+
 func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
 	ec.resumeCallback = callback
 }
@@ -179,6 +187,10 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Name() string {
 
 func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) HealthReport() map[string]error {
 	return map[string]error{ec.Name(): ec.Healthy()}
+}
+
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Ready() error {
+	return ec.StateMachine.Ready()
 }
 
 func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
