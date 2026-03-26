@@ -359,7 +359,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 			continue
 		}
 		confirmedTxIDs = append(confirmedTxIDs, tx.ID)
-		ec.lggr.Infow("Transaction confirmed", "etxID", tx.ID, "tracingID", tx.GetTracingID(ec.lggr))
+		ec.lggr.Infow("Transaction confirmed", "etxID", tx.ID, "transactionLifecycleID", tx.GetTransactionLifecycleID(ec.lggr))
 		observeUntilTxConfirmed(ctx, ec.metrics, tx, head)
 	}
 	// Mark the transactions included on-chain with a purge attempt as fatal error with the terminally stuck error message
@@ -811,9 +811,9 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ForceRebroadcas
 			attempt.Tx = *etx // for logging
 			errType, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr)
 			if errType == multinode.Successful || errType == multinode.TransactionAlreadyKnown {
-				ec.lggr.Infow("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+				ec.lggr.Infow("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "transactionLifecycleID", etx.GetTransactionLifecycleID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 			} else {
-				ec.lggr.Errorw("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "tracingID", etx.GetTracingID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+				ec.lggr.Errorw("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "transactionLifecycleID", etx.GetTransactionLifecycleID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 			}
 		}
 	}
