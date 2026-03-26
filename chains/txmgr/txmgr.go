@@ -971,7 +971,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) pruneQueueAndCreateTxn
 		"toAddress", txRequest.ToAddress,
 		"meta", txRequest.Meta,
 		"transactionID", tx.ID,
-		"tracingID", tx.GetTracingID(b.logger),
+		"transactionLifecycleID", tx.GetTransactionLifecycleID(b.logger),
 	)
 
 	return tx, nil
