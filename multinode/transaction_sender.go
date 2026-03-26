@@ -194,7 +194,7 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 
 	_, criticalErr := aggregateTxResults(resultsByCode)
 	if criticalErr != nil {
-		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", resultsByCode, "err", criticalErr)
+		txSender.lggr.Criticalw("observed invariant violation on SendTransaction", "tx", tx, "resultsByCode", loggableSendTxResults(resultsByCode), "err", criticalErr)
 		ctx, cancel := txSender.chStop.NewCtx()
 		defer cancel()
 		txSender.metrics.IncrementInvariantViolations(ctx, criticalErr.Error())
@@ -202,6 +202,26 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) reportSendTxAnomal
 }
 
 type sendTxResults[RESULT any] map[SendTxReturnCode][]sendTxResult[RESULT]
+
+// loggableSendTxResults formats sendTxResults for logging so nested errors are
+// string messages instead of opaque pointer addresses in log sinks.
+func loggableSendTxResults[RESULT any](in sendTxResults[RESULT]) map[SendTxReturnCode][]map[string]any {
+	out := make(map[SendTxReturnCode][]map[string]any, len(in))
+	for code, results := range in {
+		for _, r := range results {
+			errStr := ""
+			if r.error != nil {
+				errStr = r.error.Error()
+			}
+			out[code] = append(out[code], map[string]any{
+				"res":   r.res,
+				"code":  r.code,
+				"error": errStr,
+			})
+		}
+	}
+	return out
+}
 
 func aggregateTxResults[RESULT any](resultsByCode sendTxResults[RESULT]) (result sendTxResult[RESULT], criticalErr error) {
 	severeErrors, hasSevereErrors := findFirstIn(resultsByCode, sendTxSevereErrors)
@@ -242,7 +262,7 @@ loop:
 	for {
 		select {
 		case <-ctx.Done():
-			txSender.lggr.Debugw("Failed to collect of the results before context was done", "tx", tx, "errorsByCode", errorsByCode)
+			txSender.lggr.Debugw("Failed to collect of the results before context was done", "tx", tx, "errorsByCode", loggableSendTxResults(errorsByCode))
 			err := ctx.Err()
 			return emptyResult, txSender.classifyErr(err), err
 		case r := <-txResults:
@@ -267,7 +287,7 @@ loop:
 
 	// ignore critical error as it's reported in reportSendTxAnomalies
 	result, _ := aggregateTxResults(errorsByCode)
-	txSender.lggr.Debugw("Collected results", "errorsByCode", errorsByCode, "result", result)
+	txSender.lggr.Debugw("Collected results", "errorsByCode", loggableSendTxResults(errorsByCode), "result", result)
 	return result.res, result.code, result.error
 }
 
