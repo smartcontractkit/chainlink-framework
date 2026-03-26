@@ -2,6 +2,7 @@ package multinode
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	common "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	frameworkmetrics "github.com/smartcontractkit/chainlink-framework/metrics"
 	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 )
 
@@ -67,9 +69,33 @@ func newTestRPC(t *testing.T) *testRPC {
 	}
 
 	rpc := &testRPC{}
-	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock)
+	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, nil)
 	t.Cleanup(rpc.Close)
 	return rpc
+}
+
+type recordedRPCRequest struct {
+	rpcURL     string
+	isSendOnly bool
+	callName   string
+	latency    time.Duration
+	err        error
+}
+
+type spyRPCClientMetrics struct {
+	requests []recordedRPCRequest
+}
+
+var _ frameworkmetrics.RPCClientMetrics = (*spyRPCClientMetrics)(nil)
+
+func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, rpcURL string, isSendOnly bool, callName string, latency time.Duration, err error) {
+	s.requests = append(s.requests, recordedRPCRequest{
+		rpcURL:     rpcURL,
+		isSendOnly: isSendOnly,
+		callName:   callName,
+		latency:    latency,
+		err:        err,
+	})
 }
 
 func TestAdapter_LatestBlock(t *testing.T) {
@@ -97,6 +123,117 @@ func TestAdapter_LatestBlock(t *testing.T) {
 		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(1), latestChainInfo.FinalizedBlockNumber)
 		require.Equal(t, int64(1), highestChainInfo.FinalizedBlockNumber)
+	})
+}
+
+func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
+	requestTimeout := 5 * time.Second
+	lggr := logger.Test(t)
+	cfg := &config.MultiNodeConfig{
+		MultiNode: config.MultiNode{
+			Enabled:                      ptr(true),
+			PollFailureThreshold:         ptr(uint32(5)),
+			PollInterval:                 common.MustNewDuration(15 * time.Second),
+			SelectionMode:                ptr(NodeSelectionModePriorityLevel),
+			SyncThreshold:                ptr(uint32(10)),
+			LeaseDuration:                common.MustNewDuration(time.Minute),
+			NodeIsSyncingEnabled:         ptr(false),
+			NewHeadsPollInterval:         common.MustNewDuration(5 * time.Second),
+			FinalizedBlockPollInterval:   common.MustNewDuration(5 * time.Second),
+			EnforceRepeatableRead:        ptr(true),
+			DeathDeclarationDelay:        common.MustNewDuration(20 * time.Second),
+			NodeNoNewHeadsThreshold:      common.MustNewDuration(20 * time.Second),
+			NoNewFinalizedHeadsThreshold: common.MustNewDuration(20 * time.Second),
+			FinalityTagEnabled:           ptr(true),
+			FinalityDepth:                ptr(uint32(0)),
+			FinalizedBlockOffset:         ptr(uint32(50)),
+		},
+	}
+
+	t.Run("records successful latest block requests", func(t *testing.T) {
+		spy := &spyRPCClientMetrics{}
+		rpc := NewRPCClientBase[*testHead](
+			cfg,
+			requestTimeout,
+			lggr,
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 7}, nil
+			},
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 8}, nil
+			},
+			&RPCClientBaseMetricsConfig{
+				RPCClientMetrics: spy,
+				RPCURL:           "http://primary.test",
+				IsSendOnly:       false,
+			},
+		)
+
+		head, err := rpc.LatestBlock(tests.Context(t))
+		require.NoError(t, err)
+		require.Equal(t, int64(7), head.BlockNumber())
+		require.Len(t, spy.requests, 1)
+		require.Equal(t, "http://primary.test", spy.requests[0].rpcURL)
+		require.False(t, spy.requests[0].isSendOnly)
+		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
+		require.NoError(t, spy.requests[0].err)
+		require.Positive(t, spy.requests[0].latency)
+	})
+
+	t.Run("records failed finalized block requests", func(t *testing.T) {
+		spy := &spyRPCClientMetrics{}
+		expectedErr := errors.New("boom")
+		rpc := NewRPCClientBase[*testHead](
+			cfg,
+			requestTimeout,
+			lggr,
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 7}, nil
+			},
+			func(context.Context) (*testHead, error) {
+				return nil, expectedErr
+			},
+			&RPCClientBaseMetricsConfig{
+				RPCClientMetrics: spy,
+				RPCURL:           "http://sendonly.test",
+				IsSendOnly:       true,
+			},
+		)
+
+		_, err := rpc.LatestFinalizedBlock(tests.Context(t))
+		require.ErrorIs(t, err, expectedErr)
+		require.Len(t, spy.requests, 1)
+		require.Equal(t, "http://sendonly.test", spy.requests[0].rpcURL)
+		require.True(t, spy.requests[0].isSendOnly)
+		require.Equal(t, rpcCallNameLatestFinalizedBlock, spy.requests[0].callName)
+		require.ErrorIs(t, spy.requests[0].err, expectedErr)
+		require.Positive(t, spy.requests[0].latency)
+	})
+
+	t.Run("records invalid heads as failed requests", func(t *testing.T) {
+		spy := &spyRPCClientMetrics{}
+		rpc := NewRPCClientBase[*testHead](
+			cfg,
+			requestTimeout,
+			lggr,
+			func(context.Context) (*testHead, error) {
+				return &testHead{}, nil
+			},
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 8}, nil
+			},
+			&RPCClientBaseMetricsConfig{
+				RPCClientMetrics: spy,
+				RPCURL:           "http://invalid.test",
+				IsSendOnly:       false,
+			},
+		)
+
+		_, err := rpc.LatestBlock(tests.Context(t))
+		require.ErrorIs(t, err, errInvalidHead)
+		require.Len(t, spy.requests, 1)
+		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
+		require.ErrorIs(t, spy.requests[0].err, errInvalidHead)
 	})
 }
 
