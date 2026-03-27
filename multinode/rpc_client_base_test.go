@@ -11,7 +11,6 @@ import (
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	frameworkmetrics "github.com/smartcontractkit/chainlink-framework/metrics"
 	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 )
@@ -104,7 +103,7 @@ func TestAdapter_LatestBlock(t *testing.T) {
 		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
-		head, err := rpc.LatestBlock(tests.Context(t))
+		head, err := rpc.LatestBlock(t.Context())
 		require.NoError(t, err)
 		require.True(t, head.IsValid())
 		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
@@ -117,7 +116,7 @@ func TestAdapter_LatestBlock(t *testing.T) {
 		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
-		finalizedHead, err := rpc.LatestFinalizedBlock(tests.Context(t))
+		finalizedHead, err := rpc.LatestFinalizedBlock(t.Context())
 		require.NoError(t, err)
 		require.True(t, finalizedHead.IsValid())
 		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
@@ -169,7 +168,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			},
 		)
 
-		head, err := rpc.LatestBlock(tests.Context(t))
+		head, err := rpc.LatestBlock(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, int64(7), head.BlockNumber())
 		require.Len(t, spy.requests, 1)
@@ -200,7 +199,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			},
 		)
 
-		_, err := rpc.LatestFinalizedBlock(tests.Context(t))
+		_, err := rpc.LatestFinalizedBlock(t.Context())
 		require.ErrorIs(t, err, expectedErr)
 		require.Len(t, spy.requests, 1)
 		require.Equal(t, "http://sendonly.test", spy.requests[0].rpcURL)
@@ -229,7 +228,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			},
 		)
 
-		_, err := rpc.LatestBlock(tests.Context(t))
+		_, err := rpc.LatestBlock(t.Context())
 		require.ErrorIs(t, err, errInvalidHead)
 		require.Len(t, spy.requests, 1)
 		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
@@ -247,7 +246,7 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 
-		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(tests.Context(t), timeout)
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(t.Context(), timeout)
 		defer cancel()
 		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 10})
 		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 3})
@@ -269,7 +268,7 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 
-		healthCheckCtx := CtxAddHealthCheckFlag(tests.Context(t))
+		healthCheckCtx := CtxAddHealthCheckFlag(t.Context())
 
 		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(healthCheckCtx, timeout)
 		defer cancel()
@@ -295,7 +294,7 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 
-		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(tests.Context(t), timeout)
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(t.Context(), timeout)
 		defer cancel()
 		rpc.CancelLifeCycle()
 
@@ -317,11 +316,11 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 func TestAdapter_HeadSubscriptions(t *testing.T) {
 	t.Run("SubscribeToHeads", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		ch, sub, err := rpc.SubscribeToHeads(t.Context())
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 
-		ctx, cancel := context.WithTimeout(tests.Context(t), time.Minute)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 		defer cancel()
 		select {
 		case head := <-ch:
@@ -334,11 +333,11 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 
 	t.Run("SubscribeToFinalizedHeads", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		finalizedCh, finalizedSub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		finalizedCh, finalizedSub, err := rpc.SubscribeToFinalizedHeads(t.Context())
 		require.NoError(t, err)
 		defer finalizedSub.Unsubscribe()
 
-		ctx, cancel := context.WithTimeout(tests.Context(t), time.Minute)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 		defer cancel()
 		select {
 		case finalizedHead := <-finalizedCh:
@@ -351,10 +350,10 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 
 	t.Run("Remove Subscription on Unsubscribe", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		_, sub1, err := rpc.SubscribeToHeads(tests.Context(t))
+		_, sub1, err := rpc.SubscribeToHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 1, rpc.lenSubs())
-		_, sub2, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		_, sub2, err := rpc.SubscribeToFinalizedHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 2, rpc.lenSubs())
 
@@ -366,10 +365,10 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 
 	t.Run("Ensure no deadlock on UnsubscribeAll", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
+		_, _, err := rpc.SubscribeToHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 1, rpc.lenSubs())
-		_, _, err = rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		_, _, err = rpc.SubscribeToFinalizedHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 2, rpc.lenSubs())
 		rpc.UnsubscribeAllExcept()
