@@ -2,6 +2,7 @@ package multinode
 
 import (
 	"context"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ import (
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	frameworkmetrics "github.com/smartcontractkit/chainlink-framework/metrics"
 	"github.com/smartcontractkit/chainlink-framework/multinode/config"
 )
 
@@ -36,7 +37,7 @@ type testHead struct {
 func (t *testHead) BlockNumber() int64           { return t.blockNumber }
 func (t *testHead) BlockDifficulty() *big.Int    { return nil }
 func (t *testHead) GetTotalDifficulty() *big.Int { return nil }
-func (t *testHead) IsValid() bool                { return true }
+func (t *testHead) IsValid() bool                { return t != nil && t.blockNumber > 0 }
 
 func ptr[T any](t T) *T {
 	return &t
@@ -67,9 +68,33 @@ func newTestRPC(t *testing.T) *testRPC {
 	}
 
 	rpc := &testRPC{}
-	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock)
+	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, nil)
 	t.Cleanup(rpc.Close)
 	return rpc
+}
+
+type recordedRPCRequest struct {
+	rpcURL     string
+	isSendOnly bool
+	callName   string
+	latency    time.Duration
+	err        error
+}
+
+type spyRPCClientMetrics struct {
+	requests []recordedRPCRequest
+}
+
+var _ frameworkmetrics.RPCClientMetrics = (*spyRPCClientMetrics)(nil)
+
+func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, rpcURL string, isSendOnly bool, callName string, latency time.Duration, err error) {
+	s.requests = append(s.requests, recordedRPCRequest{
+		rpcURL:     rpcURL,
+		isSendOnly: isSendOnly,
+		callName:   callName,
+		latency:    latency,
+		err:        err,
+	})
 }
 
 func TestAdapter_LatestBlock(t *testing.T) {
@@ -78,7 +103,7 @@ func TestAdapter_LatestBlock(t *testing.T) {
 		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(0), latestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
-		head, err := rpc.LatestBlock(tests.Context(t))
+		head, err := rpc.LatestBlock(t.Context())
 		require.NoError(t, err)
 		require.True(t, head.IsValid())
 		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
@@ -91,12 +116,123 @@ func TestAdapter_LatestBlock(t *testing.T) {
 		latestChainInfo, highestChainInfo := rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(0), latestChainInfo.FinalizedBlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
-		finalizedHead, err := rpc.LatestFinalizedBlock(tests.Context(t))
+		finalizedHead, err := rpc.LatestFinalizedBlock(t.Context())
 		require.NoError(t, err)
 		require.True(t, finalizedHead.IsValid())
 		latestChainInfo, highestChainInfo = rpc.GetInterceptedChainInfo()
 		require.Equal(t, int64(1), latestChainInfo.FinalizedBlockNumber)
 		require.Equal(t, int64(1), highestChainInfo.FinalizedBlockNumber)
+	})
+}
+
+func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
+	requestTimeout := 5 * time.Second
+	lggr := logger.Test(t)
+	cfg := &config.MultiNodeConfig{
+		MultiNode: config.MultiNode{
+			Enabled:                      ptr(true),
+			PollFailureThreshold:         ptr(uint32(5)),
+			PollInterval:                 common.MustNewDuration(15 * time.Second),
+			SelectionMode:                ptr(NodeSelectionModePriorityLevel),
+			SyncThreshold:                ptr(uint32(10)),
+			LeaseDuration:                common.MustNewDuration(time.Minute),
+			NodeIsSyncingEnabled:         ptr(false),
+			NewHeadsPollInterval:         common.MustNewDuration(5 * time.Second),
+			FinalizedBlockPollInterval:   common.MustNewDuration(5 * time.Second),
+			EnforceRepeatableRead:        ptr(true),
+			DeathDeclarationDelay:        common.MustNewDuration(20 * time.Second),
+			NodeNoNewHeadsThreshold:      common.MustNewDuration(20 * time.Second),
+			NoNewFinalizedHeadsThreshold: common.MustNewDuration(20 * time.Second),
+			FinalityTagEnabled:           ptr(true),
+			FinalityDepth:                ptr(uint32(0)),
+			FinalizedBlockOffset:         ptr(uint32(50)),
+		},
+	}
+
+	t.Run("records successful latest block requests", func(t *testing.T) {
+		spy := &spyRPCClientMetrics{}
+		rpc := NewRPCClientBase[*testHead](
+			cfg,
+			requestTimeout,
+			lggr,
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 7}, nil
+			},
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 8}, nil
+			},
+			&RPCClientBaseMetricsConfig{
+				RPCClientMetrics: spy,
+				RPCURL:           "http://primary.test",
+				IsSendOnly:       false,
+			},
+		)
+
+		head, err := rpc.LatestBlock(t.Context())
+		require.NoError(t, err)
+		require.Equal(t, int64(7), head.BlockNumber())
+		require.Len(t, spy.requests, 1)
+		require.Equal(t, "http://primary.test", spy.requests[0].rpcURL)
+		require.False(t, spy.requests[0].isSendOnly)
+		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
+		require.NoError(t, spy.requests[0].err)
+		require.Positive(t, spy.requests[0].latency)
+	})
+
+	t.Run("records failed finalized block requests", func(t *testing.T) {
+		spy := &spyRPCClientMetrics{}
+		expectedErr := errors.New("boom")
+		rpc := NewRPCClientBase[*testHead](
+			cfg,
+			requestTimeout,
+			lggr,
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 7}, nil
+			},
+			func(context.Context) (*testHead, error) {
+				return nil, expectedErr
+			},
+			&RPCClientBaseMetricsConfig{
+				RPCClientMetrics: spy,
+				RPCURL:           "http://sendonly.test",
+				IsSendOnly:       true,
+			},
+		)
+
+		_, err := rpc.LatestFinalizedBlock(t.Context())
+		require.ErrorIs(t, err, expectedErr)
+		require.Len(t, spy.requests, 1)
+		require.Equal(t, "http://sendonly.test", spy.requests[0].rpcURL)
+		require.True(t, spy.requests[0].isSendOnly)
+		require.Equal(t, rpcCallNameLatestFinalizedBlock, spy.requests[0].callName)
+		require.ErrorIs(t, spy.requests[0].err, expectedErr)
+		require.Positive(t, spy.requests[0].latency)
+	})
+
+	t.Run("records invalid heads as failed requests", func(t *testing.T) {
+		spy := &spyRPCClientMetrics{}
+		rpc := NewRPCClientBase[*testHead](
+			cfg,
+			requestTimeout,
+			lggr,
+			func(context.Context) (*testHead, error) {
+				return &testHead{}, nil
+			},
+			func(context.Context) (*testHead, error) {
+				return &testHead{blockNumber: 8}, nil
+			},
+			&RPCClientBaseMetricsConfig{
+				RPCClientMetrics: spy,
+				RPCURL:           "http://invalid.test",
+				IsSendOnly:       false,
+			},
+		)
+
+		_, err := rpc.LatestBlock(t.Context())
+		require.ErrorIs(t, err, errInvalidHead)
+		require.Len(t, spy.requests, 1)
+		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
+		require.ErrorIs(t, spy.requests[0].err, errInvalidHead)
 	})
 }
 
@@ -110,7 +246,7 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 
-		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(tests.Context(t), timeout)
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(t.Context(), timeout)
 		defer cancel()
 		rpc.OnNewHead(ctx, lifeCycleCh, &testHead{blockNumber: 10})
 		rpc.OnNewFinalizedHead(ctx, lifeCycleCh, &testHead{blockNumber: 3})
@@ -132,7 +268,7 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 
-		healthCheckCtx := CtxAddHealthCheckFlag(tests.Context(t))
+		healthCheckCtx := CtxAddHealthCheckFlag(t.Context())
 
 		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(healthCheckCtx, timeout)
 		defer cancel()
@@ -158,7 +294,7 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 		require.Equal(t, int64(0), highestChainInfo.BlockNumber)
 		require.Equal(t, int64(0), highestChainInfo.FinalizedBlockNumber)
 
-		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(tests.Context(t), timeout)
+		ctx, cancel, lifeCycleCh := rpc.AcquireQueryCtx(t.Context(), timeout)
 		defer cancel()
 		rpc.CancelLifeCycle()
 
@@ -180,11 +316,11 @@ func TestAdapter_OnNewHeadFunctions(t *testing.T) {
 func TestAdapter_HeadSubscriptions(t *testing.T) {
 	t.Run("SubscribeToHeads", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		ch, sub, err := rpc.SubscribeToHeads(tests.Context(t))
+		ch, sub, err := rpc.SubscribeToHeads(t.Context())
 		require.NoError(t, err)
 		defer sub.Unsubscribe()
 
-		ctx, cancel := context.WithTimeout(tests.Context(t), time.Minute)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 		defer cancel()
 		select {
 		case head := <-ch:
@@ -197,11 +333,11 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 
 	t.Run("SubscribeToFinalizedHeads", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		finalizedCh, finalizedSub, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		finalizedCh, finalizedSub, err := rpc.SubscribeToFinalizedHeads(t.Context())
 		require.NoError(t, err)
 		defer finalizedSub.Unsubscribe()
 
-		ctx, cancel := context.WithTimeout(tests.Context(t), time.Minute)
+		ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
 		defer cancel()
 		select {
 		case finalizedHead := <-finalizedCh:
@@ -214,10 +350,10 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 
 	t.Run("Remove Subscription on Unsubscribe", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		_, sub1, err := rpc.SubscribeToHeads(tests.Context(t))
+		_, sub1, err := rpc.SubscribeToHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 1, rpc.lenSubs())
-		_, sub2, err := rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		_, sub2, err := rpc.SubscribeToFinalizedHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 2, rpc.lenSubs())
 
@@ -229,10 +365,10 @@ func TestAdapter_HeadSubscriptions(t *testing.T) {
 
 	t.Run("Ensure no deadlock on UnsubscribeAll", func(t *testing.T) {
 		rpc := newTestRPC(t)
-		_, _, err := rpc.SubscribeToHeads(tests.Context(t))
+		_, _, err := rpc.SubscribeToHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 1, rpc.lenSubs())
-		_, _, err = rpc.SubscribeToFinalizedHeads(tests.Context(t))
+		_, _, err = rpc.SubscribeToFinalizedHeads(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, 2, rpc.lenSubs())
 		rpc.UnsubscribeAllExcept()

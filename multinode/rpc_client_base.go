@@ -9,11 +9,25 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	frameworkmetrics "github.com/smartcontractkit/chainlink-framework/metrics"
+)
+
+var errInvalidHead = errors.New("invalid head")
+
+const (
+	rpcCallNameLatestBlock          = "latest_block"
+	rpcCallNameLatestFinalizedBlock = "latest_finalized_block"
 )
 
 type RPCClientBaseConfig interface {
 	NewHeadsPollInterval() time.Duration
 	FinalizedBlockPollInterval() time.Duration
+}
+
+type RPCClientBaseMetricsConfig struct {
+	RPCClientMetrics frameworkmetrics.RPCClientMetrics
+	RPCURL           string
+	IsSendOnly       bool
 }
 
 // RPCClientBase is used to integrate multinode into chain-specific clients.
@@ -46,14 +60,19 @@ type RPCClientBase[HEAD Head] struct {
 	highestUserObservations ChainInfo
 	// most recent chain info observed during current lifecycle
 	latestChainInfo ChainInfo
+
+	rpcMetrics frameworkmetrics.RPCClientMetrics
+	rpcURL     string
+	isSendOnly bool
 }
 
 func NewRPCClientBase[HEAD Head](
 	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
+	rpcMetrics *RPCClientBaseMetricsConfig,
 ) *RPCClientBase[HEAD] {
-	return &RPCClientBase[HEAD]{
+	base := &RPCClientBase[HEAD]{
 		cfg:                  cfg,
 		log:                  log,
 		ctxTimeout:           ctxTimeout,
@@ -62,6 +81,12 @@ func NewRPCClientBase[HEAD Head](
 		subs:                 make(map[Subscription]struct{}),
 		lifeCycleCh:          make(chan struct{}),
 	}
+	if rpcMetrics != nil {
+		base.rpcMetrics = rpcMetrics.RPCClientMetrics
+		base.rpcURL = rpcMetrics.RPCURL
+		base.isSendOnly = rpcMetrics.IsSendOnly
+	}
+	return base
 }
 
 func (m *RPCClientBase[HEAD]) lenSubs() int {
@@ -155,16 +180,20 @@ func (m *RPCClientBase[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 	// capture lifeCycleCh to ensure we are not updating chainInfo with observations related to previous life cycle
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
+	start := time.Now()
 
 	head, err := m.latestBlock(ctx)
 	if err != nil {
+		m.recordRPCRequest(ctx, rpcCallNameLatestBlock, start, err)
 		return head, err
 	}
 
 	if !head.IsValid() {
-		return head, errors.New("invalid head")
+		m.recordRPCRequest(ctx, rpcCallNameLatestBlock, start, errInvalidHead)
+		return head, errInvalidHead
 	}
 
+	m.recordRPCRequest(ctx, rpcCallNameLatestBlock, start, nil)
 	m.OnNewHead(ctx, lifeCycleCh, head)
 	return head, nil
 }
@@ -172,18 +201,30 @@ func (m *RPCClientBase[HEAD]) LatestBlock(ctx context.Context) (HEAD, error) {
 func (m *RPCClientBase[HEAD]) LatestFinalizedBlock(ctx context.Context) (HEAD, error) {
 	ctx, cancel, lifeCycleCh := m.AcquireQueryCtx(ctx, m.ctxTimeout)
 	defer cancel()
+	start := time.Now()
 
 	head, err := m.latestFinalizedBlock(ctx)
 	if err != nil {
+		m.recordRPCRequest(ctx, rpcCallNameLatestFinalizedBlock, start, err)
 		return head, err
 	}
 
 	if !head.IsValid() {
-		return head, errors.New("invalid head")
+		m.recordRPCRequest(ctx, rpcCallNameLatestFinalizedBlock, start, errInvalidHead)
+		return head, errInvalidHead
 	}
 
+	m.recordRPCRequest(ctx, rpcCallNameLatestFinalizedBlock, start, nil)
 	m.OnNewFinalizedHead(ctx, lifeCycleCh, head)
 	return head, nil
+}
+
+func (m *RPCClientBase[HEAD]) recordRPCRequest(ctx context.Context, callName string, startedAt time.Time, err error) {
+	if m.rpcMetrics == nil {
+		return
+	}
+
+	m.rpcMetrics.RecordRequest(ctx, m.rpcURL, m.isSendOnly, callName, time.Since(startedAt), err)
 }
 
 func (m *RPCClientBase[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
