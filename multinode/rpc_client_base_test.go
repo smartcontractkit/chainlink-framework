@@ -37,7 +37,7 @@ type testHead struct {
 func (t *testHead) BlockNumber() int64           { return t.blockNumber }
 func (t *testHead) BlockDifficulty() *big.Int    { return nil }
 func (t *testHead) GetTotalDifficulty() *big.Int { return nil }
-func (t *testHead) IsValid() bool                { return true }
+func (t *testHead) IsValid() bool                { return t != nil && t.blockNumber > 0 }
 
 func ptr[T any](t T) *T {
 	return &t
