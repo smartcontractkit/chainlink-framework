@@ -128,7 +128,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
 				if n.poolInfoProvider != nil {
-					if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+					if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 						lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
 						continue
 					}
@@ -138,7 +138,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
 				// note: there must be another live node for us to be out of sync
-				if liveNodes < 2 && !n.isLoadBalancedRPC {
+				if liveNodes < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
 				}
@@ -166,7 +166,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if n.poolInfoProvider != nil {
 				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
 				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
@@ -194,7 +194,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if n.poolInfoProvider != nil {
 				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
 				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
@@ -342,7 +342,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool() (outOfSync bool, liveN
 		return // disabled
 	}
 	// Check against best node
-	ln, ci := n.poolInfoProvider.LatestChainInfo()
+	ln, ci := n.poolInfoProvider.LatestChainInfo(n.name)
 	localChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	mode := n.nodePoolCfg.SelectionMode()
 	switch mode {
@@ -459,7 +459,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "syncIssues", syncIssues)
 		case <-time.After(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold)):
 			if n.poolInfoProvider != nil {
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 1 {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 {
 					if n.isLoadBalancedRPC {
 						// in case all rpcs behind a load balanced rpc are out of sync, we need to declare out of sync to prevent false transition to alive
 						n.declareOutOfSync(syncIssues)
