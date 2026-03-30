@@ -163,6 +163,9 @@ type TxMeta[ADDR chains.Hashable, TX_HASH chains.Hashable] struct {
 	// Dual Broadcast
 	DualBroadcast       *bool   `json:"DualBroadcast,omitempty"`
 	DualBroadcastParams *string `json:"DualBroadcastParams,omitempty"`
+
+	// TransactionLifecycleID is used for tracing the entire lifecycle of a transaction from OCR Transmit to confirmation on-chain.
+	TransactionLifecycleID *string `json:"TransactionLifecycleID,omitempty"`
 }
 
 type TxAttempt[
@@ -261,6 +264,18 @@ func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetMeta() (*TxMeta[A
 	}
 
 	return &m, nil
+}
+
+func (e *Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetTransactionLifecycleID(lgr logger.Logger) string {
+	meta, err := e.GetMeta()
+	if err != nil {
+		lgr.Errorw("failed to get meta of the transaction", "err", err)
+		return ""
+	}
+	if meta == nil || meta.TransactionLifecycleID == nil {
+		return ""
+	}
+	return *meta.TransactionLifecycleID
 }
 
 // GetLogger returns a new logger with metadata fields.

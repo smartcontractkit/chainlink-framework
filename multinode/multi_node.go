@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
@@ -79,7 +82,8 @@ func NewMultiNode[
 		Start: c.start,
 		Close: c.close,
 	}.NewServiceEngine(logger.With(lggr, "chainID", chainID.String()))
-	c.lggr = c.eng.SugaredLogger
+	// Omit stack traces from error and critical logs, since they are noisy and unhelpful.
+	c.lggr = c.eng.WithOptions(zap.AddStacktrace(zapcore.PanicLevel))
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
 

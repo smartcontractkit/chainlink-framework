@@ -61,6 +61,11 @@ type TxManager[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THA
 	GetTransactionFee(ctx context.Context, transactionID string) (fee *evmtypes.TransactionFee, err error)
 	GetTransactionReceipt(ctx context.Context, transactionID string) (receipt *txmgrtypes.ChainReceipt[THASH, BHASH], err error)
 	CalculateFee(feeParts FeeParts) *big.Int
+	// SupportsDualBroadcast reports whether this TXM will route transactions marked with
+	// DualBroadcast=true to an OFA rather than the public mempool.
+	// Jobs that configure a secondary EOA check this at startup and refuse to run if it
+	// returns false, preventing accidental public-mempool exposure of secondary transactions.
+	SupportsDualBroadcast() bool
 }
 
 type TxmV2Wrapper[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
@@ -76,6 +81,32 @@ type reset struct {
 	// done is either closed after running f, or returns error if f could not
 	// be run for some reason
 	done chan error
+}
+
+type BroadcasterI[ADDR chains.Hashable] interface {
+	services.Service
+	SetEnabledAddresses([]ADDR)
+	SetResumeCallback(ResumeCallback)
+	Trigger(ADDR)
+}
+
+type ConfirmerI[HEAD chains.Head[BHASH], ADDR chains.Hashable, BHASH chains.Hashable] interface {
+	services.Service
+	Deliver(HEAD)
+	SetEnabledAddresses([]ADDR)
+	SetResumeCallback(ResumeCallback)
+}
+
+type TrackerI[ADDR chains.Hashable] interface {
+	services.Service
+	Deliver(int64)
+	GetEnabledAddresses() []ADDR
+	SetEnabledAddresses([]ADDR)
+}
+
+type resetableService interface {
+	startInternal(ctx context.Context) error
+	closeInternal() error
 }
 
 type Txm[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, R txmgrtypes.ChainReceipt[THASH, BHASH], SEQ chains.Sequence, FEE fees.Fee] struct {
@@ -98,16 +129,17 @@ type Txm[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH cha
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper             *Reaper[CID]
-	resender           *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
-	broadcaster        *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
-	confirmer          *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]
-	tracker            *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
-	finalizer          txmgrtypes.Finalizer[BHASH, HEAD]
-	fwdMgr             txmgrtypes.ForwarderManager[ADDR]
-	txAttemptBuilder   txmgrtypes.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
-	newErrorClassifier NewErrorClassifier
-	txmv2wrapper       TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	reaper               *Reaper[CID]
+	resender             *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE]
+	broadcaster          BroadcasterI[ADDR]
+	confirmer            ConfirmerI[HEAD, ADDR, BHASH]
+	tracker              TrackerI[ADDR]
+	finalizer            txmgrtypes.Finalizer[BHASH, HEAD]
+	fwdMgr               txmgrtypes.ForwarderManager[ADDR]
+	txAttemptBuilder     txmgrtypes.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	newErrorClassifier   NewErrorClassifier
+	txmv2wrapper         TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]
+	dualBroadcastEnabled bool
 
 	enabledAddrs []ADDR // sorted as strings
 }
@@ -130,36 +162,38 @@ func NewTxm[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH 
 	fwdMgr txmgrtypes.ForwarderManager[ADDR],
 	txAttemptBuilder txmgrtypes.TxAttemptBuilder[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE],
 	txStore txmgrtypes.TxStore[ADDR, CID, THASH, BHASH, R, SEQ, FEE],
-	broadcaster *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE],
-	confirmer *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE],
+	broadcaster BroadcasterI[ADDR],
+	confirmer ConfirmerI[HEAD, ADDR, BHASH],
 	resender *Resender[CID, ADDR, THASH, BHASH, R, SEQ, FEE],
-	tracker *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE],
+	tracker TrackerI[ADDR],
 	finalizer txmgrtypes.Finalizer[BHASH, HEAD],
 	newErrorClassifierFunc NewErrorClassifier,
 	txmv2wrapper TxmV2Wrapper[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE],
+	dualBroadcastEnabled bool,
 ) *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE] {
 	b := Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]{
-		logger:             logger.Sugared(lggr),
-		txStore:            txStore,
-		config:             cfg,
-		txConfig:           txCfg,
-		keyStore:           keyStore,
-		chainID:            chainID,
-		checkerFactory:     checkerFactory,
-		chHeads:            make(chan HEAD),
-		trigger:            make(chan ADDR),
-		chStop:             make(chan struct{}),
-		chSubbed:           make(chan struct{}),
-		reset:              make(chan reset),
-		fwdMgr:             fwdMgr,
-		txAttemptBuilder:   txAttemptBuilder,
-		broadcaster:        broadcaster,
-		confirmer:          confirmer,
-		resender:           resender,
-		tracker:            tracker,
-		newErrorClassifier: newErrorClassifierFunc,
-		finalizer:          finalizer,
-		txmv2wrapper:       txmv2wrapper,
+		logger:               logger.Sugared(lggr),
+		txStore:              txStore,
+		config:               cfg,
+		txConfig:             txCfg,
+		keyStore:             keyStore,
+		chainID:              chainID,
+		checkerFactory:       checkerFactory,
+		chHeads:              make(chan HEAD),
+		trigger:              make(chan ADDR),
+		chStop:               make(chan struct{}),
+		chSubbed:             make(chan struct{}),
+		reset:                make(chan reset),
+		fwdMgr:               fwdMgr,
+		txAttemptBuilder:     txAttemptBuilder,
+		broadcaster:          broadcaster,
+		confirmer:            confirmer,
+		resender:             resender,
+		tracker:              tracker,
+		newErrorClassifier:   newErrorClassifierFunc,
+		finalizer:            finalizer,
+		txmv2wrapper:         txmv2wrapper,
+		dualBroadcastEnabled: dualBroadcastEnabled,
 	}
 
 	if txCfg.ResendAfterThreshold() <= 0 {
@@ -193,7 +227,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Start(ctx context.Cont
 		if err := ms.Start(ctx, b.tracker); err != nil {
 			return fmt.Errorf("Txm: Tracker failed to start: %w", err)
 		}
-		b.enabledAddrs = b.tracker.getEnabledAddresses()
+		b.enabledAddrs = b.tracker.GetEnabledAddresses()
 		slices.SortFunc(b.enabledAddrs, func(a, b ADDR) int { return strings.Compare(a.String(), b.String()) })
 
 		if err := ms.Start(ctx, b.finalizer); err != nil {
@@ -317,9 +351,9 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) HealthReport() map[str
 // setEnabled sets enabled addresses in the broadcaster, tracker, and confirmer.
 // Must only be called before starting, or after closing (during a reset).
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) setEnabled(addrs []ADDR) {
-	b.broadcaster.enabledAddresses = addrs
-	b.tracker.setEnabledAddresses(addrs)
-	b.confirmer.enabledAddresses = addrs
+	b.broadcaster.SetEnabledAddresses(addrs)
+	b.tracker.SetEnabledAddresses(addrs)
+	b.confirmer.SetEnabledAddresses(addrs)
 }
 
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
@@ -341,14 +375,20 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 		// These should always close successfully, since it should be logically
 		// impossible to enter this code path with ec/eb in a state other than
 		// "Started"
-		if err := b.broadcaster.closeInternal(); err != nil {
-			b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
+		if r, ok := b.broadcaster.(resetableService); ok {
+			if err := r.closeInternal(); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close Broadcaster: %v", err), "err", err)
+			}
 		}
-		if err := b.tracker.closeInternal(); err != nil {
-			b.logger.Panicw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
+		if r, ok := b.tracker.(resetableService); ok {
+			if err := r.closeInternal(); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close Tracker: %v", err), "err", err)
+			}
 		}
-		if err := b.confirmer.closeInternal(); err != nil {
-			b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+		if r, ok := b.confirmer.(resetableService); ok {
+			if err := r.closeInternal(); err != nil {
+				b.logger.Panicw(fmt.Sprintf("Failed to Close Confirmer: %v", err), "err", err)
+			}
 		}
 		if f != nil {
 			f()
@@ -364,64 +404,72 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 		// execReset will not return until either:
 		// 1. Broadcaster, Confirmer, and Tracker all started successfully
 		// 2. chStop was closed (txmgr exit)
-		wg.Add(3)
-		go func() {
-			defer wg.Done()
-			// Retry indefinitely on failure
-			backoff := newRedialBackoff()
-			for {
-				select {
-				case <-time.After(backoff.Duration()):
-					if err := b.broadcaster.startInternal(ctx); err != nil {
-						b.logger.Criticalw("Failed to start Broadcaster", "err", err)
-						b.SvcErrBuffer.Append(err)
-						continue
+		if r, ok := b.broadcaster.(resetableService); ok {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// Retry indefinitely on failure
+				backoff := newRedialBackoff()
+				for {
+					select {
+					case <-time.After(backoff.Duration()):
+						if err := r.startInternal(ctx); err != nil {
+							b.logger.Criticalw("Failed to start Broadcaster", "err", err)
+							b.SvcErrBuffer.Append(err)
+							continue
+						}
+						return
+					case <-b.chStop:
+						stopOnce.Do(func() { stopped = true })
+						return
 					}
-					return
-				case <-b.chStop:
-					stopOnce.Do(func() { stopped = true })
-					return
 				}
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			// Retry indefinitely on failure
-			backoff := newRedialBackoff()
-			for {
-				select {
-				case <-time.After(backoff.Duration()):
-					if err := b.tracker.startInternal(ctx); err != nil {
-						b.logger.Criticalw("Failed to start Tracker", "err", err)
-						b.SvcErrBuffer.Append(err)
-						continue
+			}()
+		}
+		if r, ok := b.tracker.(resetableService); ok {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// Retry indefinitely on failure
+				backoff := newRedialBackoff()
+				for {
+					select {
+					case <-time.After(backoff.Duration()):
+						if err := r.startInternal(ctx); err != nil {
+							b.logger.Criticalw("Failed to start Tracker", "err", err)
+							b.SvcErrBuffer.Append(err)
+							continue
+						}
+						return
+					case <-b.chStop:
+						stopOnce.Do(func() { stopped = true })
+						return
 					}
-					return
-				case <-b.chStop:
-					stopOnce.Do(func() { stopped = true })
-					return
 				}
-			}
-		}()
-		go func() {
-			defer wg.Done()
-			// Retry indefinitely on failure
-			backoff := newRedialBackoff()
-			for {
-				select {
-				case <-time.After(backoff.Duration()):
-					if err := b.confirmer.startInternal(ctx); err != nil {
-						b.logger.Criticalw("Failed to start Confirmer", "err", err)
-						b.SvcErrBuffer.Append(err)
-						continue
+			}()
+		}
+		if r, ok := b.confirmer.(resetableService); ok {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				// Retry indefinitely on failure
+				backoff := newRedialBackoff()
+				for {
+					select {
+					case <-time.After(backoff.Duration()):
+						if err := r.startInternal(ctx); err != nil {
+							b.logger.Criticalw("Failed to start Confirmer", "err", err)
+							b.SvcErrBuffer.Append(err)
+							continue
+						}
+						return
+					case <-b.chStop:
+						stopOnce.Do(func() { stopped = true })
+						return
 					}
-					return
-				case <-b.chStop:
-					stopOnce.Do(func() { stopped = true })
-					return
 				}
-			}
-		}()
+			}()
+		}
 
 		wg.Wait()
 	}
@@ -434,8 +482,8 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 		case address := <-b.trigger:
 			b.broadcaster.Trigger(address)
 		case head := <-b.chHeads:
-			b.confirmer.mb.Deliver(head)
-			b.tracker.mb.Deliver(head.BlockNumber())
+			b.confirmer.Deliver(head)
+			b.tracker.Deliver(head.BlockNumber())
 			b.finalizer.DeliverLatestHead(head)
 		case reset := <-b.reset:
 			// This check prevents the weird edge-case where you can select
@@ -601,6 +649,13 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) GetForwarderForEOA(ctx
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(ctx, eoa)
 	return
+}
+
+// SupportsDualBroadcast reports whether this TXM will route DualBroadcast transactions to an
+// OFA rather than the public mempool. The value is set at construction time by the
+// txmgr builder based on node config.
+func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SupportsDualBroadcast() bool {
+	return b.dualBroadcastEnabled
 }
 
 // GetForwarderForEOAOCR2Feeds calls forwarderMgr to get a proper forwarder for a given EOA and checks if its set as a transmitter on the OCR2Aggregator contract.
@@ -881,6 +936,10 @@ func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) GetTransactionR
 	return
 }
 
+func (n *NullTxManager[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SupportsDualBroadcast() bool {
+	return false
+}
+
 func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) pruneQueueAndCreateTxn(
 	ctx context.Context,
 	txRequest txmgrtypes.TxRequest[ADDR, THASH],
@@ -907,11 +966,12 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) pruneQueueAndCreateTxn
 	if err != nil {
 		return tx, err
 	}
-	b.logger.Debugw("Created transaction",
+	b.logger.Infow("Created transaction",
 		"fromAddress", txRequest.FromAddress,
 		"toAddress", txRequest.ToAddress,
 		"meta", txRequest.Meta,
 		"transactionID", tx.ID,
+		"transactionLifecycleID", tx.GetTransactionLifecycleID(b.logger),
 	)
 
 	return tx, nil
