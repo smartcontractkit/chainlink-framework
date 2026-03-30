@@ -228,6 +228,10 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) closeInternal() 
 	return nil
 }
 
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SetEnabledAddresses(addrs []ADDR) {
+	eb.enabledAddresses = addrs
+}
+
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
 	eb.resumeCallback = callback
 }
@@ -238,6 +242,10 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Name() string {
 
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) HealthReport() map[string]error {
 	return map[string]error{eb.Name(): eb.Healthy()}
+}
+
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Ready() error {
+	return eb.StateMachine.Ready()
 }
 
 // Trigger forces the monitor for a particular address to recheck for new txes
@@ -464,7 +472,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 
 	lgr := etx.GetLogger(logger.With(eb.lggr, "fee", attempt.TxFee))
 	errType, err := eb.client.SendTransactionReturnCode(ctx, etx, attempt, lgr)
-	eb.lggr.Infow("Broadcasted transaction", "txHash", attempt.Hash, "tracingID", etx.GetTracingID(lgr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+	eb.lggr.Infow("Broadcasted transaction", "txHash", attempt.Hash, "transactionLifecycleID", etx.GetTransactionLifecycleID(lgr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 
 	// The validation below is only applicable to Hedera because it has instant finality and a unique sequence behavior
 	if eb.chainType == hederaChainType {

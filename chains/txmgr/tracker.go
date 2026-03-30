@@ -100,6 +100,14 @@ func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Close() error {
 	})
 }
 
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Name() string {
+	return tr.lggr.Name()
+}
+
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) HealthReport() map[string]error {
+	return map[string]error{tr.Name(): tr.Healthy()}
+}
+
 func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) closeInternal() error {
 	tr.initSync.Lock()
 	defer tr.initSync.Unlock()
@@ -163,6 +171,10 @@ func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop(ctx context.Con
 	}
 }
 
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) Deliver(num int64) {
+	tr.mb.Deliver(num)
+}
+
 func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) GetAbandonedAddresses() []ADDR {
 	tr.lock.Lock()
 	defer tr.lock.Unlock()
@@ -187,7 +199,7 @@ func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) IsStarted() bool {
 	return tr.isStarted
 }
 
-func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) getEnabledAddresses() []ADDR {
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) GetEnabledAddresses() []ADDR {
 	tr.lock.RLock()
 	defer tr.lock.RUnlock()
 	return slices.Collect(maps.Keys(tr.enabledAddrs))
@@ -206,12 +218,12 @@ func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) ensureEnabledAddresses(
 	if err != nil {
 		return fmt.Errorf("failed to get enabled addresses for chain: %w", err)
 	}
-	tr.setEnabledAddresses(enabledAddrs)
+	tr.SetEnabledAddresses(enabledAddrs)
 	return nil
 }
 
-// setEnabledAddresses sets enabled addresses. Caller must hold tr.lock, or the Tracker must be unstarted (pre-startInternal, or post-closeInternal).
-func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) setEnabledAddresses(enabledAddrs []ADDR) {
+// SetEnabledAddresses sets enabled addresses. Caller must hold tr.lock, or the Tracker must be unstarted (pre-startInternal, or post-closeInternal).
+func (tr *Tracker[CID, ADDR, THASH, BHASH, R, SEQ, FEE]) SetEnabledAddresses(enabledAddrs []ADDR) {
 	if len(enabledAddrs) == 0 {
 		tr.lggr.Warnf("enabled address list is empty")
 	}

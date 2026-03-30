@@ -602,14 +602,15 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 	for i := range testCases {
 		tc := testCases[i]
 		t.Run(tc.Name, func(t *testing.T) {
-			for _, params := range tc.NodeParams {
+			for i, params := range tc.NodeParams {
 				node := newMockNode[ID, multiNodeRPCClient](t)
 				mn.primaryNodes = append(mn.primaryNodes, node)
+				node.On("Name").Return(fmt.Sprintf("node_%d", i)).Maybe()
 				node.On("StateAndLatest").Return(params.State, params.LatestChainInfo)
 				node.On("HighestUserObservations").Return(params.HighestUserObservations)
 			}
 
-			nNodes, latestChainInfo := mn.LatestChainInfo()
+			nNodes, latestChainInfo := mn.LatestChainInfo("")
 			assert.Equal(t, tc.ExpectedNLiveNodes, nNodes)
 			assert.Equal(t, tc.ExpectedLatestChainInfo, latestChainInfo)
 
