@@ -34,6 +34,9 @@ type MultiNode struct {
 	FinalityDepth                *uint32
 	FinalityTagEnabled           *bool
 	FinalizedBlockOffset         *uint32
+
+	// Finalized State Availability Check
+	FinalizedStateCheckFailureThreshold *uint32
 }
 
 func (c *MultiNodeConfig) Enabled() bool {
@@ -94,6 +97,10 @@ func (c *MultiNodeConfig) FinalityTagEnabled() bool { return *c.MultiNode.Finali
 
 func (c *MultiNodeConfig) FinalizedBlockOffset() uint32 { return *c.MultiNode.FinalizedBlockOffset }
 
+func (c *MultiNodeConfig) FinalizedStateCheckFailureThreshold() uint32 {
+	return *c.MultiNode.FinalizedStateCheckFailureThreshold
+}
+
 func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	if f.MultiNode.Enabled != nil {
 		c.MultiNode.Enabled = f.MultiNode.Enabled
@@ -149,5 +156,10 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	}
 	if f.MultiNode.FinalizedBlockOffset != nil {
 		c.MultiNode.FinalizedBlockOffset = f.MultiNode.FinalizedBlockOffset
+	}
+
+	// Finalized State Availability Check
+	if f.MultiNode.FinalizedStateCheckFailureThreshold != nil {
+		c.MultiNode.FinalizedStateCheckFailureThreshold = f.MultiNode.FinalizedStateCheckFailureThreshold
 	}
 }
