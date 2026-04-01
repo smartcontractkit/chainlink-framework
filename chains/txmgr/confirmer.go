@@ -169,6 +169,14 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) closeInternal()
 	return nil
 }
 
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Deliver(head HEAD) {
+	ec.mb.Deliver(head)
+}
+
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SetEnabledAddresses(addrs []ADDR) {
+	ec.enabledAddresses = addrs
+}
+
 func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) SetResumeCallback(callback ResumeCallback) {
 	ec.resumeCallback = callback
 }
@@ -179,6 +187,10 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Name() string {
 
 func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) HealthReport() map[string]error {
 	return map[string]error{ec.Name(): ec.Healthy()}
+}
+
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) Ready() error {
+	return ec.StateMachine.Ready()
 }
 
 func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
@@ -347,6 +359,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessIncluded
 			continue
 		}
 		confirmedTxIDs = append(confirmedTxIDs, tx.ID)
+		ec.lggr.Infow("Transaction confirmed", "etxID", tx.ID, "transactionLifecycleID", tx.GetTransactionLifecycleID(ec.lggr))
 		observeUntilTxConfirmed(ctx, ec.metrics, tx, head)
 	}
 	// Mark the transactions included on-chain with a purge attempt as fatal error with the terminally stuck error message
@@ -796,12 +809,12 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ForceRebroadcas
 				continue
 			}
 			attempt.Tx = *etx // for logging
-			ec.lggr.Debugw("Sending transaction", "txAttemptID", attempt.ID, "txHash", attempt.Hash, "err", err, "meta", etx.Meta, "feeLimit", attempt.ChainSpecificFeeLimit, "callerProvidedFeeLimit", etx.FeeLimit, "attempt", attempt)
-			if errCode, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr); errCode != multinode.Successful && err != nil {
-				ec.lggr.Errorw(fmt.Sprintf("ForceRebroadcast: failed to rebroadcast tx %v with sequence %v, gas limit %v, and caller provided fee Limit %v	: %s", etx.ID, *etx.Sequence, attempt.ChainSpecificFeeLimit, etx.FeeLimit, err.Error()), "err", err, "fee", attempt.TxFee)
-				continue
+			errType, err := ec.client.SendTransactionReturnCode(ctx, *etx, attempt, ec.lggr)
+			if errType == multinode.Successful || errType == multinode.TransactionAlreadyKnown {
+				ec.lggr.Infow("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "transactionLifecycleID", etx.GetTransactionLifecycleID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
+			} else {
+				ec.lggr.Errorw("ForceRebroadcast: Broadcasted transaction", "txHash", attempt.Hash, "transactionLifecycleID", etx.GetTransactionLifecycleID(ec.lggr), "attempt", attempt, "etxID", etx.ID, "etx", etx, "errType", errType, "err", err)
 			}
-			ec.lggr.Infof("ForceRebroadcast: successfully rebroadcast tx %v with hash: 0x%x", etx.ID, attempt.Hash)
 		}
 	}
 	return nil

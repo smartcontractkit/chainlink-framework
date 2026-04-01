@@ -197,7 +197,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber: 20,
 		}).Once()
 		node.SetPoolChainInfoProvider(poolInfo)
@@ -226,7 +226,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber: 20,
 		}).Once()
 		node.SetPoolChainInfoProvider(poolInfo)
@@ -261,7 +261,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(10, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(10, ChainInfo{
 			BlockNumber:     syncThreshold + mostRecentBlock + 1,
 			TotalDifficulty: big.NewInt(10),
 		})
@@ -297,7 +297,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30})
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     syncThreshold + mostRecentBlock + 1,
 			TotalDifficulty: big.NewInt(10),
 		})
@@ -326,7 +326,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const mostRecentBlock = 20
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: mostRecentBlock}, ChainInfo{BlockNumber: 30}).Twice()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     syncThreshold + mostRecentBlock + 1,
 			TotalDifficulty: big.NewInt(10),
 		})
@@ -405,7 +405,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     20,
 			TotalDifficulty: big.NewInt(10),
 		}).Once()
@@ -430,7 +430,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     20,
 			TotalDifficulty: big.NewInt(10),
 		}).Once()
@@ -656,7 +656,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     20,
 			TotalDifficulty: big.NewInt(10),
 		}).Once()
@@ -684,12 +684,11 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     20,
 			TotalDifficulty: big.NewInt(10),
 		}).Once()
 		node.SetPoolChainInfoProvider(poolInfo)
-		// tries to redial in outOfSync
 		// tries to redial in outOfSync
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Run(func(_ mock.Arguments) {
 			assert.Equal(t, nodeStateOutOfSync, node.State())
@@ -1059,7 +1058,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(0, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     100,
 			TotalDifficulty: big.NewInt(200),
 		})
@@ -1097,7 +1096,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(0, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{
 			BlockNumber:     100,
 			TotalDifficulty: big.NewInt(200),
 		})
@@ -1137,7 +1136,7 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		poolInfo := newMockPoolChainInfoProvider(t)
 		const highestBlock = 20
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(1, ChainInfo{
 			BlockNumber:     highestBlock * 2,
 			TotalDifficulty: big.NewInt(200),
 		})
@@ -1790,7 +1789,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 			config: testNodeConfig{syncThreshold: 1},
 		})
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(1, ChainInfo{}).Once()
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(1, ChainInfo{}).Once()
 		node.SetPoolChainInfoProvider(poolInfo)
 		assert.Panics(t, func() {
 			_, _ = node.isOutOfSyncWithPool()
@@ -1836,7 +1835,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 				},
 			})
 			poolInfo := newMockPoolChainInfoProvider(t)
-			poolInfo.On("LatestChainInfo").Return(nodesNum, ChainInfo{
+			poolInfo.On("LatestChainInfo", mock.Anything).Return(nodesNum, ChainInfo{
 				BlockNumber:     highestBlock,
 				TotalDifficulty: big.NewInt(totalDifficulty),
 			})
@@ -1896,7 +1895,7 @@ func TestUnit_NodeLifecycle_outOfSyncWithPool(t *testing.T) {
 		})
 
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo").Return(nodesNum, ChainInfo{
+		poolInfo.On("LatestChainInfo", mock.Anything).Return(nodesNum, ChainInfo{
 			BlockNumber:     highestBlock,
 			TotalDifficulty: big.NewInt(totalDifficulty),
 		})
