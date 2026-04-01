@@ -170,7 +170,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 						if finalizedStateFailures >= finalizedStateCheckFailureThreshold {
 							lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
 							if n.poolInfoProvider != nil {
-								if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+								if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 2 && !n.isLoadBalancedRPC {
 									lggr.Criticalf("RPC endpoint cannot serve finalized state; %s %s", msgCannotDisable, msgDegradedState)
 									continue
 								}
