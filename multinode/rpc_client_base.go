@@ -24,12 +24,6 @@ type RPCClientBaseConfig interface {
 	FinalizedBlockPollInterval() time.Duration
 }
 
-type RPCClientBaseMetricsConfig struct {
-	RPCClientMetrics frameworkmetrics.RPCClientMetrics
-	RPCURL           string
-	IsSendOnly       bool
-}
-
 // RPCClientBase is used to integrate multinode into chain-specific clients.
 // For new MultiNode integrations, we wrap the RPC client and inherit from the RPCClientBase
 // to get the required RPCClient methods and enable the use of MultiNode.
@@ -62,15 +56,13 @@ type RPCClientBase[HEAD Head] struct {
 	latestChainInfo ChainInfo
 
 	rpcMetrics frameworkmetrics.RPCClientMetrics
-	rpcURL     string
-	isSendOnly bool
 }
 
 func NewRPCClientBase[HEAD Head](
 	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
-	rpcMetrics *RPCClientBaseMetricsConfig,
+	rpcMetrics frameworkmetrics.RPCClientMetrics,
 ) *RPCClientBase[HEAD] {
 	base := &RPCClientBase[HEAD]{
 		cfg:                  cfg,
@@ -80,11 +72,7 @@ func NewRPCClientBase[HEAD Head](
 		latestFinalizedBlock: latestFinalizedBlock,
 		subs:                 make(map[Subscription]struct{}),
 		lifeCycleCh:          make(chan struct{}),
-	}
-	if rpcMetrics != nil {
-		base.rpcMetrics = rpcMetrics.RPCClientMetrics
-		base.rpcURL = rpcMetrics.RPCURL
-		base.isSendOnly = rpcMetrics.IsSendOnly
+		rpcMetrics:           rpcMetrics,
 	}
 	return base
 }
@@ -224,7 +212,7 @@ func (m *RPCClientBase[HEAD]) recordRPCRequest(ctx context.Context, callName str
 		return
 	}
 
-	m.rpcMetrics.RecordRequest(ctx, m.rpcURL, m.isSendOnly, callName, time.Since(startedAt), err)
+	m.rpcMetrics.RecordRequest(ctx, callName, time.Since(startedAt), err)
 }
 
 func (m *RPCClientBase[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {

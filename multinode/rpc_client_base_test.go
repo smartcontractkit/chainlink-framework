@@ -74,8 +74,6 @@ func newTestRPC(t *testing.T) *testRPC {
 }
 
 type recordedRPCRequest struct {
-	rpcURL     string
-	isSendOnly bool
 	callName   string
 	latency    time.Duration
 	err        error
@@ -87,10 +85,8 @@ type spyRPCClientMetrics struct {
 
 var _ frameworkmetrics.RPCClientMetrics = (*spyRPCClientMetrics)(nil)
 
-func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, rpcURL string, isSendOnly bool, callName string, latency time.Duration, err error) {
+func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, callName string, latency time.Duration, err error) {
 	s.requests = append(s.requests, recordedRPCRequest{
-		rpcURL:     rpcURL,
-		isSendOnly: isSendOnly,
 		callName:   callName,
 		latency:    latency,
 		err:        err,
@@ -161,19 +157,13 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			func(context.Context) (*testHead, error) {
 				return &testHead{blockNumber: 8}, nil
 			},
-			&RPCClientBaseMetricsConfig{
-				RPCClientMetrics: spy,
-				RPCURL:           "http://primary.test",
-				IsSendOnly:       false,
-			},
+			spy,
 		)
 
 		head, err := rpc.LatestBlock(t.Context())
 		require.NoError(t, err)
 		require.Equal(t, int64(7), head.BlockNumber())
 		require.Len(t, spy.requests, 1)
-		require.Equal(t, "http://primary.test", spy.requests[0].rpcURL)
-		require.False(t, spy.requests[0].isSendOnly)
 		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
 		require.NoError(t, spy.requests[0].err)
 		require.Positive(t, spy.requests[0].latency)
@@ -192,18 +182,12 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			func(context.Context) (*testHead, error) {
 				return nil, expectedErr
 			},
-			&RPCClientBaseMetricsConfig{
-				RPCClientMetrics: spy,
-				RPCURL:           "http://sendonly.test",
-				IsSendOnly:       true,
-			},
+			spy,
 		)
 
 		_, err := rpc.LatestFinalizedBlock(t.Context())
 		require.ErrorIs(t, err, expectedErr)
 		require.Len(t, spy.requests, 1)
-		require.Equal(t, "http://sendonly.test", spy.requests[0].rpcURL)
-		require.True(t, spy.requests[0].isSendOnly)
 		require.Equal(t, rpcCallNameLatestFinalizedBlock, spy.requests[0].callName)
 		require.ErrorIs(t, spy.requests[0].err, expectedErr)
 		require.Positive(t, spy.requests[0].latency)
@@ -221,11 +205,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			func(context.Context) (*testHead, error) {
 				return &testHead{blockNumber: 8}, nil
 			},
-			&RPCClientBaseMetricsConfig{
-				RPCClientMetrics: spy,
-				RPCURL:           "http://invalid.test",
-				IsSendOnly:       false,
-			},
+			spy,
 		)
 
 		_, err := rpc.LatestBlock(t.Context())
