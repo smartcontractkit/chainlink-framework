@@ -2,6 +2,7 @@ package multinode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -102,6 +103,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
 
+	// Finalized state availability check config
+	finalizedStateCheckFailureThreshold := n.nodePoolCfg.FinalizedStateCheckFailureThreshold()
+	var finalizedStateFailures uint32
+	if finalizedStateCheckFailureThreshold > 0 {
+		lggr.Debugw("Finalized state availability check enabled", "finalizedStateCheckFailureThreshold", finalizedStateCheckFailureThreshold)
+	} else {
+		lggr.Debug("Finalized state availability check disabled")
+	}
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -128,7 +138,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
 				if n.poolInfoProvider != nil {
-					if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+					if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 						lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
 						continue
 					}
@@ -138,12 +148,47 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			if outOfSync, liveNodes := n.isOutOfSyncWithPool(); outOfSync {
 				// note: there must be another live node for us to be out of sync
-				if liveNodes < 2 && !n.isLoadBalancedRPC {
+				if liveNodes < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
 					continue
 				}
 				n.declareOutOfSync(syncStatusNotInSyncWithPool)
 				return
+			}
+			// Separate finalized state availability check
+			if finalizedStateCheckFailureThreshold > 0 {
+				stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, pollInterval)
+				stateErr := n.RPC().CheckFinalizedStateAvailability(stateCheckCtx)
+				stateCheckCancel()
+				if stateErr != nil {
+					if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
+						if finalizedStateFailures < math.MaxUint32 {
+							n.metrics.IncrementFinalizedStateFailed(ctx, n.name)
+							finalizedStateFailures++
+						}
+						lggr.Warnw("Finalized state not available", "err", stateErr, "failures", finalizedStateFailures, "threshold", finalizedStateCheckFailureThreshold)
+						if finalizedStateFailures >= finalizedStateCheckFailureThreshold {
+							lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
+							if n.poolInfoProvider != nil {
+								if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 2 && !n.isLoadBalancedRPC {
+									lggr.Criticalf("RPC endpoint cannot serve finalized state; %s %s", msgCannotDisable, msgDegradedState)
+									continue
+								}
+							}
+							n.declareFinalizedStateNotAvailable()
+							return
+						}
+					} else {
+						// Treat as RPC reachability error
+						if pollFailures < math.MaxUint32 {
+							n.metrics.IncrementPollsFailed(ctx, n.name)
+							pollFailures++
+						}
+						lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr, "pollFailures", pollFailures)
+					}
+				} else {
+					finalizedStateFailures = 0
+				}
 			}
 		case bh, open := <-headsSub.Heads:
 			if !open {
@@ -166,7 +211,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if n.poolInfoProvider != nil {
 				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
 				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
@@ -194,7 +239,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			if n.poolInfoProvider != nil {
 				// if its the only node and its not a proxy, keep waiting for sync (check LatestChainInfo)
 				// if its a proxy, then declare out of sync and try reconnecting because proxy might return a healthier rpc
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 2 && !n.isLoadBalancedRPC {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
@@ -342,7 +387,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool() (outOfSync bool, liveN
 		return // disabled
 	}
 	// Check against best node
-	ln, ci := n.poolInfoProvider.LatestChainInfo()
+	ln, ci := n.poolInfoProvider.LatestChainInfo(n.name)
 	localChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	mode := n.nodePoolCfg.SelectionMode()
 	switch mode {
@@ -459,7 +504,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 			lggr.Debugw(msgReceivedBlock, "blockNumber", head.BlockNumber(), "blockDifficulty", head.BlockDifficulty(), "syncIssues", syncIssues)
 		case <-time.After(zombieNodeCheckInterval(noNewHeadsTimeoutThreshold)):
 			if n.poolInfoProvider != nil {
-				if l, _ := n.poolInfoProvider.LatestChainInfo(); l < 1 {
+				if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 {
 					if n.isLoadBalancedRPC {
 						// in case all rpcs behind a load balanced rpc are out of sync, we need to declare out of sync to prevent false transition to alive
 						n.declareOutOfSync(syncIssues)
@@ -674,6 +719,61 @@ func (n *node[CHAIN_ID, HEAD, RPC]) syncingLoop() {
 			}
 
 			lggr.Infow(fmt.Sprintf("Successfully verified RPC node. Node was syncing for %s", time.Since(syncingAt)), "nodeState", n.getCachedState())
+			n.declareAlive()
+			return
+		}
+	}
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) finalizedStateNotAvailableLoop() {
+	defer n.wg.Done()
+	ctx, cancel := n.newCtx()
+	defer cancel()
+
+	{
+		state := n.getCachedState()
+		switch state {
+		case nodeStateFinalizedStateNotAvailable:
+		case nodeStateClosed:
+			return
+		default:
+			panic(fmt.Sprintf("finalizedStateNotAvailableLoop can only run for node in FinalizedStateNotAvailable state, got: %s", state))
+		}
+	}
+
+	unavailableAt := time.Now()
+
+	lggr := logger.Sugared(logger.Named(n.lfcLog, "FinalizedStateNotAvailable"))
+	lggr.Debugw("Trying to revive RPC node with unavailable finalized state", "nodeState", n.getCachedState())
+
+	// Need to redial since finalized-state-not-available nodes are automatically disconnected
+	state := n.createVerifiedConn(ctx, lggr)
+	if state != nodeStateAlive {
+		n.declareState(state)
+		return
+	}
+
+	recheckBackoff := NewRedialBackoff()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(recheckBackoff.Duration()):
+			stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, n.nodePoolCfg.PollInterval())
+			stateErr := n.RPC().CheckFinalizedStateAvailability(stateCheckCtx)
+			stateCheckCancel()
+			if stateErr != nil {
+				if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
+					lggr.Warnw("Finalized state still not available", "err", stateErr)
+					continue
+				}
+				lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr)
+				n.declareUnreachable()
+				return
+			}
+
+			lggr.Infow(fmt.Sprintf("Successfully verified RPC node %s. Finalized state was unavailable for %s", n.String(), time.Since(unavailableAt)), "nodeState", n.getCachedState())
 			n.declareAlive()
 			return
 		}

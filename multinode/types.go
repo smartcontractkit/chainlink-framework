@@ -2,9 +2,14 @@ package multinode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 )
+
+// ErrFinalizedStateUnavailable is returned by CheckFinalizedStateAvailability when the RPC
+// cannot serve historical state at the finalized block (e.g., pruned/non-archive node).
+var ErrFinalizedStateUnavailable = errors.New("finalized state unavailable")
 
 // ID represents the base type, for any chain's ID.
 // It should be convertible to a string, that can uniquely identify this chain
@@ -77,6 +82,11 @@ type RPCClient[
 	// Ensure implementation does not have a race condition when values are reset before request completion and as
 	// a result latest ChainInfo contains information from the previous cycle.
 	GetInterceptedChainInfo() (latest, highestUserObservations ChainInfo)
+	// CheckFinalizedStateAvailability - verifies if the RPC can serve historical state at the finalized block.
+	// This is used to detect non-archive nodes that cannot serve state queries for older blocks.
+	// Returns ErrFinalizedStateUnavailable if the RPC cannot serve historical state.
+	// Returns nil if the check passes or is not applicable, or another error for RPC issues.
+	CheckFinalizedStateAvailability(ctx context.Context) error
 }
 
 // Head is the interface required by the NodeClient
@@ -89,11 +99,12 @@ type Head interface {
 
 // PoolChainInfoProvider - provides aggregation of nodes pool ChainInfo
 type PoolChainInfoProvider interface {
-	// LatestChainInfo - returns number of live nodes available in the pool, so we can prevent the last alive node in a pool from being
+	// LatestChainInfo returns the number of live nodes available in the pool (excluding the node identified by
+	// callerName from the count), so we can prevent the last alive node in a pool from being
 	// moved to out-of-sync state. It is better to have one out-of-sync node than no nodes at all.
 	// Returns highest latest ChainInfo within the alive nodes. E.g. most recent block number and highest block number
 	// observed by Node A are 10 and 15; Node B - 12 and 14. This method will return 12.
-	LatestChainInfo() (int, ChainInfo)
+	LatestChainInfo(callerName string) (int, ChainInfo)
 	// HighestUserObservations - returns highest ChainInfo ever observed by any user of MultiNode.
 	HighestUserObservations() ChainInfo
 }
