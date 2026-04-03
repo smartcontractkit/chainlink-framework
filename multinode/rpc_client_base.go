@@ -17,6 +17,8 @@ var errInvalidHead = errors.New("invalid head")
 const (
 	rpcCallNameLatestBlock          = "latest_block"
 	rpcCallNameLatestFinalizedBlock = "latest_finalized_block"
+	rpcMetricsDefaultURL            = ""
+	rpcMetricsDefaultIsSendOnly     = false
 )
 
 type RPCClientBaseConfig interface {
@@ -212,7 +214,7 @@ func (m *RPCClientBase[HEAD]) recordRPCRequest(ctx context.Context, callName str
 		return
 	}
 
-	m.rpcMetrics.RecordRequest(ctx, callName, time.Since(startedAt), err)
+	m.rpcMetrics.RecordRequest(ctx, rpcMetricsDefaultURL, rpcMetricsDefaultIsSendOnly, callName, time.Since(startedAt), err)
 }
 
 func (m *RPCClientBase[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {

@@ -74,9 +74,9 @@ func newTestRPC(t *testing.T) *testRPC {
 }
 
 type recordedRPCRequest struct {
-	callName   string
-	latency    time.Duration
-	err        error
+	callName string
+	latency  time.Duration
+	err      error
 }
 
 type spyRPCClientMetrics struct {
@@ -85,11 +85,11 @@ type spyRPCClientMetrics struct {
 
 var _ frameworkmetrics.RPCClientMetrics = (*spyRPCClientMetrics)(nil)
 
-func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, callName string, latency time.Duration, err error) {
+func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, _ string, _ bool, callName string, latency time.Duration, err error) {
 	s.requests = append(s.requests, recordedRPCRequest{
-		callName:   callName,
-		latency:    latency,
-		err:        err,
+		callName: callName,
+		latency:  latency,
+		err:      err,
 	})
 }
 
