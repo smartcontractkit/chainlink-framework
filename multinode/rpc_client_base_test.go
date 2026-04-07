@@ -68,15 +68,17 @@ func newTestRPC(t *testing.T) *testRPC {
 	}
 
 	rpc := &testRPC{}
-	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, nil)
+	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, "http://localhost:8545", nil)
 	t.Cleanup(rpc.Close)
 	return rpc
 }
 
 type recordedRPCRequest struct {
-	callName string
-	latency  time.Duration
-	err      error
+	rpcURL     string
+	isSendOnly bool
+	callName   string
+	latency    time.Duration
+	err        error
 }
 
 type spyRPCClientMetrics struct {
@@ -85,11 +87,13 @@ type spyRPCClientMetrics struct {
 
 var _ frameworkmetrics.RPCClientMetrics = (*spyRPCClientMetrics)(nil)
 
-func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, _ string, _ bool, callName string, latency time.Duration, err error) {
+func (s *spyRPCClientMetrics) RecordRequest(_ context.Context, rpcURL string, isSendOnly bool, callName string, latency time.Duration, err error) {
 	s.requests = append(s.requests, recordedRPCRequest{
-		callName: callName,
-		latency:  latency,
-		err:      err,
+		rpcURL:     rpcURL,
+		isSendOnly: isSendOnly,
+		callName:   callName,
+		latency:    latency,
+		err:        err,
 	})
 }
 
@@ -147,6 +151,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 
 	t.Run("records successful latest block requests", func(t *testing.T) {
 		spy := &spyRPCClientMetrics{}
+		const testURL = "http://rpc.example.com:8545"
 		rpc := NewRPCClientBase[*testHead](
 			cfg,
 			requestTimeout,
@@ -157,6 +162,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			func(context.Context) (*testHead, error) {
 				return &testHead{blockNumber: 8}, nil
 			},
+			testURL,
 			spy,
 		)
 
@@ -164,6 +170,8 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(7), head.BlockNumber())
 		require.Len(t, spy.requests, 1)
+		require.Equal(t, testURL, spy.requests[0].rpcURL)
+		require.False(t, spy.requests[0].isSendOnly)
 		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
 		require.NoError(t, spy.requests[0].err)
 		require.Positive(t, spy.requests[0].latency)
@@ -171,6 +179,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 
 	t.Run("records failed finalized block requests", func(t *testing.T) {
 		spy := &spyRPCClientMetrics{}
+		const testURL = "http://rpc.example.com:8545"
 		expectedErr := errors.New("boom")
 		rpc := NewRPCClientBase[*testHead](
 			cfg,
@@ -182,12 +191,15 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			func(context.Context) (*testHead, error) {
 				return nil, expectedErr
 			},
+			testURL,
 			spy,
 		)
 
 		_, err := rpc.LatestFinalizedBlock(t.Context())
 		require.ErrorIs(t, err, expectedErr)
 		require.Len(t, spy.requests, 1)
+		require.Equal(t, testURL, spy.requests[0].rpcURL)
+		require.False(t, spy.requests[0].isSendOnly)
 		require.Equal(t, rpcCallNameLatestFinalizedBlock, spy.requests[0].callName)
 		require.ErrorIs(t, spy.requests[0].err, expectedErr)
 		require.Positive(t, spy.requests[0].latency)
@@ -195,6 +207,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 
 	t.Run("records invalid heads as failed requests", func(t *testing.T) {
 		spy := &spyRPCClientMetrics{}
+		const testURL = "http://rpc.example.com:8545"
 		rpc := NewRPCClientBase[*testHead](
 			cfg,
 			requestTimeout,
@@ -205,12 +218,15 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 			func(context.Context) (*testHead, error) {
 				return &testHead{blockNumber: 8}, nil
 			},
+			testURL,
 			spy,
 		)
 
 		_, err := rpc.LatestBlock(t.Context())
 		require.ErrorIs(t, err, errInvalidHead)
 		require.Len(t, spy.requests, 1)
+		require.Equal(t, testURL, spy.requests[0].rpcURL)
+		require.False(t, spy.requests[0].isSendOnly)
 		require.Equal(t, rpcCallNameLatestBlock, spy.requests[0].callName)
 		require.ErrorIs(t, spy.requests[0].err, errInvalidHead)
 	})

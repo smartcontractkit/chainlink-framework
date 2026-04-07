@@ -17,7 +17,6 @@ var errInvalidHead = errors.New("invalid head")
 const (
 	rpcCallNameLatestBlock          = "latest_block"
 	rpcCallNameLatestFinalizedBlock = "latest_finalized_block"
-	rpcMetricsDefaultURL            = ""
 	rpcMetricsDefaultIsSendOnly     = false
 )
 
@@ -37,6 +36,7 @@ type RPCClientBase[HEAD Head] struct {
 	cfg        RPCClientBaseConfig
 	log        logger.Logger
 	ctxTimeout time.Duration
+	rpcURL     string
 	subsMu     sync.RWMutex
 	subs       map[Subscription]struct{}
 
@@ -64,12 +64,14 @@ func NewRPCClientBase[HEAD Head](
 	cfg RPCClientBaseConfig, ctxTimeout time.Duration, log logger.Logger,
 	latestBlock func(ctx context.Context) (HEAD, error),
 	latestFinalizedBlock func(ctx context.Context) (HEAD, error),
+	rpcURL string,
 	rpcMetrics frameworkmetrics.RPCClientMetrics,
 ) *RPCClientBase[HEAD] {
 	base := &RPCClientBase[HEAD]{
 		cfg:                  cfg,
 		log:                  log,
 		ctxTimeout:           ctxTimeout,
+		rpcURL:               rpcURL,
 		latestBlock:          latestBlock,
 		latestFinalizedBlock: latestFinalizedBlock,
 		subs:                 make(map[Subscription]struct{}),
@@ -214,7 +216,7 @@ func (m *RPCClientBase[HEAD]) recordRPCRequest(ctx context.Context, callName str
 		return
 	}
 
-	m.rpcMetrics.RecordRequest(ctx, rpcMetricsDefaultURL, rpcMetricsDefaultIsSendOnly, callName, time.Since(startedAt), err)
+	m.rpcMetrics.RecordRequest(ctx, m.rpcURL, rpcMetricsDefaultIsSendOnly, callName, time.Since(startedAt), err)
 }
 
 func (m *RPCClientBase[HEAD]) OnNewHead(ctx context.Context, requestCh <-chan struct{}, head HEAD) {
