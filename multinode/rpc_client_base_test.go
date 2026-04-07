@@ -68,7 +68,7 @@ func newTestRPC(t *testing.T) *testRPC {
 	}
 
 	rpc := &testRPC{}
-	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, "http://localhost:8545", nil)
+	rpc.RPCClientBase = NewRPCClientBase[*testHead](cfg, requestTimeout, lggr, rpc.latestBlock, rpc.latestBlock, "http://localhost:8545", false, nil)
 	t.Cleanup(rpc.Close)
 	return rpc
 }
@@ -163,6 +163,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 				return &testHead{blockNumber: 8}, nil
 			},
 			testURL,
+			false,
 			spy,
 		)
 
@@ -192,6 +193,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 				return nil, expectedErr
 			},
 			testURL,
+			false,
 			spy,
 		)
 
@@ -219,6 +221,7 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 				return &testHead{blockNumber: 8}, nil
 			},
 			testURL,
+			false,
 			spy,
 		)
 
