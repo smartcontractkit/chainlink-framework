@@ -79,52 +79,6 @@ func (_c *mockRPCClient_ChainID_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(cont
 	return _c
 }
 
-// CheckFinalizedStateAvailability provides a mock function with given fields: ctx
-func (_m *mockRPCClient[CHAIN_ID, HEAD]) CheckFinalizedStateAvailability(ctx context.Context) error {
-	ret := _m.Called(ctx)
-
-	if len(ret) == 0 {
-		panic("no return value specified for CheckFinalizedStateAvailability")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
-		r0 = rf(ctx)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// mockRPCClient_CheckFinalizedStateAvailability_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CheckFinalizedStateAvailability'
-type mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID ID, HEAD Head] struct {
-	*mock.Call
-}
-
-// CheckFinalizedStateAvailability is a helper method to define mock.On call
-//   - ctx context.Context
-func (_e *mockRPCClient_Expecter[CHAIN_ID, HEAD]) CheckFinalizedStateAvailability(ctx interface{}) *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD] {
-	return &mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("CheckFinalizedStateAvailability", ctx)}
-}
-
-func (_c *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD]) Run(run func(ctx context.Context)) *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD] {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context))
-	})
-	return _c
-}
-
-func (_c *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD]) Return(_a0 error) *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD]) RunAndReturn(run func(context.Context) error) *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD] {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ClientVersion provides a mock function with given fields: _a0
 func (_m *mockRPCClient[CHAIN_ID, HEAD]) ClientVersion(_a0 context.Context) (string, error) {
 	ret := _m.Called(_a0)

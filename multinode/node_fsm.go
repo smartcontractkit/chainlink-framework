@@ -35,8 +35,6 @@ func (n nodeState) String() string {
 		return "Syncing"
 	case nodeStateFinalizedBlockOutOfSync:
 		return "FinalizedBlockOutOfSync"
-	case nodeStateFinalizedStateNotAvailable:
-		return "FinalizedStateNotAvailable"
 	default:
 		return fmt.Sprintf("nodeState(%d)", n)
 	}
@@ -74,8 +72,6 @@ const (
 	nodeStateSyncing
 	// nodeStateFinalizedBlockOutOfSync - node is lagging behind on latest finalized block
 	nodeStateFinalizedBlockOutOfSync
-	// nodeStateFinalizedStateNotAvailable - node cannot serve historical state at finalized block
-	nodeStateFinalizedStateNotAvailable
 	// nodeStateLen tracks the number of states
 	nodeStateLen
 )
@@ -186,7 +182,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
+	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing:
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
@@ -270,7 +266,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
+	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
 		n.rpc.Close()
 		n.state = nodeStateUnreachable
 	default:
@@ -292,8 +288,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) declareState(state nodeState) {
 		n.declareSyncing()
 	case nodeStateAlive:
 		n.declareAlive()
-	case nodeStateFinalizedStateNotAvailable:
-		n.declareFinalizedStateNotAvailable()
 	default:
 		panic(fmt.Sprintf("%#v state declaration is not implemented", state))
 	}
@@ -317,7 +311,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing:
 		n.rpc.Close()
 		n.state = nodeStateInvalidChainID
 	default:
@@ -344,7 +338,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateFinalizedStateNotAvailable:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
 		n.rpc.Close()
 		n.state = nodeStateSyncing
 	default:
@@ -353,33 +347,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 
 	if !n.nodePoolCfg.NodeIsSyncingEnabled() {
 		panic("unexpected transition to nodeStateSyncing, while it's disabled")
-	}
-	fn()
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) declareFinalizedStateNotAvailable() {
-	n.transitionToFinalizedStateNotAvailable(func() {
-		n.lfcLog.Errorw("RPC Node cannot serve finalized state", "nodeState", n.state)
-		n.wg.Add(1)
-		go n.finalizedStateNotAvailableLoop()
-	})
-}
-
-func (n *node[CHAIN_ID, HEAD, RPC]) transitionToFinalizedStateNotAvailable(fn func()) {
-	ctx, cancel := n.stopCh.NewCtx()
-	defer cancel()
-	n.metrics.IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx, n.name)
-	n.stateMu.Lock()
-	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
-		return
-	}
-	switch n.state {
-	case nodeStateAlive:
-		n.rpc.Close()
-		n.state = nodeStateFinalizedStateNotAvailable
-	default:
-		panic(transitionFail(n.state, nodeStateFinalizedStateNotAvailable))
 	}
 	fn()
 }
