@@ -458,8 +458,28 @@ func TestLoggableSendTxResults(t *testing.T) {
 
 	b, err := json.Marshal(got)
 	require.NoError(t, err)
-	require.Equal(t,
-		`{"Successful":[{"code":"Successful","error":"","res":null}],"Unknown":[{"code":"Unknown","error":"RPC call failed: TX_REPLAY_ATTACK","res":null},{"code":"Unknown","error":"RPC call failed: TX_REPLAY_ATTACK","res":null}]}`,
+	require.JSONEq(t,
+		`{
+   "Successful":[
+      {
+         "code":"Successful",
+         "error":"",
+         "res":null
+      }
+   ],
+   "Unknown":[
+      {
+         "code":"Unknown",
+         "error":"RPC call failed: TX_REPLAY_ATTACK",
+         "res":null
+      },
+      {
+         "code":"Unknown",
+         "error":"RPC call failed: TX_REPLAY_ATTACK",
+         "res":null
+      }
+   ]
+}`,
 		string(b),
 	)
 }
