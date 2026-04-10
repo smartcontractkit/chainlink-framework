@@ -2,6 +2,7 @@ package multinode
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -424,4 +425,41 @@ func TestTransactionSender_SendTransaction_aggregateTxResults(t *testing.T) {
 
 func newSendTxResult(err error) sendTxResult[any] {
 	return sendTxResult[any]{error: err}
+}
+
+func TestLoggableSendTxResults(t *testing.T) {
+	t.Parallel()
+
+	// Input reconstructed from an observed production invariant violation log:
+	// 1 node returned Successful (code 1), 2 nodes returned Unknown (code 5)
+	// with "RPC call failed: TX_REPLAY_ATTACK", triggering "got success and severe error".
+	replayAttackErr := errors.New("RPC call failed: TX_REPLAY_ATTACK")
+	input := sendTxResults[any]{
+		Successful: {
+			{res: nil, code: Successful, error: nil},
+		},
+		Unknown: {
+			{res: nil, code: Unknown, error: replayAttackErr},
+			{res: nil, code: Unknown, error: replayAttackErr},
+		},
+	}
+
+	got := loggableSendTxResults(input)
+
+	require.Equal(t, map[SendTxReturnCode][]map[string]any{
+		Successful: {
+			{"res": nil, "code": Successful, "error": ""},
+		},
+		Unknown: {
+			{"res": nil, "code": Unknown, "error": "RPC call failed: TX_REPLAY_ATTACK"},
+			{"res": nil, "code": Unknown, "error": "RPC call failed: TX_REPLAY_ATTACK"},
+		},
+	}, got)
+
+	b, err := json.Marshal(got)
+	require.NoError(t, err)
+	require.Equal(t,
+		`{"Successful":[{"code":"Successful","error":"","res":null}],"Unknown":[{"code":"Unknown","error":"RPC call failed: TX_REPLAY_ATTACK","res":null},{"code":"Unknown","error":"RPC call failed: TX_REPLAY_ATTACK","res":null}]}`,
+		string(b),
+	)
 }

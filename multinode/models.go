@@ -29,6 +29,10 @@ var sendTxSevereErrors = []SendTxReturnCode{Fatal, Underpriced, Unsupported, Exc
 // sendTxSuccessfulCodes - error codes which signal that transaction was accepted by the node
 var sendTxSuccessfulCodes = []SendTxReturnCode{Successful, TransactionAlreadyKnown}
 
+func (c SendTxReturnCode) MarshalText() ([]byte, error) {
+	return []byte(c.String()), nil
+}
+
 func (c SendTxReturnCode) String() string {
 	switch c {
 	case Successful:
