@@ -21,6 +21,40 @@ func (_m *mockNodeMetrics) EXPECT() *mockNodeMetrics_Expecter {
 	return &mockNodeMetrics_Expecter{mock: &_m.Mock}
 }
 
+// IncrementFinalizedStateFailed provides a mock function with given fields: ctx, nodeName
+func (_m *mockNodeMetrics) IncrementFinalizedStateFailed(ctx context.Context, nodeName string) {
+	_m.Called(ctx, nodeName)
+}
+
+// mockNodeMetrics_IncrementFinalizedStateFailed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementFinalizedStateFailed'
+type mockNodeMetrics_IncrementFinalizedStateFailed_Call struct {
+	*mock.Call
+}
+
+// IncrementFinalizedStateFailed is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+func (_e *mockNodeMetrics_Expecter) IncrementFinalizedStateFailed(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
+	return &mockNodeMetrics_IncrementFinalizedStateFailed_Call{Call: _e.mock.On("IncrementFinalizedStateFailed", ctx, nodeName)}
+}
+
+func (_c *mockNodeMetrics_IncrementFinalizedStateFailed_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementFinalizedStateFailed_Call) Return() *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementFinalizedStateFailed_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
+	_c.Run(run)
+	return _c
+}
+
 // IncrementNodeTransitionsToAlive provides a mock function with given fields: ctx, nodeName
 func (_m *mockNodeMetrics) IncrementNodeTransitionsToAlive(ctx context.Context, nodeName string) {
 	_m.Called(ctx, nodeName)
@@ -51,6 +85,40 @@ func (_c *mockNodeMetrics_IncrementNodeTransitionsToAlive_Call) Return() *mockNo
 }
 
 func (_c *mockNodeMetrics_IncrementNodeTransitionsToAlive_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementNodeTransitionsToAlive_Call {
+	_c.Run(run)
+	return _c
+}
+
+// IncrementNodeTransitionsToFinalizedStateNotAvailable provides a mock function with given fields: ctx, nodeName
+func (_m *mockNodeMetrics) IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx context.Context, nodeName string) {
+	_m.Called(ctx, nodeName)
+}
+
+// mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementNodeTransitionsToFinalizedStateNotAvailable'
+type mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call struct {
+	*mock.Call
+}
+
+// IncrementNodeTransitionsToFinalizedStateNotAvailable is a helper method to define mock.On call
+//   - ctx context.Context
+//   - nodeName string
+func (_e *mockNodeMetrics_Expecter) IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
+	return &mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call{Call: _e.mock.On("IncrementNodeTransitionsToFinalizedStateNotAvailable", ctx, nodeName)}
+}
+
+func (_c *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call) Return() *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
 	_c.Run(run)
 	return _c
 }
@@ -187,74 +255,6 @@ func (_c *mockNodeMetrics_IncrementNodeTransitionsToSyncing_Call) Return() *mock
 }
 
 func (_c *mockNodeMetrics_IncrementNodeTransitionsToSyncing_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementNodeTransitionsToSyncing_Call {
-	_c.Run(run)
-	return _c
-}
-
-// IncrementNodeTransitionsToFinalizedStateNotAvailable provides a mock function with given fields: ctx, nodeName
-func (_m *mockNodeMetrics) IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx context.Context, nodeName string) {
-	_m.Called(ctx, nodeName)
-}
-
-// mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementNodeTransitionsToFinalizedStateNotAvailable'
-type mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call struct {
-	*mock.Call
-}
-
-// IncrementNodeTransitionsToFinalizedStateNotAvailable is a helper method to define mock.On call
-//   - ctx context.Context
-//   - nodeName string
-func (_e *mockNodeMetrics_Expecter) IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
-	return &mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call{Call: _e.mock.On("IncrementNodeTransitionsToFinalizedStateNotAvailable", ctx, nodeName)}
-}
-
-func (_c *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call) Return() *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementNodeTransitionsToFinalizedStateNotAvailable_Call {
-	_c.Run(run)
-	return _c
-}
-
-// IncrementFinalizedStateFailed provides a mock function with given fields: ctx, nodeName
-func (_m *mockNodeMetrics) IncrementFinalizedStateFailed(ctx context.Context, nodeName string) {
-	_m.Called(ctx, nodeName)
-}
-
-// mockNodeMetrics_IncrementFinalizedStateFailed_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'IncrementFinalizedStateFailed'
-type mockNodeMetrics_IncrementFinalizedStateFailed_Call struct {
-	*mock.Call
-}
-
-// IncrementFinalizedStateFailed is a helper method to define mock.On call
-//   - ctx context.Context
-//   - nodeName string
-func (_e *mockNodeMetrics_Expecter) IncrementFinalizedStateFailed(ctx interface{}, nodeName interface{}) *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
-	return &mockNodeMetrics_IncrementFinalizedStateFailed_Call{Call: _e.mock.On("IncrementFinalizedStateFailed", ctx, nodeName)}
-}
-
-func (_c *mockNodeMetrics_IncrementFinalizedStateFailed_Call) Run(run func(ctx context.Context, nodeName string)) *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *mockNodeMetrics_IncrementFinalizedStateFailed_Call) Return() *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *mockNodeMetrics_IncrementFinalizedStateFailed_Call) RunAndReturn(run func(context.Context, string)) *mockNodeMetrics_IncrementFinalizedStateFailed_Call {
 	_c.Run(run)
 	return _c
 }
