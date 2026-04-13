@@ -110,7 +110,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, "Polling disabled")
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
-	t.Run("stays alive while below pollFailureThreshold and resets counter on success", func(t *testing.T) {
+	t.Run("stays alive while below pollFailureThreshold, success decrements failure count", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
@@ -132,9 +132,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			// stays healthy while below threshold
 			assert.Equal(t, nodeStateAlive, node.State())
 		}).Times(pollFailureThreshold - 1)
-		// 2. Successful call that is expected to reset counter
+		// 2. Successful call that is expected to decrement the counter (counter: 2 → 1)
 		rpc.On("ClientVersion", mock.Anything).Return("", nil).Once()
-		// 3. Return error. If we have not reset the timer, we'll transition to nonAliveState
+		// 3. Return error. Counter was decremented (not reset), so it reaches 2 — still below threshold.
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError).Once()
 		// 4. Once during the call, check if node is alive
 		var ensuredAlive atomic.Bool
@@ -174,6 +174,37 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertEventually(t, func() bool {
 			return nodeStateUnreachable == node.State()
+		})
+	})
+	t.Run("transitions to unreachable when net poll failures accumulate despite intermittent successes", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
+		const pollFailureThreshold = 3
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+			rpc: rpc,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		pollError := errors.New("failed to get ClientVersion")
+		// Pattern F·F·S·F·F: with the decay counter the net failure debt reaches
+		// threshold=3 at the 5th poll (counter: 1→2→1→2→3). With the old
+		// reset-on-success behaviour the counter resets to 0 at S and peaks at only
+		// 2 before the next success, never tripping.
+		rpc.On("ClientVersion", mock.Anything).Return("", pollError).Times(2)
+		rpc.On("ClientVersion", mock.Anything).Return("", nil).Once()
+		rpc.On("ClientVersion", mock.Anything).Return("", pollError).Times(2)
+		// Unlimited successes after: ensures old code stays alive indefinitely so
+		// the test correctly fails (times out) when run against the old behaviour.
+		rpc.On("ClientVersion", mock.Anything).Return("", nil)
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+		node.declareAlive()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateUnreachable
 		})
 	})
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {

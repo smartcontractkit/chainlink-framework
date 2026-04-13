@@ -123,7 +123,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				lggr.Debugw("Ping successful", "nodeState", n.State())
 				n.metrics.RecordNodeClientVersion(ctx, n.name, version)
 				n.metrics.IncrementPollsSuccess(ctx, n.name)
-				pollFailures = 0
+				// Decay rather than reset; detects sustained failure rates above 1:1
+				if pollFailures > 0 {
+					pollFailures--
+				}
 			}
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
@@ -356,7 +359,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool() (outOfSync bool, liveN
 	}
 
 	if outOfSync && n.getCachedState() == nodeStateAlive {
-		n.lfcLog.Errorw("RPC endpoint has fallen behind", "blockNumber", localChainInfo.BlockNumber, "bestLatestBlockNumber", ci.BlockNumber, "totalDifficulty", localChainInfo.TotalDifficulty)
+		n.lfcLog.Errorw(
+			"RPC endpoint has fallen behind",
+			"blockNumber", localChainInfo.BlockNumber,
+			"bestLatestBlockNumber", ci.BlockNumber,
+			"totalDifficulty", localChainInfo.TotalDifficulty,
+			"blockDifference", localChainInfo.BlockNumber-ci.BlockNumber,
+		)
 	}
 	return outOfSync, ln
 }
