@@ -2,9 +2,14 @@ package multinode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 )
+
+// ErrFinalizedStateUnavailable is returned by CheckFinalizedStateAvailability when the RPC
+// cannot serve historical state at the finalized block (e.g., pruned/non-archive node).
+var ErrFinalizedStateUnavailable = errors.New("finalized state unavailable")
 
 // ID represents the base type, for any chain's ID.
 // It should be convertible to a string, that can uniquely identify this chain
