@@ -532,10 +532,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 // When threshold is 0 the probe is disabled and the function returns true immediately.
 func (n *node[CHAIN_ID, HEAD, RPC]) probeUntilStable(ctx context.Context, lggr logger.Logger) bool {
 	threshold := n.nodePoolCfg.PollSuccessThreshold()
-	if threshold == 0 {
+	pollInterval := n.nodePoolCfg.PollInterval()
+	if threshold == 0 || pollInterval <= 0 {
 		return true
 	}
-	pollInterval := n.nodePoolCfg.PollInterval()
 	var successes uint32
 	for successes < threshold {
 		select {

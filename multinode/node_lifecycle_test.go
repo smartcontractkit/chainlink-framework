@@ -1583,6 +1583,35 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 func TestUnit_NodeLifecycle_probeUntilStable(t *testing.T) {
 	t.Parallel()
 
+	t.Run("returns true immediately when pollInterval is zero, skipping probe", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		// ClientVersion is intentionally NOT mocked: if the guard is missing the loop fires
+		// immediately (time.After(0)) and calls ClientVersion, which makes the test fail.
+		node := newTestNode(t, testNodeOpts{
+			rpc: rpc,
+			config: testNodeConfig{
+				pollSuccessThreshold: 2,
+				pollInterval:         0,
+			},
+		})
+		result := node.probeUntilStable(t.Context(), logger.Test(t))
+		assert.True(t, result)
+	})
+	t.Run("returns true immediately when pollInterval is negative, skipping probe", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		// ClientVersion is intentionally NOT mocked: same reasoning as above.
+		node := newTestNode(t, testNodeOpts{
+			rpc: rpc,
+			config: testNodeConfig{
+				pollSuccessThreshold: 2,
+				pollInterval:         -1,
+			},
+		})
+		result := node.probeUntilStable(t.Context(), logger.Test(t))
+		assert.True(t, result)
+	})
 	t.Run("returns true immediately when threshold is zero, skipping probe", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
