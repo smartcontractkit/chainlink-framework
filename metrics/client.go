@@ -39,6 +39,7 @@ const rpcCallLatencyBeholder = "rpc_call_latency"
 type RPCClientMetrics interface {
 	// RecordRequest records latency for an RPC call (observed in nanoseconds for Prometheus and Beholder).
 	// Failures use success="false"; derive error rate from rpc_call_latency_count{success="false"} (or equivalent).
+	// rpcURL is sanitized before export (userinfo and query removed; path segments that look like API keys redacted).
 	RecordRequest(ctx context.Context, rpcURL string, isSendOnly bool, callName string, latency time.Duration, err error)
 }
 
@@ -76,13 +77,14 @@ func (m *rpcClientMetrics) RecordRequest(ctx context.Context, rpcURL string, isS
 	}
 	sendStr := strconv.FormatBool(isSendOnly)
 	latencyNs := float64(latency)
+	safeRPCURL := sanitizeRPCURLForMetrics(rpcURL)
 
-	RPCCallLatency.WithLabelValues(m.chainFamily, m.chainID, rpcURL, sendStr, successStr, callName).Observe(latencyNs)
+	RPCCallLatency.WithLabelValues(m.chainFamily, m.chainID, safeRPCURL, sendStr, successStr, callName).Observe(latencyNs)
 
 	latAttrs := metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID),
-		attribute.String("rpcUrl", rpcURL),
+		attribute.String("rpcUrl", safeRPCURL),
 		attribute.String("isSendOnly", sendStr),
 		attribute.String("success", successStr),
 		attribute.String("rpcCallName", callName),
