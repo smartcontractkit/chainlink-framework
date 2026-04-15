@@ -60,6 +60,16 @@ func Test_sanitizeRPCURLForMetrics(t *testing.T) {
 			out:  "wss://avax-fuji.g.alchemy.com/v2/REDACTED",
 		},
 		{
+			name: "base64-like path segment with plus slash equals",
+			in:   "wss://rpc.example/v1/AbCdEfGh+IjKlMnOp/QrStUvWxYz012345678==",
+			out:  "wss://rpc.example/v1/REDACTED",
+		},
+		{
+			name: "short segment with plus not redacted",
+			in:   "wss://rpc.example/v1/short+key",
+			out:  "wss://rpc.example/v1/short+key",
+		},
+		{
 			name: "localhost unchanged",
 			in:   "http://localhost:8545",
 			out:  "http://localhost:8545",

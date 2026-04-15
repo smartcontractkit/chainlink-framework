@@ -41,6 +41,11 @@ func segmentLooksSensitive(seg string) bool {
 	if !isOpaqueURLPathToken(seg) {
 		return false
 	}
+	// Standard base64 uses +, /, and = (padding). If any appear in a long path segment, treat
+	// the whole segment as credential material (base64url omits these but classic base64 does not).
+	if strings.ContainsAny(seg, "+/=") {
+		return true
+	}
 	hasDigit := false
 	hasLower := false
 	hasUpper := false
@@ -63,9 +68,11 @@ func segmentLooksSensitive(seg string) bool {
 	return false
 }
 
+// isOpaqueURLPathToken is true for segments made of typical API-key / base64 / base64url
+// characters so we can apply redaction heuristics. Includes + and = for standard base64.
 func isOpaqueURLPathToken(seg string) bool {
 	for _, r := range seg {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' || r == '_' || r == '+' || r == '=' || r == '/' {
 			continue
 		}
 		return false
