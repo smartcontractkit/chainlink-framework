@@ -91,7 +91,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 	t.Run("Fails if there is no nodes available", func(t *testing.T) {
 		lggr := logger.Test(t)
 		_, txSender := newTestTransactionSender(t, RandomID(), lggr, nil, nil)
-		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, _, err := txSender.SendTransaction(t.Context(), nil)
 		assert.EqualError(t, err, ErrNodeError.Error())
 	})
 
@@ -104,7 +104,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{mainNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
-		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, code, err := txSender.SendTransaction(t.Context(), nil)
 		require.ErrorIs(t, err, expectedError)
 		require.Equal(t, Fatal, code)
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
@@ -119,7 +119,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{mainNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{newNode(t, errors.New("unexpected error"), nil)})
 
-		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, code, err := txSender.SendTransaction(t.Context(), nil)
 		require.NoError(t, err)
 		require.Equal(t, Successful, code)
 		tests.AssertLogCountEventually(t, observedLogs, "Node sent transaction", 2)
@@ -127,7 +127,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 	})
 
 	t.Run("Context expired before collecting sufficient results", func(t *testing.T) {
-		testContext, testCancel := context.WithCancel(tests.Context(t))
+		testContext, testCancel := context.WithCancel(t.Context())
 		defer testCancel()
 
 		mainNode := newNode(t, nil, func(_ mock.Arguments) {
@@ -140,14 +140,14 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		_, txSender := newTestTransactionSender(t, RandomID(), lggr,
 			[]Node[ID, TestSendTxRPCClient]{mainNode}, nil)
 
-		requestContext, cancel := context.WithCancel(tests.Context(t))
+		requestContext, cancel := context.WithCancel(t.Context())
 		cancel()
 		_, _, err := txSender.SendTransaction(requestContext, nil)
 		require.EqualError(t, err, "context canceled")
 	})
 
 	t.Run("Context cancelled while sending results does not cause invariant violation", func(t *testing.T) {
-		requestContext, cancel := context.WithCancel(tests.Context(t))
+		requestContext, cancel := context.WithCancel(t.Context())
 		mainNode := newNode(t, nil, func(_ mock.Arguments) {
 			cancel()
 		})
@@ -159,7 +159,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			lggr, makeMockMultiNodeMetrics(t), NodeSelectionModeRoundRobin, 0, []Node[ID, TestSendTxRPCClient]{mainNode}, nil, chainID, "chainFamily", 0)}
 		txSender := NewTransactionSender[any, any, ID, TestSendTxRPCClient](lggr, chainID, mn.chainFamily, mn.MultiNode, makeMockTxSenderMetrics(t),
 			func(err error) SendTxReturnCode { return 0 }, tests.TestInterval)
-		require.NoError(t, txSender.Start(tests.Context(t)))
+		require.NoError(t, txSender.Start(t.Context()))
 
 		_, _, err := txSender.SendTransaction(requestContext, nil)
 		require.EqualError(t, err, "context canceled")
@@ -173,7 +173,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		fastNode := newNode(t, expectedError, nil)
 
 		// hold reply from the node till end of the test
-		testContext, testCancel := context.WithCancel(tests.Context(t))
+		testContext, testCancel := context.WithCancel(t.Context())
 		defer testCancel()
 		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
 			// block caller til end of the test
@@ -183,14 +183,14 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		lggr := logger.Test(t)
 
 		_, txSender := newTestTransactionSender(t, chainID, lggr, []Node[ID, TestSendTxRPCClient]{fastNode, slowNode}, nil)
-		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, _, err := txSender.SendTransaction(t.Context(), nil)
 		require.EqualError(t, err, expectedError.Error())
 	})
 	t.Run("Returns success without waiting for the rest of the nodes", func(t *testing.T) {
 		chainID := RandomID()
 		fastNode := newNode(t, nil, nil)
 		// hold reply from the node till end of the test
-		testContext, testCancel := context.WithCancel(tests.Context(t))
+		testContext, testCancel := context.WithCancel(t.Context())
 		defer testCancel()
 		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
 			// block caller til end of the test
@@ -205,7 +205,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
 
-		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, code, err := txSender.SendTransaction(t.Context(), nil)
 		require.NoError(t, err)
 		require.Equal(t, Successful, code)
 	})
@@ -214,7 +214,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		fastNode := newNode(t, nil, nil)
 		fastNode.On("ConfiguredChainID").Return(chainID).Maybe()
 		// hold reply from the node till end of the test
-		testContext, testCancel := context.WithCancel(tests.Context(t))
+		testContext, testCancel := context.WithCancel(t.Context())
 		defer testCancel()
 		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
 			// block caller til end of the test
@@ -233,16 +233,16 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{fastNode, slowNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{slowSendOnly})
 
-		require.NoError(t, mn.Start(tests.Context(t)))
+		require.NoError(t, mn.Start(t.Context()))
 		require.NoError(t, mn.Close())
-		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, _, err := txSender.SendTransaction(t.Context(), nil)
 		require.EqualError(t, err, "service is stopped")
 	})
 	t.Run("Fails when closed", func(t *testing.T) {
 		chainID := RandomID()
 		fastNode := newNode(t, nil, nil)
 		// hold reply from the node till end of the test
-		testContext, testCancel := context.WithCancel(tests.Context(t))
+		testContext, testCancel := context.WithCancel(t.Context())
 		defer testCancel()
 		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
 			// block caller til end of the test
@@ -256,7 +256,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		var txSender *TransactionSender[any, any, ID, TestSendTxRPCClient]
 
 		t.Cleanup(func() { // after txSender.Close()
-			_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+			_, _, err := txSender.SendTransaction(t.Context(), nil)
 			assert.EqualError(t, err, "TransactionSender not started")
 		})
 
@@ -275,7 +275,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{primary},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{sendOnly})
 
-		_, _, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, _, err := txSender.SendTransaction(t.Context(), nil)
 		assert.EqualError(t, err, ErrNodeError.Error())
 	})
 
@@ -294,7 +294,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 			[]Node[ID, TestSendTxRPCClient]{mainNode, unhealthyNode},
 			[]SendOnlyNode[ID, TestSendTxRPCClient]{unhealthySendOnlyNode})
 
-		_, code, err := txSender.SendTransaction(tests.Context(t), nil)
+		_, code, err := txSender.SendTransaction(t.Context(), nil)
 		require.NoError(t, err)
 		require.Equal(t, Successful, code)
 	})
@@ -304,7 +304,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		fastNode := newNode(t, expectedError, nil)
 
 		// hold reply from the node till SendTransaction returns result
-		sendTxContext, sendTxCancel := context.WithCancel(tests.Context(t))
+		sendTxContext, sendTxCancel := context.WithCancel(t.Context())
 		slowNode := newNode(t, errors.New("transaction failed"), func(_ mock.Arguments) {
 			<-sendTxContext.Done()
 		})

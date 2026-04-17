@@ -49,7 +49,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		assert.Equal(t, nodeStateUndialed, s.State())
-		err := s.Start(tests.Context(t))
+		err := s.Start(t.Context())
 		require.NoError(t, err)
 
 		tests.AssertEventually(t, func() bool { return s.State() == nodeStateUnusable })
@@ -65,7 +65,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		assert.Equal(t, nodeStateUndialed, s.State())
-		err := s.Start(tests.Context(t))
+		err := s.Start(t.Context())
 		require.NoError(t, err)
 
 		tests.AssertEventually(t, func() bool { return s.State() == nodeStateAlive })
@@ -87,7 +87,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		assert.Equal(t, nodeStateUndialed, s.State())
-		err := s.Start(tests.Context(t))
+		err := s.Start(t.Context())
 		require.NoError(t, err)
 
 		tests.AssertEventually(t, func() bool { return s.State() == nodeStateUnreachable })
@@ -113,7 +113,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 
 		defer func() { assert.NoError(t, s.Close()) }()
 		assert.Equal(t, nodeStateUndialed, s.State())
-		err := s.Start(tests.Context(t))
+		err := s.Start(t.Context())
 		require.NoError(t, err)
 
 		tests.AssertEventually(t, func() bool { return s.State() == nodeStateInvalidChainID })
@@ -136,7 +136,7 @@ func TestStartSendOnlyNode(t *testing.T) {
 		s := NewSendOnlyNode(lggr, makeMockNodeMetrics(t), url.URL{}, t.Name(), configuredChainID, client)
 
 		defer func() { assert.NoError(t, s.Close()) }()
-		err := s.Start(tests.Context(t))
+		err := s.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return s.State() == nodeStateAlive

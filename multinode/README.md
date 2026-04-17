@@ -20,3 +20,31 @@ Used to poll for new heads and finalized heads within subscriptions.
 
 ### Transaction Sender
 Used to send transactions to all healthy RPCs and aggregate the results.
+
+## States diagram
+
+```mermaid
+graph TD
+	Undialed     --> Dialed
+	Undialed     --> Unreachable
+	Dialed       --> Alive
+	Dialed       --> InvalidChainID
+	Dialed       --> Syncing
+	Dialed       --> Unreachable
+	Alive        --> OutOfSync
+	Alive        --> Unreachable
+	OutOfSync    --> Alive
+	OutOfSync    --> InvalidChainID
+	OutOfSync    --> Syncing
+	OutOfSync    --> Unreachable
+	InvalidChainID --> Alive
+	InvalidChainID --> Syncing
+	InvalidChainID --> Unreachable
+	Syncing      --> Alive
+	Syncing      --> OutOfSync
+	Syncing      --> InvalidChainID
+	Syncing      --> Unreachable
+	Unreachable  --> Dialed
+	Unusable:::terminal
+	Closed:::terminal
+```

@@ -123,7 +123,10 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				lggr.Debugw("Ping successful", "nodeState", n.State())
 				n.metrics.RecordNodeClientVersion(ctx, n.name, version)
 				n.metrics.IncrementPollsSuccess(ctx, n.name)
-				pollFailures = 0
+				// Decay rather than reset; detects sustained failure rates above 1:1
+				if pollFailures > 0 {
+					pollFailures--
+				}
 			}
 			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
@@ -356,7 +359,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSyncWithPool() (outOfSync bool, liveN
 	}
 
 	if outOfSync && n.getCachedState() == nodeStateAlive {
-		n.lfcLog.Errorw("RPC endpoint has fallen behind", "blockNumber", localChainInfo.BlockNumber, "bestLatestBlockNumber", ci.BlockNumber, "totalDifficulty", localChainInfo.TotalDifficulty)
+		n.lfcLog.Errorw(
+			"RPC endpoint has fallen behind",
+			"blockNumber", localChainInfo.BlockNumber,
+			"bestLatestBlockNumber", ci.BlockNumber,
+			"totalDifficulty", localChainInfo.TotalDifficulty,
+			"blockDifference", localChainInfo.BlockNumber-ci.BlockNumber,
+		)
 	}
 	return outOfSync, ln
 }
@@ -518,6 +527,39 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 	}
 }
 
+// probeUntilStable polls the node PollSuccessThreshold consecutive times before allowing it back into
+// the alive pool. Returns true if all probes pass, false if any probe fails or ctx is cancelled.
+// When threshold is 0 the probe is disabled and the function returns true immediately.
+func (n *node[CHAIN_ID, HEAD, RPC]) probeUntilStable(ctx context.Context, lggr logger.Logger) bool {
+	threshold := n.nodePoolCfg.PollSuccessThreshold()
+	pollInterval := n.nodePoolCfg.PollInterval()
+	if threshold == 0 || pollInterval <= 0 {
+		return true
+	}
+	var successes uint32
+	for successes < threshold {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-time.After(pollInterval):
+		}
+		n.metrics.IncrementPolls(ctx, n.name)
+		pollCtx, cancel := context.WithTimeout(ctx, pollInterval)
+		version, err := n.RPC().ClientVersion(pollCtx)
+		cancel()
+		if err != nil {
+			n.metrics.IncrementPollsFailed(ctx, n.name)
+			lggr.Warnw("Recovery probe poll failed; restarting redial", "err", err, "successesSoFar", successes, "threshold", threshold)
+			return false
+		}
+		n.metrics.IncrementPollsSuccess(ctx, n.name)
+		n.metrics.RecordNodeClientVersion(ctx, n.name, version)
+		successes++
+		lggr.Debugw("Recovery probe poll succeeded", "successes", successes, "threshold", threshold)
+	}
+	return true
+}
+
 func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	defer n.wg.Done()
 	ctx, cancel := n.newCtx()
@@ -563,6 +605,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 				n.setState(nodeStateUnreachable)
 				continue
 			case nodeStateAlive:
+				if !n.probeUntilStable(ctx, lggr) {
+					n.rpc.Close()
+					n.setState(nodeStateUnreachable)
+					continue
+				}
 				lggr.Infow(fmt.Sprintf("Successfully redialled and verified RPC node %s. Node was offline for %s", n.String(), time.Since(unreachableAt)), "nodeState", n.getCachedState())
 				fallthrough
 			default:

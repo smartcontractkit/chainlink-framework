@@ -16,6 +16,7 @@ import (
 
 type testNodeConfig struct {
 	pollFailureThreshold       uint32
+	pollSuccessThreshold       uint32
 	pollInterval               time.Duration
 	selectionMode              string
 	syncThreshold              uint32
@@ -32,6 +33,10 @@ func (n testNodeConfig) NewHeadsPollInterval() time.Duration {
 
 func (n testNodeConfig) PollFailureThreshold() uint32 {
 	return n.pollFailureThreshold
+}
+
+func (n testNodeConfig) PollSuccessThreshold() uint32 {
+	return n.pollSuccessThreshold
 }
 
 func (n testNodeConfig) PollInterval() time.Duration {
