@@ -729,7 +729,7 @@ func writeHeads(t *testing.T, ch chan<- Head, heads ...head) {
 		h := head.ToMockHead(t)
 		select {
 		case ch <- h:
-		case <-tests.Context(t).Done():
+		case <-t.Context().Done():
 			return
 		}
 	}
@@ -1612,7 +1612,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
 		tests.AssertEventually(t, func() bool {
@@ -1635,7 +1635,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
 			assert.Equal(t, nodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
 		tests.AssertEventually(t, func() bool {
@@ -1656,7 +1656,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil)
 
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
@@ -1682,7 +1682,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		}).Return(nodeChainID, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing status"))
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial"))
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Unexpected error while verifying RPC node synchronization status")
 		tests.AssertEventually(t, func() bool {
@@ -1704,7 +1704,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateSyncing
@@ -1725,7 +1725,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("IsSyncing", mock.Anything).Return(false, nil)
 		setupRPCForAliveLoop(t, rpc)
 
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
@@ -1744,7 +1744,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		setupRPCForAliveLoop(t, rpc)
 
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
