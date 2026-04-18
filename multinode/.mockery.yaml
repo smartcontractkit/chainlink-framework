@@ -22,3 +22,4 @@ packages:
       nodeMetrics:
       sendOnlyNodeMetrics:
       transactionSenderMetrics:
+      FinalizedStateChecker:
