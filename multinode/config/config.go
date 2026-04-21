@@ -17,7 +17,6 @@ type MultiNode struct {
 
 	// Node Configs
 	PollFailureThreshold       *uint32
-	PollSuccessThreshold       *uint32
 	PollInterval               *config.Duration
 	SelectionMode              *string
 	SyncThreshold              *uint32
@@ -46,7 +45,7 @@ func (c *MultiNodeConfig) PollFailureThreshold() uint32 {
 }
 
 func (c *MultiNodeConfig) PollSuccessThreshold() uint32 {
-	return *c.MultiNode.PollSuccessThreshold
+	return 0 // retaining source compat for -solana; -evm sets via NodePoolConfig
 }
 
 func (c *MultiNodeConfig) PollInterval() time.Duration {
@@ -107,9 +106,6 @@ func (c *MultiNodeConfig) SetFrom(f *MultiNodeConfig) {
 	// Node Configs
 	if f.MultiNode.PollFailureThreshold != nil {
 		c.MultiNode.PollFailureThreshold = f.MultiNode.PollFailureThreshold
-	}
-	if f.MultiNode.PollSuccessThreshold != nil {
-		c.MultiNode.PollSuccessThreshold = f.MultiNode.PollSuccessThreshold
 	}
 	if f.MultiNode.PollInterval != nil {
 		c.MultiNode.PollInterval = f.MultiNode.PollInterval
