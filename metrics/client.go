@@ -16,7 +16,7 @@ import (
 
 var (
 	RPCCallLatency = promauto.NewHistogramVec(prometheus.HistogramOpts{
-		Name: rpcCallLatencyBeholder,
+		Name: rpcCallLatencyMetricName,
 		Help: "The duration of an RPC call in nanoseconds",
 		Buckets: []float64{
 			float64(50 * time.Millisecond),
@@ -31,7 +31,7 @@ var (
 	}, []string{"chainFamily", "chainID", "rpcUrl", "isSendOnly", "success", "rpcCallName"})
 )
 
-const rpcCallLatencyBeholder = "rpc_call_latency"
+const rpcCallLatencyMetricName = "rpc_call_latency"
 
 // RPCClientMetrics records RPC call latency to Prometheus and Beholder (failures: success="false"; same pattern as multinode metrics).
 // Construct once per chain (or process) with ChainFamily and ChainID; pass rpcUrl and isSendOnly on each call
@@ -59,7 +59,11 @@ type RPCClientMetricsConfig struct {
 
 // NewRPCClientMetrics creates RPC client metrics that publish to Prometheus and Beholder.
 func NewRPCClientMetrics(cfg RPCClientMetricsConfig) (RPCClientMetrics, error) {
-	latency, err := beholder.GetMeter().Float64Histogram(rpcCallLatencyBeholder)
+	latency, err := beholder.GetMeter().Float64Histogram(
+		rpcCallLatencyMetricName,
+		metric.WithUnit("ms"),
+		metric.WithDescription("The duration of an RPC call in milliseconds"),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to register RPC call latency metric: %w", err)
 	}
@@ -71,25 +75,23 @@ func NewRPCClientMetrics(cfg RPCClientMetricsConfig) (RPCClientMetrics, error) {
 }
 
 func (m *rpcClientMetrics) RecordRequest(ctx context.Context, rpcURL string, isSendOnly bool, callName string, latency time.Duration, err error) {
-	successStr := "true"
-	if err != nil {
-		successStr = "false"
-	}
+	successStr := strconv.FormatBool(err != nil)
 	sendStr := strconv.FormatBool(isSendOnly)
 	latencyNs := float64(latency)
 	safeRPCURL := SanitizeRPCURL(rpcURL)
 
-	RPCCallLatency.WithLabelValues(m.chainFamily, m.chainID, safeRPCURL, sendStr, successStr, callName).Observe(latencyNs)
+	RPCCallLatency.WithLabelValues(
+		m.chainFamily, m.chainID, safeRPCURL, sendStr, successStr, callName,
+	).Observe(latencyNs)
 
-	latAttrs := metric.WithAttributes(
+	m.latencyHis.Record(ctx, latencyNs/float64(time.Millisecond), metric.WithAttributes(
 		attribute.String("chainFamily", m.chainFamily),
 		attribute.String("chainID", m.chainID),
 		attribute.String("rpcUrl", safeRPCURL),
 		attribute.String("isSendOnly", sendStr),
 		attribute.String("success", successStr),
 		attribute.String("rpcCallName", callName),
-	)
-	m.latencyHis.Record(ctx, latencyNs, latAttrs)
+	))
 }
 
 // NoopRPCClientMetrics is a no-op implementation for when metrics are disabled.
