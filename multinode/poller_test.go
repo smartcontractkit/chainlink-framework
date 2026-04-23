@@ -20,7 +20,7 @@ func Test_Poller(t *testing.T) {
 	lggr := logger.Test(t)
 
 	t.Run("Test multiple start", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		pollFunc := func(ctx context.Context) (Head, error) {
 			return nil, nil
 		}
@@ -35,7 +35,7 @@ func Test_Poller(t *testing.T) {
 	})
 
 	t.Run("Test polling for heads", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		// Mock polling function that returns a new value every time it's called
 		var pollNumber int
 		pollLock := sync.Mutex{}
@@ -65,7 +65,7 @@ func Test_Poller(t *testing.T) {
 	})
 
 	t.Run("Test polling errors", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		// Mock polling function that returns an error
 		var pollNumber int
 		pollLock := sync.Mutex{}
@@ -97,7 +97,7 @@ func Test_Poller(t *testing.T) {
 	})
 
 	t.Run("Test polling timeout", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		pollFunc := func(ctx context.Context) (Head, error) {
 			if <-ctx.Done(); true {
 				return nil, ctx.Err()
@@ -123,7 +123,7 @@ func Test_Poller(t *testing.T) {
 	})
 
 	t.Run("Test unsubscribe during polling", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		wait := make(chan struct{})
 		closeOnce := sync.OnceFunc(func() { close(wait) })
 		pollFunc := func(ctx context.Context) (Head, error) {
@@ -172,7 +172,7 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 	}
 
 	t.Run("Test multiple unsubscribe", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		poller, channel := NewPoller[Head](time.Millisecond, pollFunc, time.Second, lggr)
 		err := poller.Start(ctx)
 		require.NoError(t, err)
@@ -183,7 +183,7 @@ func Test_Poller_Unsubscribe(t *testing.T) {
 	})
 
 	t.Run("Read channel after unsubscribe", func(t *testing.T) {
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		poller, channel := NewPoller[Head](time.Millisecond, pollFunc, time.Second, lggr)
 		err := poller.Start(ctx)
 		require.NoError(t, err)

@@ -1,6 +1,7 @@
 package multinode
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -110,7 +111,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogEventually(t, observedLogs, "Polling disabled")
 		assert.Equal(t, nodeStateAlive, node.State())
 	})
-	t.Run("stays alive while below pollFailureThreshold and resets counter on success", func(t *testing.T) {
+	t.Run("stays alive while below pollFailureThreshold, success decrements failure count", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
 		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
@@ -132,9 +133,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 			// stays healthy while below threshold
 			assert.Equal(t, nodeStateAlive, node.State())
 		}).Times(pollFailureThreshold - 1)
-		// 2. Successful call that is expected to reset counter
+		// 2. Successful call that is expected to decrement the counter (counter: 2 → 1)
 		rpc.On("ClientVersion", mock.Anything).Return("", nil).Once()
-		// 3. Return error. If we have not reset the timer, we'll transition to nonAliveState
+		// 3. Return error. Counter was decremented (not reset), so it reaches 2 — still below threshold.
 		rpc.On("ClientVersion", mock.Anything).Return("", pollError).Once()
 		// 4. Once during the call, check if node is alive
 		var ensuredAlive atomic.Bool
@@ -174,6 +175,37 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		tests.AssertLogCountEventually(t, observedLogs, fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", node.String()), pollFailureThreshold)
 		tests.AssertEventually(t, func() bool {
 			return nodeStateUnreachable == node.State()
+		})
+	})
+	t.Run("transitions to unreachable when net poll failures accumulate despite intermittent successes", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
+		const pollFailureThreshold = 3
+		node := newSubscribedNode(t, testNodeOpts{
+			config: testNodeConfig{
+				pollFailureThreshold: pollFailureThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+			rpc: rpc,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		pollError := errors.New("failed to get ClientVersion")
+		// Pattern F·F·S·F·F: with the decay counter the net failure debt reaches
+		// threshold=3 at the 5th poll (counter: 1→2→1→2→3). With the old
+		// reset-on-success behaviour the counter resets to 0 at S and peaks at only
+		// 2 before the next success, never tripping.
+		rpc.On("ClientVersion", mock.Anything).Return("", pollError).Times(2)
+		rpc.On("ClientVersion", mock.Anything).Return("", nil).Once()
+		rpc.On("ClientVersion", mock.Anything).Return("", pollError).Times(2)
+		// Unlimited successes after: ensures old code stays alive indefinitely so
+		// the test correctly fails (times out) when run against the old behaviour.
+		rpc.On("ClientVersion", mock.Anything).Return("", nil)
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial")).Maybe()
+		node.declareAlive()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateUnreachable
 		})
 	})
 	t.Run("with threshold poll failures, but we are the last node alive, forcibly keeps it alive", func(t *testing.T) {
@@ -729,7 +761,7 @@ func writeHeads(t *testing.T, ch chan<- Head, heads ...head) {
 		h := head.ToMockHead(t)
 		select {
 		case ch <- h:
-		case <-tests.Context(t).Done():
+		case <-t.Context().Done():
 			return
 		}
 	}
@@ -1464,6 +1496,208 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 			return node.State() == nodeStateAlive
 		})
 	})
+	t.Run("with PollSuccessThreshold set, without isSyncing, node becomes alive once all probe polls succeed", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		const pollSuccessThreshold = 2
+		node := newAliveNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			config: testNodeConfig{
+				pollSuccessThreshold: pollSuccessThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(nil).Once()
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
+		rpc.On("ClientVersion", mock.Anything).Return("", nil).Twice()
+		setupRPCForAliveLoop(t, rpc)
+
+		node.declareUnreachable()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+	})
+	t.Run("with PollSuccessThreshold set, node becomes alive once all probe polls succeed", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		const pollSuccessThreshold = 2
+		node := newAliveNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			config: testNodeConfig{
+				nodeIsSyncingEnabled: true,
+				pollSuccessThreshold: pollSuccessThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(nil).Once()
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
+		rpc.On("IsSyncing", mock.Anything).Return(false, nil)
+		rpc.On("ClientVersion", mock.Anything).Return("", nil).Twice()
+		setupRPCForAliveLoop(t, rpc)
+
+		node.declareUnreachable()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+	})
+	t.Run("with PollSuccessThreshold set, probe poll failure keeps node unreachable and restarts redial", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+		const pollSuccessThreshold = 2
+		node := newAliveNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			lggr:    lggr,
+			config: testNodeConfig{
+				pollSuccessThreshold: pollSuccessThreshold,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(nil).Once()
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Once()
+		rpc.On("ClientVersion", mock.Anything).Return("", nil).Once()
+		rpc.On("ClientVersion", mock.Anything).Return("", errors.New("probe poll failed")).Once()
+		// after the probe aborts, rpc.Close() is called and the redial backoff fires again; keep failing
+		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
+		// guard: if current code (no probe) enters aliveLoop, fail the subscribe so the node returns to unreachable
+		rpc.On("SubscribeToHeads", mock.Anything).Return(nil, nil, errors.New("unexpected")).Maybe()
+
+		node.declareUnreachable()
+		tests.AssertLogEventually(t, observedLogs, "Recovery probe poll failed; restarting redial")
+		assert.Equal(t, nodeStateUnreachable, node.State())
+	})
+}
+
+func TestUnit_NodeLifecycle_probeUntilStable(t *testing.T) {
+	t.Parallel()
+
+	t.Run("returns true immediately when pollInterval is zero, skipping probe", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		// ClientVersion is intentionally NOT mocked: if the guard is missing the loop fires
+		// immediately (time.After(0)) and calls ClientVersion, which makes the test fail.
+		node := newTestNode(t, testNodeOpts{
+			rpc: rpc,
+			config: testNodeConfig{
+				pollSuccessThreshold: 2,
+				pollInterval:         0,
+			},
+		})
+		result := node.probeUntilStable(t.Context(), logger.Test(t))
+		assert.True(t, result)
+	})
+	t.Run("returns true immediately when pollInterval is negative, skipping probe", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		// ClientVersion is intentionally NOT mocked: same reasoning as above.
+		node := newTestNode(t, testNodeOpts{
+			rpc: rpc,
+			config: testNodeConfig{
+				pollSuccessThreshold: 2,
+				pollInterval:         -1,
+			},
+		})
+		result := node.probeUntilStable(t.Context(), logger.Test(t))
+		assert.True(t, result)
+	})
+	t.Run("returns true immediately when threshold is zero, skipping probe", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		// ClientVersion is intentionally NOT mocked: probing must be entirely skipped.
+		node := newTestNode(t, testNodeOpts{
+			rpc: rpc,
+			config: testNodeConfig{
+				pollSuccessThreshold: 0,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		result := node.probeUntilStable(t.Context(), logger.Test(t))
+		assert.True(t, result)
+	})
+	t.Run("returns false when context is already cancelled", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		// ClientVersion must never be called: ctx is done before the first timer fires.
+		node := newTestNode(t, testNodeOpts{
+			rpc: rpc,
+			config: testNodeConfig{
+				pollSuccessThreshold: 2,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		ctx, cancel := context.WithCancel(t.Context())
+		cancel()
+		result := node.probeUntilStable(ctx, logger.Test(t))
+		assert.False(t, result)
+	})
+	t.Run("returns false when first poll fails", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		lggr, observedLogs := logger.TestObserved(t, zap.WarnLevel)
+		node := newTestNode(t, testNodeOpts{
+			rpc:  rpc,
+			lggr: lggr,
+			config: testNodeConfig{
+				pollSuccessThreshold: 2,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		rpc.On("ClientVersion", mock.Anything).Return("", errors.New("rpc unavailable")).Once()
+		result := node.probeUntilStable(t.Context(), lggr)
+		assert.False(t, result)
+		tests.AssertLogEventually(t, observedLogs, "Recovery probe poll failed; restarting redial")
+	})
+	t.Run("returns true when all threshold polls succeed", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		const threshold = 3
+		node := newTestNode(t, testNodeOpts{
+			rpc:  rpc,
+			lggr: lggr,
+			config: testNodeConfig{
+				pollSuccessThreshold: threshold,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		rpc.On("ClientVersion", mock.Anything).Return("v1.0.0", nil).Times(threshold)
+		result := node.probeUntilStable(t.Context(), lggr)
+		assert.True(t, result)
+		tests.AssertLogCountEventually(t, observedLogs, "Recovery probe poll succeeded", threshold)
+	})
+	t.Run("returns false when a later probe poll fails, logging correct successesSoFar", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		const threshold = 3
+		node := newTestNode(t, testNodeOpts{
+			rpc:  rpc,
+			lggr: lggr,
+			config: testNodeConfig{
+				pollSuccessThreshold: threshold,
+				pollInterval:         tests.TestInterval,
+			},
+		})
+		rpc.On("ClientVersion", mock.Anything).Return("v1.0.0", nil).Times(threshold - 1)
+		rpc.On("ClientVersion", mock.Anything).Return("", errors.New("rpc unavailable")).Once()
+		result := node.probeUntilStable(t.Context(), lggr)
+		assert.False(t, result)
+		// threshold-1 successes logged before the failure
+		tests.AssertLogCountEventually(t, observedLogs, "Recovery probe poll succeeded", threshold-1)
+		tests.AssertLogEventually(t, observedLogs, "Recovery probe poll failed; restarting redial")
+	})
 }
 
 func TestUnit_NodeLifecycle_invalidChainIDLoop(t *testing.T) {
@@ -1612,7 +1846,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Dial failed: Node is unreachable")
 		tests.AssertEventually(t, func() bool {
@@ -1635,7 +1869,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Run(func(_ mock.Arguments) {
 			assert.Equal(t, nodeStateDialed, node.State())
 		}).Return(nodeChainID, errors.New("failed to get chain id"))
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Failed to verify chain ID for node")
 		tests.AssertEventually(t, func() bool {
@@ -1656,7 +1890,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("Dial", mock.Anything).Return(nil)
 
 		rpc.On("ChainID", mock.Anything).Return(rpcChainID, nil)
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateInvalidChainID
@@ -1682,7 +1916,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		}).Return(nodeChainID, nil).Once()
 		rpc.On("IsSyncing", mock.Anything).Return(false, errors.New("failed to check syncing status"))
 		rpc.On("Dial", mock.Anything).Return(errors.New("failed to redial"))
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, "Unexpected error while verifying RPC node synchronization status")
 		tests.AssertEventually(t, func() bool {
@@ -1704,7 +1938,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		rpc.On("IsSyncing", mock.Anything).Return(true, nil)
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateSyncing
@@ -1725,7 +1959,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("IsSyncing", mock.Anything).Return(false, nil)
 		setupRPCForAliveLoop(t, rpc)
 
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
@@ -1744,7 +1978,7 @@ func TestUnit_NodeLifecycle_start(t *testing.T) {
 		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
 		setupRPCForAliveLoop(t, rpc)
 
-		err := node.Start(tests.Context(t))
+		err := node.Start(t.Context())
 		require.NoError(t, err)
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive

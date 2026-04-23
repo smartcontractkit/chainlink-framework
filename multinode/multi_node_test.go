@@ -81,7 +81,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			selectionMode: NodeSelectionModeRoundRobin,
 			chainID:       RandomID(),
 		})
-		err := mn.Start(tests.Context(t))
+		err := mn.Start(t.Context())
 		assert.ErrorContains(t, err, fmt.Sprintf("no available nodes for chain %s", mn.chainID))
 	})
 	t.Run("Fails with wrong node's chainID", func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       multiNodeChainID,
 			nodes:         []Node[ID, multiNodeRPCClient]{node},
 		})
-		err := mn.Start(tests.Context(t))
+		err := mn.Start(t.Context())
 		assert.ErrorContains(t, err, fmt.Sprintf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", nodeName, nodeChainID, mn.chainID))
 	})
 	t.Run("Fails if node fails", func(t *testing.T) {
@@ -113,7 +113,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       chainID,
 			nodes:         []Node[ID, multiNodeRPCClient]{node},
 		})
-		err := mn.Start(tests.Context(t))
+		err := mn.Start(t.Context())
 		assert.ErrorIs(t, err, expectedError)
 	})
 
@@ -132,7 +132,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			chainID:       chainID,
 			nodes:         []Node[ID, multiNodeRPCClient]{node1, node2},
 		})
-		err := mn.Start(tests.Context(t))
+		err := mn.Start(t.Context())
 		assert.ErrorIs(t, err, expectedError)
 	})
 	t.Run("Fails with wrong send only node's chainID", func(t *testing.T) {
@@ -151,7 +151,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[ID, multiNodeRPCClient]{node},
 			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{sendOnly},
 		})
-		err := mn.Start(tests.Context(t))
+		err := mn.Start(t.Context())
 		assert.ErrorContains(t, err, fmt.Sprintf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", sendOnlyName, sendOnlyChainID, mn.chainID))
 	})
 
@@ -178,7 +178,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			nodes:         []Node[ID, multiNodeRPCClient]{node},
 			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{sendOnly1, sendOnly2},
 		})
-		err := mn.Start(tests.Context(t))
+		err := mn.Start(t.Context())
 		assert.ErrorIs(t, err, expectedError)
 	})
 	t.Run("Starts successfully with healthy nodes", func(t *testing.T) {
@@ -192,7 +192,7 @@ func TestMultiNode_Dial(t *testing.T) {
 			sendonlys:     []SendOnlyNode[ID, multiNodeRPCClient]{newHealthySendOnly(t, chainID)},
 		})
 		servicetest.Run(t, mn)
-		selectedNode, err := mn.selectNode(tests.Context(t))
+		selectedNode, err := mn.selectNode(t.Context())
 		require.NoError(t, err)
 		assert.Equal(t, node, selectedNode)
 	})
@@ -336,7 +336,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 	t.Parallel()
 	t.Run("Returns same node, if it's still healthy", func(t *testing.T) {
 		t.Parallel()
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		chainID := RandomID()
 		node1 := newMockNode[ID, multiNodeRPCClient](t)
 		node1.On("State").Return(nodeStateAlive).Once()
@@ -360,7 +360,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 	t.Run("Updates node if active is not healthy", func(t *testing.T) {
 		t.Parallel()
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		chainID := RandomID()
 		oldBest := newMockNode[ID, multiNodeRPCClient](t)
 		oldBest.On("String").Return("oldBest").Maybe()
@@ -387,7 +387,7 @@ func TestMultiNode_selectNode(t *testing.T) {
 	})
 	t.Run("No active nodes - reports critical error", func(t *testing.T) {
 		t.Parallel()
-		ctx := tests.Context(t)
+		ctx := t.Context()
 		chainID := RandomID()
 		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
 		mn := newTestMultiNode(t, multiNodeOpts{
