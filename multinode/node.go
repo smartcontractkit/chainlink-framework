@@ -172,10 +172,10 @@ func NewNode[
 func (n *node[CHAIN_ID, HEAD, RPC]) String() string {
 	s := fmt.Sprintf("(%s)%s", Primary.String(), n.name)
 	if n.ws != nil {
-		s += fmt.Sprintf(":%s", n.ws.String())
+		s += fmt.Sprintf(":%s", shortenURL(n.ws))
 	}
 	if n.http != nil {
-		s += fmt.Sprintf(":%s", n.http.String())
+		s += fmt.Sprintf(":%s", shortenURL(n.http))
 	}
 	return s
 }
@@ -347,4 +347,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) newCtx() (context.Context, context.CancelFun
 	ctx, cancel := n.stopCh.NewCtx()
 	ctx = CtxAddHealthCheckFlag(ctx)
 	return ctx, cancel
+}
+
+func shortenURL(uri *url.URL) string {
+	if uri.Scheme == "" || uri.Host == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s://%s", uri.Scheme, uri.Host)
 }
