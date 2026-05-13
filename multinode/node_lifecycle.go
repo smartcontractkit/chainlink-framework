@@ -103,11 +103,11 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
 
-	// Finalized state availability check via optional interfaces
+	// Finalized-state availability is for EVM-style stacks, but multinode is a shared framework package: mandatory RPCClient/NodeConfig APIs would make every consumer (e.g. Solana)
+	// inherit stubs or real implementations trigger unrelated security review. Optional interfaces keep the feature opt-in—only callers that need it implement FinalizedStateCheckConfig and FinalizedStateChecker; everyone else stays untouched.
 	var finalizedStateCheckFailureThreshold uint32
 	finalizedStateCfg, hasFinalizedStateCfg := n.nodePoolCfg.(FinalizedStateCheckConfig)
-	_, hasFinalizedStateChecker := any(n.rpc).(FinalizedStateChecker)
-	if hasFinalizedStateCfg && hasFinalizedStateChecker {
+	if hasFinalizedStateCfg && n.finalizedStateChecker != nil && pollInterval > 0 {
 		finalizedStateCheckFailureThreshold = finalizedStateCfg.FinalizedStateCheckFailureThreshold()
 	}
 	var finalizedStateFailures uint32
@@ -165,7 +165,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			if finalizedStateCheckFailureThreshold > 0 {
 				stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, pollInterval)
-				stateErr := any(n.rpc).(FinalizedStateChecker).CheckFinalizedStateAvailability(stateCheckCtx)
+				stateErr := n.finalizedStateChecker.CheckFinalizedStateAvailability(stateCheckCtx)
 				stateCheckCancel()
 				if stateErr != nil {
 					if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
@@ -802,8 +802,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) finalizedStateNotAvailableLoop() {
 		return
 	}
 
-	checker, ok := any(n.rpc).(FinalizedStateChecker)
-	if !ok {
+	if n.finalizedStateChecker == nil {
 		lggr.Infow("RPC does not implement FinalizedStateChecker, transitioning to alive")
 		n.declareAlive()
 		return
@@ -817,14 +816,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) finalizedStateNotAvailableLoop() {
 			return
 		case <-time.After(recheckBackoff.Duration()):
 			stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, n.nodePoolCfg.PollInterval())
-			stateErr := checker.CheckFinalizedStateAvailability(stateCheckCtx)
+			stateErr := n.finalizedStateChecker.CheckFinalizedStateAvailability(stateCheckCtx)
 			stateCheckCancel()
 			if stateErr != nil {
 				if errors.Is(stateErr, ErrFinalizedStateUnavailable) {
 					lggr.Warnw("Finalized state still not available", "err", stateErr)
 					continue
 				}
-				lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr)
+				lggr.Errorw("Finalized state check failed with RPC error", "err", stateErr)
 				n.declareUnreachable()
 				return
 			}

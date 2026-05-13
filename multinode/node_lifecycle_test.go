@@ -2386,7 +2386,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 
 	newFinalizedStateNotAvailableNode := func(t *testing.T, opts testNodeOpts) testNode {
 		node := newTestNode(t, opts)
-		opts.rpc.On("Close").Return(nil)
+		opts.rpc.EXPECT().Close().Return()
 		node.setState(nodeStateFinalizedStateNotAvailable)
 		return node
 	}
@@ -2411,7 +2411,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(errors.New("failed to dial"))
+		rpc.EXPECT().Dial(mock.Anything).Return(errors.New("failed to dial"))
 		node.wg.Add(1)
 		go node.finalizedStateNotAvailableLoop()
 		tests.AssertLogCountEventually(t, observedLogs, "Node is unreachable", 2)
@@ -2429,9 +2429,9 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil)
-		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
-		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(fmt.Errorf("%w: missing trie node", ErrFinalizedStateUnavailable))
+		rpc.EXPECT().Dial(mock.Anything).Return(nil)
+		rpc.EXPECT().ChainID(mock.Anything).Return(nodeChainID, nil)
+		rpc.EXPECT().CheckFinalizedStateAvailability(mock.Anything).Return(fmt.Errorf("%w: missing trie node", ErrFinalizedStateUnavailable))
 
 		node.wg.Add(1)
 		go node.finalizedStateNotAvailableLoop()
@@ -2448,9 +2448,9 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Dial", mock.Anything).Return(nil)
-		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
-		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil)
+		rpc.EXPECT().Dial(mock.Anything).Return(nil)
+		rpc.EXPECT().ChainID(mock.Anything).Return(nodeChainID, nil)
+		rpc.EXPECT().CheckFinalizedStateAvailability(mock.Anything).Return(nil)
 
 		setupRPCForAliveLoop(t, rpc)
 
@@ -2477,26 +2477,26 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		})
 		defer func() { assert.NoError(t, node.close()) }()
 
-		rpc.On("Close").Return(nil)
-		rpc.On("Dial", mock.Anything).Return(nil).Maybe()
-		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil).Maybe()
+		rpc.EXPECT().Close().Return()
+		rpc.EXPECT().Dial(mock.Anything).Return(nil).Maybe()
+		rpc.EXPECT().ChainID(mock.Anything).Return(nodeChainID, nil).Maybe()
 
 		sub := newMockSubscription(t)
-		sub.On("Err").Return(nil).Maybe()
-		sub.On("Unsubscribe").Maybe()
+		sub.EXPECT().Err().Return(nil).Maybe()
+		sub.EXPECT().Unsubscribe().Return().Maybe()
 		headsCh := make(chan Head)
-		rpc.On("SubscribeToHeads", mock.Anything).Return((<-chan Head)(headsCh), sub, nil).Maybe()
-		rpc.On("SubscribeToFinalizedHeads", mock.Anything).Return((<-chan Head)(headsCh), sub, nil).Maybe()
-		rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{}).Maybe()
-		rpc.On("ClientVersion", mock.Anything).Return("", nil).Maybe()
+		rpc.EXPECT().SubscribeToHeads(mock.Anything).Return((<-chan Head)(headsCh), sub, nil).Maybe()
+		rpc.EXPECT().SubscribeToFinalizedHeads(mock.Anything).Return((<-chan Head)(headsCh), sub, nil).Maybe()
+		rpc.EXPECT().GetInterceptedChainInfo().Return(ChainInfo{}, ChainInfo{}).Maybe()
+		rpc.EXPECT().ClientVersion(mock.Anything).Return("", nil).Maybe()
 
-		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(
+		rpc.EXPECT().CheckFinalizedStateAvailability(mock.Anything).Return(
 			fmt.Errorf("%w: missing trie node", ErrFinalizedStateUnavailable),
 		).Times(3)
 
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.On("LatestChainInfo", mock.Anything).Return(5, ChainInfo{}).Maybe()
-		poolInfo.On("HighestUserObservations").Return(ChainInfo{}).Maybe()
+		poolInfo.EXPECT().LatestChainInfo(mock.Anything).Return(5, ChainInfo{}).Maybe()
+		poolInfo.EXPECT().HighestUserObservations().Return(ChainInfo{}).Maybe()
 		node.SetPoolChainInfoProvider(poolInfo)
 
 		node.setState(nodeStateDialed)
@@ -2506,7 +2506,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 			return node.State() == nodeStateFinalizedStateNotAvailable
 		})
 
-		rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(nil).Maybe()
+		rpc.EXPECT().CheckFinalizedStateAvailability(mock.Anything).Return(nil).Maybe()
 
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
