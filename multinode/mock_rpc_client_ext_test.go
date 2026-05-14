@@ -6,18 +6,19 @@ import (
 	mock "github.com/stretchr/testify/mock"
 )
 
-// mockRPCClient_CheckFinalizedStateAvailability_Call mirrors mockery-generated *Call types for
+// mockRPCClientCheckFinalizedStateAvailabilityCall mirrors mockery-generated *Call types for
 // CheckFinalizedStateAvailability (added manually on mockRPCClient, not on RPCClient interface).
-type mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID ID, HEAD Head] struct {
+// Named without underscores to satisfy revive var-naming (mockery-generated code uses underscores).
+type mockRPCClientCheckFinalizedStateAvailabilityCall[CHAIN_ID ID, HEAD Head] struct {
 	*mock.Call
 }
 
 // CheckFinalizedStateAvailability is a helper to define EXPECT().CheckFinalizedStateAvailability(...).
-func (_e *mockRPCClient_Expecter[CHAIN_ID, HEAD]) CheckFinalizedStateAvailability(ctx interface{}) *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD] {
-	return &mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD]{Call: _e.mock.On("CheckFinalizedStateAvailability", ctx)}
+func (_e *mockRPCClient_Expecter[CHAIN_ID, HEAD]) CheckFinalizedStateAvailability(ctx interface{}) *mockRPCClientCheckFinalizedStateAvailabilityCall[CHAIN_ID, HEAD] {
+	return &mockRPCClientCheckFinalizedStateAvailabilityCall[CHAIN_ID, HEAD]{Call: _e.mock.On("CheckFinalizedStateAvailability", ctx)}
 }
 
-func (_c *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD]) Return(err error) *mockRPCClient_CheckFinalizedStateAvailability_Call[CHAIN_ID, HEAD] {
+func (_c *mockRPCClientCheckFinalizedStateAvailabilityCall[CHAIN_ID, HEAD]) Return(err error) *mockRPCClientCheckFinalizedStateAvailabilityCall[CHAIN_ID, HEAD] {
 	_c.Call.Return(err)
 	return _c
 }
