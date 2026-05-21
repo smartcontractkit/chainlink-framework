@@ -38,6 +38,18 @@ type ChainConfig interface {
 	FinalizedBlockOffset() uint32
 }
 
+// FinalizedStateCheckConfig is an optional interface for enabling finalized state availability checking.
+// It is optional (not part of NodeConfig) so non-EVM multinode consumers are not forced to extend their config types; see aliveLoop in node_lifecycle.go.
+type FinalizedStateCheckConfig interface {
+	FinalizedStateCheckFailureThreshold() uint32
+}
+
+// FinalizedStateChecker is an optional interface for RPCClients that support finalized state checks.
+// It is optional (not part of RPCClient) so non-EVM multinode consumers avoid boilerplate and review churn; see aliveLoop in node_lifecycle.go.
+type FinalizedStateChecker interface {
+	CheckFinalizedStateAvailability(ctx context.Context) error
+}
+
 type nodeMetrics interface {
 	IncrementNodeVerifies(ctx context.Context, nodeName string)
 	IncrementNodeVerifiesFailed(ctx context.Context, nodeName string)
@@ -49,6 +61,7 @@ type nodeMetrics interface {
 	IncrementNodeTransitionsToInvalidChainID(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToUnusable(ctx context.Context, nodeName string)
 	IncrementNodeTransitionsToSyncing(ctx context.Context, nodeName string)
+	IncrementNodeTransitionsToFinalizedStateNotAvailable(ctx context.Context, nodeName string)
 	RecordNodeClientVersion(ctx context.Context, nodeName string, version string)
 	SetHighestSeenBlock(ctx context.Context, nodeName string, blockNumber int64)
 	SetHighestFinalizedBlock(ctx context.Context, nodeName string, blockNumber int64)
@@ -56,6 +69,7 @@ type nodeMetrics interface {
 	IncrementPolls(ctx context.Context, nodeName string)
 	IncrementPollsFailed(ctx context.Context, nodeName string)
 	IncrementPollsSuccess(ctx context.Context, nodeName string)
+	IncrementFinalizedStateFailed(ctx context.Context, nodeName string)
 }
 
 type Node[
@@ -106,8 +120,9 @@ type node[
 	ws   *url.URL
 	http *url.URL
 
-	rpc               RPC
-	isLoadBalancedRPC bool
+	rpc                   RPC
+	finalizedStateChecker FinalizedStateChecker // set in NewNode when rpc implements FinalizedStateChecker
+	isLoadBalancedRPC     bool
 
 	stateMu sync.RWMutex // protects state* fields
 	state   nodeState
@@ -165,6 +180,9 @@ func NewNode[
 	)
 	n.lfcLog = logger.Named(lggr, "Lifecycle")
 	n.rpc = rpc
+	if fs, ok := any(rpc).(FinalizedStateChecker); ok {
+		n.finalizedStateChecker = fs
+	}
 	n.isLoadBalancedRPC = isLoadBalancedRPC
 	n.chainFamily = chainFamily
 	return n
@@ -274,7 +292,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verifyChainID(callerCtx context.Context, lgg
 		// The node is already closed, and any subsequent transition is invalid.
 		// To make spotting such transitions a bit easier, return the invalid node state.
 		return nodeStateLen
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))
 	}
