@@ -163,7 +163,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) RPC() RPC {
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
-	return fmt.Sprintf("(%s)%s:%s", Secondary.String(), s.name, s.uri.Redacted())
+	return fmt.Sprintf("(%s)%s:%s", Secondary.String(), s.name, shortenURL(&s.uri))
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {
