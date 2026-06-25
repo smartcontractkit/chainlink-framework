@@ -22,7 +22,7 @@ func TestNewSendOnlyNode(t *testing.T) {
 	password := "pass"
 	u, err := url.Parse(fmt.Sprintf(urlFormat, password))
 	require.NoError(t, err)
-	redacted := fmt.Sprintf(urlFormat, "xxxxx")
+	shortened := shortenURL(u)
 	lggr := logger.Test(t)
 	name := "TestNewSendOnlyNode"
 	chainID := RandomID()
@@ -32,7 +32,7 @@ func TestNewSendOnlyNode(t *testing.T) {
 	assert.NotNil(t, node)
 
 	// Must contain name & url with redacted password
-	assert.Contains(t, node.String(), fmt.Sprintf("%s:%s", name, redacted))
+	assert.Contains(t, node.String(), fmt.Sprintf("%s:%s", name, shortened))
 	assert.Equal(t, node.ConfiguredChainID(), chainID)
 }
 
