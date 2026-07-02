@@ -622,6 +622,17 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainS
 	}
 	// Transaction sequence cannot be nil here since a sequence is required to broadcast
 	txSeq := *etx.Sequence
+
+	// Hedera accepts txs into its mempool before the mined nonce (latest) advances.
+	// Pending reflects acceptance; latest can lag by several seconds.
+	nextSeqPending, err := eb.client.PendingSequenceAt(ctx, etx.FromAddress)
+	if err != nil {
+		return errType, err
+	}
+	if nextSeqPending.Int64() > txSeq.Int64() {
+		return multinode.Successful, nil
+	}
+
 	// Retrieve the latest mined sequence from on-chain
 	nextSeqOnChain, err := eb.client.SequenceAt(ctx, etx.FromAddress, nil)
 	if err != nil {
