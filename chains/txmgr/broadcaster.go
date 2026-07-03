@@ -674,6 +674,30 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) sequenceAtAfterB
 	maxPollRetries int,
 ) (SEQ, error) {
 	var nextSeqOnChain SEQ
+	_, err := pollSequenceAtAfterBroadcast(ctx, lgr, txSeq.Int64(), pollInterval, maxPollRetries,
+		func(ctx context.Context) (int64, error) {
+			var err error
+			nextSeqOnChain, err = eb.client.SequenceAt(ctx, fromAddress, nil)
+			if err != nil {
+				return 0, err
+			}
+			return nextSeqOnChain.Int64(), nil
+		},
+	)
+	return nextSeqOnChain, err
+}
+
+// pollSequenceAtAfterBroadcast polls sequenceAt until the value exceeds txSeq, waiting pollInterval
+// between attempts up to maxPollRetries times after the initial check.
+func pollSequenceAtAfterBroadcast(
+	ctx context.Context,
+	lgr logger.SugaredLogger,
+	txSeq int64,
+	pollInterval time.Duration,
+	maxPollRetries int,
+	sequenceAt func(ctx context.Context) (int64, error),
+) (int64, error) {
+	var nextSeqOnChain int64
 	for poll := 0; poll <= maxPollRetries; poll++ {
 		if poll > 0 {
 			lgr.Infow("Hedera mined sequence not yet advanced, waiting before re-check",
@@ -689,11 +713,11 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) sequenceAtAfterB
 		}
 
 		var err error
-		nextSeqOnChain, err = eb.client.SequenceAt(ctx, fromAddress, nil)
+		nextSeqOnChain, err = sequenceAt(ctx)
 		if err != nil {
 			return nextSeqOnChain, err
 		}
-		if nextSeqOnChain.Int64() > txSeq.Int64() {
+		if nextSeqOnChain > txSeq {
 			return nextSeqOnChain, nil
 		}
 	}
