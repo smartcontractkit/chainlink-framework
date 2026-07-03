@@ -33,8 +33,16 @@ const (
 	// spent on the transmit check.
 	TransmitCheckTimeout = 2 * time.Second
 
-	// maxBroadcastRetries is the number of times a transaction broadcast is retried when the sequence fails to increment on Hedera
+	// maxHederaBroadcastRetries is the number of times a transaction broadcast is retried with a bumped fee
+	// when the mined sequence still has not advanced after polling.
 	maxHederaBroadcastRetries = 3
+
+	// hederaDefaultSequencePollInterval is the delay between Hedera SequenceAt re-polls after a successful send.
+	hederaDefaultSequencePollInterval = 10 * time.Second
+
+	// hederaDefaultSequencePollRetries is the number of SequenceAt re-polls (after the initial check)
+	// before treating the broadcast as underpriced on Hedera.
+	hederaDefaultSequencePollRetries = 3
 
 	// hederaChainType is the string representation of the Hedera chain type
 	// Temporary solution until the Broadcaster is moved to the EVM code base
@@ -623,18 +631,11 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainS
 	// Transaction sequence cannot be nil here since a sequence is required to broadcast
 	txSeq := *etx.Sequence
 
-	// Hedera accepts txs into its mempool before the mined nonce (latest) advances.
-	// Pending reflects acceptance; latest can lag by several seconds.
-	nextSeqPending, err := eb.client.PendingSequenceAt(ctx, etx.FromAddress)
-	if err != nil {
-		return errType, err
-	}
-	if nextSeqPending.Int64() > txSeq.Int64() {
-		return multinode.Successful, nil
-	}
-
-	// Retrieve the latest mined sequence from on-chain
-	nextSeqOnChain, err := eb.client.SequenceAt(ctx, etx.FromAddress, nil)
+	// Hedera can take several seconds before the mined nonce (latest) advances after a successful send.
+	nextSeqOnChain, err := eb.sequenceAtAfterBroadcastWithRetries(
+		ctx, lgr, etx.FromAddress, txSeq,
+		hederaDefaultSequencePollInterval, hederaDefaultSequencePollRetries,
+	)
 	if err != nil {
 		return errType, err
 	}
@@ -662,6 +663,41 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainS
 	}
 
 	return multinode.Successful, nil
+}
+
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) sequenceAtAfterBroadcastWithRetries(
+	ctx context.Context,
+	lgr logger.SugaredLogger,
+	fromAddress ADDR,
+	txSeq SEQ,
+	pollInterval time.Duration,
+	maxPollRetries int,
+) (SEQ, error) {
+	var nextSeqOnChain SEQ
+	for poll := 0; poll <= maxPollRetries; poll++ {
+		if poll > 0 {
+			lgr.Infow("Hedera mined sequence not yet advanced, waiting before re-check",
+				"delay", pollInterval,
+				"poll", poll,
+				"maxPolls", maxPollRetries,
+			)
+			select {
+			case <-ctx.Done():
+				return nextSeqOnChain, ctx.Err()
+			case <-time.After(pollInterval):
+			}
+		}
+
+		var err error
+		nextSeqOnChain, err = eb.client.SequenceAt(ctx, fromAddress, nil)
+		if err != nil {
+			return nextSeqOnChain, err
+		}
+		if nextSeqOnChain.Int64() > txSeq.Int64() {
+			return nextSeqOnChain, nil
+		}
+	}
+	return nextSeqOnChain, nil
 }
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.
