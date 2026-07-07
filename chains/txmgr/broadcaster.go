@@ -64,7 +64,7 @@ type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Ha
 type broadcasterMetrics interface {
 	IncrementNumBroadcastedTxs(ctx context.Context)
 	RecordTimeUntilTxBroadcast(ctx context.Context, duration float64)
-	IncrementNumInsufficientFundsTxs(ctx context.Context, fromAddress string)
+	IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string)
 }
 
 // Broadcaster monitors txes for transactions that need to
@@ -553,8 +553,8 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		// replace the current attempt, and retry after the backoff duration.
 		// The new attempt must be replaced immediately because of a database constraint.
 		eb.SvcErrBuffer.Append(err)
-		eb.metrics.IncrementNumInsufficientFundsTxs(ctx, etx.FromAddress.String())
-		lgr.Warnw("Transaction rejected due to insufficient funds in sending address, will retry", "fromAddress", etx.FromAddress.String(), "err", err)
+		eb.metrics.IncrementNumInsufficientFundsForTx(ctx, etx.FromAddress.String())
+		lgr.Warnw("Transaction rejected due to insufficient funds in sending address, will retry", "senderAddress", etx.FromAddress.String(), "err", err)
 		if _, _, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt); replaceErr != nil {
 			return replaceErr, true
 		}

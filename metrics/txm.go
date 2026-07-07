@@ -74,7 +74,7 @@ var (
 	promNumInsufficientFunds = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "tx_manager_insufficient_funds_tx_count",
 		Help: "Number of transaction broadcast attempts rejected by an RPC node because the sending address had insufficient funds. Increments on every retry while the address remains underfunded, so a sustained rate indicates the address needs topping up.",
-	}, []string{"chainID", "fromAddress"})
+	}, []string{"chainID", "senderAddress"})
 )
 
 type GenericTXMMetrics interface {
@@ -85,7 +85,7 @@ type GenericTXMMetrics interface {
 	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
 	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
 	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
-	IncrementNumInsufficientFundsTxs(ctx context.Context, fromAddress string)
+	IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string)
 }
 
 type txmMetrics struct {
@@ -189,10 +189,10 @@ func (m *txmMetrics) RecordBlocksUntilTxConfirmed(ctx context.Context, blocksEla
 	m.blocksUntilTxConfirmed.Record(ctx, blocksElapsed, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
-func (m *txmMetrics) IncrementNumInsufficientFundsTxs(ctx context.Context, fromAddress string) {
-	promNumInsufficientFunds.WithLabelValues(m.chainID, fromAddress).Add(1)
+func (m *txmMetrics) IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string) {
+	promNumInsufficientFunds.WithLabelValues(m.chainID, senderAddress).Add(1)
 	m.numInsufficientFundsTxs.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("chainID", m.chainID),
-		attribute.String("fromAddress", fromAddress),
+		attribute.String("senderAddress", senderAddress),
 	))
 }
