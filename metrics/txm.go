@@ -89,14 +89,14 @@ type GenericTXMMetrics interface {
 }
 
 type txmMetrics struct {
-	chainID                string
-	numBroadcastedTxs      metric.Int64Counter
-	timeUntilBroadcast     metric.Float64Histogram
-	numGasBumps            metric.Int64Counter
-	gasBumpExceedsLimit    metric.Int64Counter
-	numConfirmedTxs        metric.Int64Counter
-	timeUntilTxConfirmed   metric.Float64Histogram
-	blocksUntilTxConfirmed metric.Float64Histogram
+	chainID                 string
+	numBroadcastedTxs       metric.Int64Counter
+	timeUntilBroadcast      metric.Float64Histogram
+	numGasBumps             metric.Int64Counter
+	gasBumpExceedsLimit     metric.Int64Counter
+	numConfirmedTxs         metric.Int64Counter
+	timeUntilTxConfirmed    metric.Float64Histogram
+	blocksUntilTxConfirmed  metric.Float64Histogram
 	numInsufficientFundsTxs metric.Int64Counter
 }
 
@@ -142,14 +142,14 @@ func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
 	}
 
 	return &txmMetrics{
-		chainID:                chainID,
-		numBroadcastedTxs:      numBroadcastedTxs,
-		timeUntilBroadcast:     timeUntilBroadcast,
-		numGasBumps:            numGasBumps,
-		gasBumpExceedsLimit:    gasBumpExceedsLimit,
-		numConfirmedTxs:        numConfirmedTxs,
-		timeUntilTxConfirmed:   timeUntilTxConfirmed,
-		blocksUntilTxConfirmed: blocksUntilTxConfirmed,
+		chainID:                 chainID,
+		numBroadcastedTxs:       numBroadcastedTxs,
+		timeUntilBroadcast:      timeUntilBroadcast,
+		numGasBumps:             numGasBumps,
+		gasBumpExceedsLimit:     gasBumpExceedsLimit,
+		numConfirmedTxs:         numConfirmedTxs,
+		timeUntilTxConfirmed:    timeUntilTxConfirmed,
+		blocksUntilTxConfirmed:  blocksUntilTxConfirmed,
 		numInsufficientFundsTxs: numInsufficientFundsTxs,
 	}, nil
 }
