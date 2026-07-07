@@ -554,7 +554,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		// The new attempt must be replaced immediately because of a database constraint.
 		eb.SvcErrBuffer.Append(err)
 		eb.metrics.IncrementNumInsufficientFundsForTx(ctx, etx.FromAddress.String())
-		lgr.Warnw("Transaction rejected due to insufficient funds in sending address, will retry", "senderAddress", etx.FromAddress.String(), "err", err)
+		lgr.Warnw("Transaction rejected due to insufficient funds in sending address, will retry", "fromAddress", etx.FromAddress.String(), "err", err)
 		if _, _, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt); replaceErr != nil {
 			return replaceErr, true
 		}
