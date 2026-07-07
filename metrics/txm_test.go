@@ -90,3 +90,16 @@ func TestTxmMetrics_RecordBlocksUntilTxConfirmed(t *testing.T) {
 		testutil.CollectAndCount(promBlocksUntilTxConfirmed),
 	)
 }
+
+func TestTxmMetrics_IncrementNumInsufficientFundsTxs(t *testing.T) {
+	m := setupTestTxmMetrics(t)
+
+	m.IncrementNumInsufficientFundsTxs(t.Context(), "0xFromAddress")
+	m.IncrementNumInsufficientFundsTxs(t.Context(), "0xFromAddress")
+
+	require.InEpsilon(t,
+		2.0,
+		testutil.ToFloat64(promNumInsufficientFunds.WithLabelValues("1", "0xFromAddress")),
+		0.001,
+	)
+}

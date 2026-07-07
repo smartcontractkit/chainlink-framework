@@ -71,6 +71,10 @@ var (
 			float64(100),
 		},
 	}, []string{"chainID"})
+	promNumInsufficientFunds = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_insufficient_funds_tx_count",
+		Help: "Number of transaction broadcast attempts rejected by an RPC node because the sending address had insufficient funds. Increments on every retry while the address remains underfunded, so a sustained rate indicates the address needs topping up.",
+	}, []string{"chainID", "fromAddress"})
 )
 
 type GenericTXMMetrics interface {
@@ -81,6 +85,7 @@ type GenericTXMMetrics interface {
 	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
 	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
 	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
+	IncrementNumInsufficientFundsTxs(ctx context.Context, fromAddress string)
 }
 
 type txmMetrics struct {
@@ -92,6 +97,7 @@ type txmMetrics struct {
 	numConfirmedTxs        metric.Int64Counter
 	timeUntilTxConfirmed   metric.Float64Histogram
 	blocksUntilTxConfirmed metric.Float64Histogram
+	numInsufficientFundsTxs metric.Int64Counter
 }
 
 func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
@@ -130,6 +136,11 @@ func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
 		return nil, fmt.Errorf("failed to register blocks until tx confirmed metric: %w", err)
 	}
 
+	numInsufficientFundsTxs, err := beholder.GetMeter().Int64Counter("tx_manager_insufficient_funds_tx_count")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register insufficient funds txs metric: %w", err)
+	}
+
 	return &txmMetrics{
 		chainID:                chainID,
 		numBroadcastedTxs:      numBroadcastedTxs,
@@ -139,6 +150,7 @@ func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
 		numConfirmedTxs:        numConfirmedTxs,
 		timeUntilTxConfirmed:   timeUntilTxConfirmed,
 		blocksUntilTxConfirmed: blocksUntilTxConfirmed,
+		numInsufficientFundsTxs: numInsufficientFundsTxs,
 	}, nil
 }
 
@@ -175,4 +187,12 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 func (m *txmMetrics) RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64) {
 	promBlocksUntilTxConfirmed.WithLabelValues(m.chainID).Observe(blocksElapsed)
 	m.blocksUntilTxConfirmed.Record(ctx, blocksElapsed, metric.WithAttributes(attribute.String("chainID", m.chainID)))
+}
+
+func (m *txmMetrics) IncrementNumInsufficientFundsTxs(ctx context.Context, fromAddress string) {
+	promNumInsufficientFunds.WithLabelValues(m.chainID, fromAddress).Add(1)
+	m.numInsufficientFundsTxs.Add(ctx, 1, metric.WithAttributes(
+		attribute.String("chainID", m.chainID),
+		attribute.String("fromAddress", fromAddress),
+	))
 }
