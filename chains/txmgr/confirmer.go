@@ -37,7 +37,7 @@ type confimerMetrics interface {
 	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
 	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
 	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
-	IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string)
+	IncrementNumInsufficientFundsForTx(ctx context.Context, fromAddress string)
 }
 
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain

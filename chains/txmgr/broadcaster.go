@@ -64,7 +64,7 @@ type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Ha
 type broadcasterMetrics interface {
 	IncrementNumBroadcastedTxs(ctx context.Context)
 	RecordTimeUntilTxBroadcast(ctx context.Context, duration float64)
-	IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string)
+	IncrementNumInsufficientFundsForTx(ctx context.Context, fromAddress string)
 }
 
 // Broadcaster monitors txes for transactions that need to

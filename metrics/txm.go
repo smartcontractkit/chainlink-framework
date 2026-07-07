@@ -85,7 +85,7 @@ type GenericTXMMetrics interface {
 	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
 	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
 	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
-	IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string)
+	IncrementNumInsufficientFundsForTx(ctx context.Context, fromAddress string)
 }
 
 type txmMetrics struct {
@@ -189,10 +189,10 @@ func (m *txmMetrics) RecordBlocksUntilTxConfirmed(ctx context.Context, blocksEla
 	m.blocksUntilTxConfirmed.Record(ctx, blocksElapsed, metric.WithAttributes(attribute.String("chainID", m.chainID)))
 }
 
-func (m *txmMetrics) IncrementNumInsufficientFundsForTx(ctx context.Context, senderAddress string) {
-	promNumInsufficientFunds.WithLabelValues(m.chainID, senderAddress).Add(1)
+func (m *txmMetrics) IncrementNumInsufficientFundsForTx(ctx context.Context, fromAddress string) {
+	promNumInsufficientFunds.WithLabelValues(m.chainID, fromAddress).Add(1)
 	m.numInsufficientFundsTxs.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("chainID", m.chainID),
-		attribute.String("senderAddress", senderAddress),
+		attribute.String("senderAddress", fromAddress),
 	))
 }
