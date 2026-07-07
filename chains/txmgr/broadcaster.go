@@ -632,10 +632,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainS
 	txSeq := *etx.Sequence
 
 	// Hedera can take several seconds before the mined nonce (latest) advances after a successful send.
-	nextSeqOnChain, err := eb.sequenceAtAfterBroadcastWithRetries(
-		ctx, lgr, etx.FromAddress, txSeq,
-		hederaDefaultSequencePollInterval, hederaDefaultSequencePollRetries,
-	)
+	nextSeqOnChain, err := eb.sequenceAtAfterBroadcastWithRetries(ctx, lgr, etx.FromAddress, txSeq)
 	if err != nil {
 		return errType, err
 	}
@@ -670,11 +667,9 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) sequenceAtAfterB
 	lgr logger.SugaredLogger,
 	fromAddress ADDR,
 	txSeq SEQ,
-	pollInterval time.Duration,
-	maxPollRetries int,
 ) (SEQ, error) {
 	var nextSeqOnChain SEQ
-	_, err := pollSequenceAtAfterBroadcast(ctx, lgr, txSeq.Int64(), pollInterval, maxPollRetries,
+	_, err := pollSequenceAtAfterBroadcast(ctx, lgr, txSeq.Int64(), hederaDefaultSequencePollInterval, hederaDefaultSequencePollRetries,
 		func(ctx context.Context) (int64, error) {
 			var err error
 			nextSeqOnChain, err = eb.client.SequenceAt(ctx, fromAddress, nil)
