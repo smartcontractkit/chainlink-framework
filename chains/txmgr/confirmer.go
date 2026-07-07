@@ -37,6 +37,7 @@ type confimerMetrics interface {
 	IncrementNumConfirmedTxs(ctx context.Context, confirmedTransactions int)
 	RecordTimeUntilTxConfirmed(ctx context.Context, duration float64)
 	RecordBlocksUntilTxConfirmed(ctx context.Context, blocksElapsed float64)
+	IncrementNumInsufficientFundsTxs(ctx context.Context, fromAddress string)
 }
 
 // Confirmer is a broad service which performs four different tasks in sequence on every new longest chain
@@ -754,6 +755,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) handleInProgres
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveConfirmedAttempt(ctx, timeout, &attempt, now)
 	case multinode.InsufficientFunds:
+		ec.metrics.IncrementNumInsufficientFundsTxs(ctx, etx.FromAddress.String())
 		timeout := ec.dbConfig.DefaultQueryTimeout()
 		return ec.txStore.SaveInsufficientFundsAttempt(ctx, timeout, &attempt, now)
 	case multinode.Successful:
