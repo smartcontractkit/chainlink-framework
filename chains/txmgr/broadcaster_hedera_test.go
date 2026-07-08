@@ -18,6 +18,24 @@ func TestPollSequenceAtAfterBroadcast(t *testing.T) {
 	lgr := logger.Sugared(logger.Test(t))
 	pollInterval := 5 * time.Millisecond
 
+	t.Run("legacy single check when polling disabled", func(t *testing.T) {
+		t.Parallel()
+
+		var calls atomic.Int32
+
+		got, err := pollSequenceAtAfterBroadcast(
+			t.Context(), lgr, 85, pollInterval, 0,
+			func(context.Context) (int64, error) {
+				calls.Add(1)
+				return 85, nil
+			},
+		)
+
+		require.NoError(t, err)
+		assert.Equal(t, int64(85), got)
+		assert.Equal(t, int32(1), calls.Load())
+	})
+
 	t.Run("returns immediately when sequence already advanced", func(t *testing.T) {
 		t.Parallel()
 
@@ -25,7 +43,7 @@ func TestPollSequenceAtAfterBroadcast(t *testing.T) {
 		start := time.Now()
 
 		got, err := pollSequenceAtAfterBroadcast(
-			t.Context(), lgr, 85, pollInterval, 3,
+			t.Context(), lgr, 85, pollInterval, 20*time.Millisecond,
 			func(context.Context) (int64, error) {
 				calls.Add(1)
 				return 86, nil
@@ -46,7 +64,7 @@ func TestPollSequenceAtAfterBroadcast(t *testing.T) {
 		start := time.Now()
 
 		got, err := pollSequenceAtAfterBroadcast(
-			t.Context(), lgr, 85, pollInterval, 3,
+			t.Context(), lgr, 85, pollInterval, 20*time.Millisecond,
 			func(context.Context) (int64, error) {
 				i := int(calls.Add(1)) - 1
 				return sequences[i], nil
@@ -59,14 +77,15 @@ func TestPollSequenceAtAfterBroadcast(t *testing.T) {
 		assert.GreaterOrEqual(t, time.Since(start), 2*pollInterval)
 	})
 
-	t.Run("returns last sequence when it never advances", func(t *testing.T) {
+	t.Run("returns last sequence when it never advances before timeout", func(t *testing.T) {
 		t.Parallel()
 
 		var calls atomic.Int32
 		start := time.Now()
+		pollTimeout := 15 * time.Millisecond
 
 		got, err := pollSequenceAtAfterBroadcast(
-			t.Context(), lgr, 85, pollInterval, 3,
+			t.Context(), lgr, 85, pollInterval, pollTimeout,
 			func(context.Context) (int64, error) {
 				calls.Add(1)
 				return 85, nil
@@ -75,8 +94,8 @@ func TestPollSequenceAtAfterBroadcast(t *testing.T) {
 
 		require.NoError(t, err)
 		assert.Equal(t, int64(85), got)
-		assert.Equal(t, int32(4), calls.Load())
-		assert.GreaterOrEqual(t, time.Since(start), 3*pollInterval)
+		assert.GreaterOrEqual(t, calls.Load(), int32(2))
+		assert.LessOrEqual(t, time.Since(start), pollTimeout+pollInterval)
 	})
 
 	t.Run("returns context error while waiting", func(t *testing.T) {
@@ -86,7 +105,7 @@ func TestPollSequenceAtAfterBroadcast(t *testing.T) {
 		cancel()
 
 		_, err := pollSequenceAtAfterBroadcast(
-			ctx, lgr, 85, pollInterval, 3,
+			ctx, lgr, 85, pollInterval, 20*time.Millisecond,
 			func(context.Context) (int64, error) {
 				return 85, nil
 			},
