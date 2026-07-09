@@ -53,7 +53,6 @@ type TransmitCheckerFactory[CID chains.ID, ADDR chains.Hashable, THASH, BHASH ch
 
 // TransmitChecker determines whether a transaction should be submitted on-chain.
 type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee] interface {
-
 	// Check the given transaction. If the transaction should not be sent, an error indicating why
 	// is returned. Errors should only be returned if the checker can confirm that a transaction
 	// should not be sent, other errors (for example connection or other unexpected errors) should
@@ -64,6 +63,7 @@ type TransmitChecker[CID chains.ID, ADDR chains.Hashable, THASH, BHASH chains.Ha
 type broadcasterMetrics interface {
 	IncrementNumBroadcastedTxs(ctx context.Context)
 	RecordTimeUntilTxBroadcast(ctx context.Context, duration float64)
+	IncrementNumInsufficientFundsForTx(ctx context.Context, fromAddress string)
 }
 
 // Broadcaster monitors txes for transactions that need to
@@ -552,6 +552,8 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		// replace the current attempt, and retry after the backoff duration.
 		// The new attempt must be replaced immediately because of a database constraint.
 		eb.SvcErrBuffer.Append(err)
+		eb.metrics.IncrementNumInsufficientFundsForTx(ctx, etx.FromAddress.String())
+		lgr.Warnw("Transaction rejected due to insufficient funds at sending address, will retry", "fromAddress", etx.FromAddress.String(), "err", err)
 		if _, _, replaceErr := eb.replaceAttemptWithNewEstimation(ctx, lgr, etx, attempt); replaceErr != nil {
 			return replaceErr, true
 		}
@@ -679,7 +681,8 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) nextUnstartedTra
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) replaceAttemptWithBumpedGas(ctx context.Context, lgr logger.Logger, txError error, etx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], attempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) (replacedAttempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE], retryable bool, err error) {
 	// This log error is not applicable to Hedera since the action required would not be needed for its gas estimator
 	if eb.chainType != hederaChainType {
-		logger.With(lgr,
+		logger.With(
+			lgr,
 			"sendError", txError,
 			"attemptFee", attempt.TxFee,
 			"maxGasPriceConfig", eb.feeConfig.MaxFeePrice(),
