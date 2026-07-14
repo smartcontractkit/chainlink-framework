@@ -71,10 +71,15 @@ var (
 			float64(100),
 		},
 	}, []string{"chainID"})
-	promNumInsufficientFunds = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "tx_manager_insufficient_funds_tx_count",
-		Help: "Number of transaction broadcast attempts rejected by an RPC node because the sending address had insufficient funds. Increments on every retry while the address remains underfunded, so a sustained rate indicates the address needs topping up.",
-	}, []string{"chainID", "senderAddress"})
+	promAttemptError = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "tx_manager_attempt_error_total",
+		Help: "Number of transaction broadcast/confirm attempts that failed, labelled by cause. For cause=\"insufficient_funds\" the sending address was rejected by an RPC node for insufficient funds; it increments on every retry while the address remains underfunded, so a sustained rate indicates the address needs topping up.",
+	}, []string{"chainID", "senderAddress", "cause"})
+)
+
+// Attempt error causes, used as the `cause` label on tx_manager_attempt_error_total.
+const (
+	attemptErrorCauseInsufficientFunds = "insufficient_funds"
 )
 
 type GenericTXMMetrics interface {
@@ -136,9 +141,9 @@ func NewGenericTxmMetrics(chainID string) (GenericTXMMetrics, error) {
 		return nil, fmt.Errorf("failed to register blocks until tx confirmed metric: %w", err)
 	}
 
-	numInsufficientFundsTxs, err := beholder.GetMeter().Int64Counter("tx_manager_insufficient_funds_tx_count")
+	numInsufficientFundsTxs, err := beholder.GetMeter().Int64Counter("tx_manager_attempt_error_total")
 	if err != nil {
-		return nil, fmt.Errorf("failed to register insufficient funds txs metric: %w", err)
+		return nil, fmt.Errorf("failed to register attempt error metric: %w", err)
 	}
 
 	return &txmMetrics{
@@ -190,9 +195,10 @@ func (m *txmMetrics) RecordBlocksUntilTxConfirmed(ctx context.Context, blocksEla
 }
 
 func (m *txmMetrics) IncrementNumInsufficientFundsForTx(ctx context.Context, fromAddress string) {
-	promNumInsufficientFunds.WithLabelValues(m.chainID, fromAddress).Add(1)
+	promAttemptError.WithLabelValues(m.chainID, fromAddress, attemptErrorCauseInsufficientFunds).Add(1)
 	m.numInsufficientFundsTxs.Add(ctx, 1, metric.WithAttributes(
 		attribute.String("chainID", m.chainID),
 		attribute.String("senderAddress", fromAddress),
+		attribute.String("cause", attemptErrorCauseInsufficientFunds),
 	))
 }
