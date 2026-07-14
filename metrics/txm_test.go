@@ -99,7 +99,7 @@ func TestTxmMetrics_IncrementNumInsufficientFundsForTx(t *testing.T) {
 
 	require.InEpsilon(t,
 		2.0,
-		testutil.ToFloat64(promNumInsufficientFunds.WithLabelValues("1", "0xSenderAddress")),
+		testutil.ToFloat64(promAttemptError.WithLabelValues("1", "0xSenderAddress", "insufficient_funds")),
 		0.001,
 	)
 }
