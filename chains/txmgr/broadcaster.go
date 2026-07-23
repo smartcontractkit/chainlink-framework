@@ -201,6 +201,11 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) loadAndMonitor()
 	defer cancel()
 	eb.sequenceTracker.LoadNextSequences(ctx, eb.enabledAddresses)
 	eb.wg.Add(len(eb.enabledAddresses))
+
+	// eb.triggers is also read by Trigger() under initSync, so it must be populated under the
+	// same lock to avoid a concurrent map read/write.
+	eb.initSync.Lock()
+	defer eb.initSync.Unlock()
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
 		eb.triggers[addr] = triggerCh
