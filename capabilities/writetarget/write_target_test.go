@@ -167,7 +167,7 @@ func TestWriteTarget_Execute(t *testing.T) {
 			initialTransmissionState: writetarget.TransmissionState{Status: writetarget.TransmissionStateFatal, Err: errors.New("fatal")},
 			txState:                  commontypes.Unknown,
 			expectError:              true,
-			errorContains:            "Transmission attempt fatal",
+			errorContains:            "transmission attempt fatal",
 		},
 		{
 			name:                     "transmit error",
