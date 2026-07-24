@@ -33,8 +33,13 @@ const (
 	// spent on the transmit check.
 	TransmitCheckTimeout = 2 * time.Second
 
-	// maxBroadcastRetries is the number of times a transaction broadcast is retried when the sequence fails to increment on Hedera
+	// maxHederaBroadcastRetries is the number of times a transaction broadcast is retried with a bumped fee
+	// when the mined sequence still has not advanced after polling.
 	maxHederaBroadcastRetries = 3
+
+	// hederaDefaultSequencePollInterval is the delay between Hedera SequenceAt re-polls when polling is enabled
+	// and no interval is configured.
+	hederaDefaultSequencePollInterval = 2 * time.Second
 
 	// hederaChainType is the string representation of the Hedera chain type
 	// Temporary solution until the Broadcaster is moved to the EVM code base
@@ -629,8 +634,9 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainS
 	}
 	// Transaction sequence cannot be nil here since a sequence is required to broadcast
 	txSeq := *etx.Sequence
-	// Retrieve the latest mined sequence from on-chain
-	nextSeqOnChain, err := eb.client.SequenceAt(ctx, etx.FromAddress, nil)
+
+	// Hedera can take several seconds before the mined nonce (latest) advances after a successful send.
+	nextSeqOnChain, err := eb.sequenceAtAfterBroadcastWithRetries(ctx, lgr, etx.FromAddress, txSeq)
 	if err != nil {
 		return errType, err
 	}
@@ -658,6 +664,99 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainS
 	}
 
 	return multinode.Successful, nil
+}
+
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) sequenceAtAfterBroadcastWithRetries(
+	ctx context.Context,
+	lgr logger.SugaredLogger,
+	fromAddress ADDR,
+	txSeq SEQ,
+) (SEQ, error) {
+	pollInterval, pollTimeout := eb.hederaSequencePollConfig()
+	var nextSeqOnChain SEQ
+	_, err := pollSequenceAtAfterBroadcast(ctx, lgr, txSeq.Int64(), pollInterval, pollTimeout,
+		func(ctx context.Context) (int64, error) {
+			var err error
+			nextSeqOnChain, err = eb.client.SequenceAt(ctx, fromAddress, nil)
+			if err != nil {
+				return 0, err
+			}
+			return nextSeqOnChain.Int64(), nil
+		},
+	)
+	return nextSeqOnChain, err
+}
+
+// hederaSequencePollConfig returns polling settings for Hedera post-send sequence validation.
+// Polling is disabled unless txConfig implements HederaBroadcastConfig with a positive timeout.
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) hederaSequencePollConfig() (pollInterval time.Duration, pollTimeout time.Duration) {
+	if eb.chainType != hederaChainType {
+		return 0, 0
+	}
+	cfg, ok := eb.txConfig.(types.HederaBroadcastConfig)
+	if !ok {
+		return 0, 0
+	}
+	timeout := cfg.HederaSequencePollTimeout()
+	if timeout == nil || *timeout <= 0 {
+		return 0, 0
+	}
+
+	interval := hederaDefaultSequencePollInterval
+	if v := cfg.HederaSequencePollInterval(); v != nil && *v > 0 {
+		interval = *v
+	}
+	return interval, *timeout
+}
+
+// pollSequenceAtAfterBroadcast polls sequenceAt until the value exceeds txSeq or pollTimeout elapses.
+// When pollTimeout is zero, only a single immediate check is performed (legacy behavior).
+func pollSequenceAtAfterBroadcast(
+	ctx context.Context,
+	lgr logger.SugaredLogger,
+	txSeq int64,
+	pollInterval time.Duration,
+	pollTimeout time.Duration,
+	sequenceAt func(ctx context.Context) (int64, error),
+) (int64, error) {
+	var nextSeqOnChain int64
+	nextSeqOnChain, err := sequenceAt(ctx)
+	if err != nil {
+		return nextSeqOnChain, err
+	}
+	if nextSeqOnChain > txSeq || pollTimeout <= 0 {
+		return nextSeqOnChain, nil
+	}
+
+	deadline := time.Now().Add(pollTimeout)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return nextSeqOnChain, nil
+		}
+
+		wait := pollInterval
+		if wait > remaining {
+			wait = remaining
+		}
+		lgr.Infow("Hedera mined sequence not yet advanced, waiting before re-check",
+			"delay", wait,
+			"remaining", remaining,
+		)
+		select {
+		case <-ctx.Done():
+			return nextSeqOnChain, ctx.Err()
+		case <-time.After(wait):
+		}
+
+		nextSeqOnChain, err = sequenceAt(ctx)
+		if err != nil {
+			return nextSeqOnChain, err
+		}
+		if nextSeqOnChain > txSeq {
+			return nextSeqOnChain, nil
+		}
+	}
 }
 
 // Finds next transaction in the queue, assigns a sequence, and moves it to "in_progress" state ready for broadcast.
