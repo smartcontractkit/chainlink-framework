@@ -106,6 +106,8 @@ type Broadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, T
 
 	checkerFactory TransmitCheckerFactory[CID, ADDR, THASH, BHASH, SEQ, FEE]
 
+	// triggersMu guards triggers independently of initSync to avoid deadlocks in Start/Close
+	triggersMu sync.Mutex
 	// triggers allow other goroutines to force Broadcaster to rescan the
 	// database early (before the next poll interval)
 	// Each key has its own trigger
@@ -187,7 +189,9 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) startInternal(ct
 	}
 	eb.chStop = make(chan struct{})
 	eb.wg = sync.WaitGroup{}
+	eb.triggersMu.Lock()
 	eb.triggers = make(map[ADDR]chan struct{})
+	eb.triggersMu.Unlock()
 	eb.wg.Add(1)
 	go eb.loadAndMonitor()
 
@@ -202,10 +206,12 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) loadAndMonitor()
 	eb.sequenceTracker.LoadNextSequences(ctx, eb.enabledAddresses)
 	eb.wg.Add(len(eb.enabledAddresses))
 
-	// eb.triggers is also read by Trigger() under initSync, so it must be populated under the
-	// same lock to avoid a concurrent map read/write.
-	eb.initSync.Lock()
-	defer eb.initSync.Unlock()
+	// eb.triggers is also read by Trigger() under triggersMu, so it must be populated under the
+	// same lock to avoid a concurrent map read/write. This must be a separate lock from initSync:
+	// closeInternal holds initSync for its entire duration, including while blocked in wg.Wait()
+	// waiting for this goroutine to finish, so acquiring initSync here would deadlock against a concurrent Close().
+	eb.triggersMu.Lock()
+	defer eb.triggersMu.Unlock()
 	for _, addr := range eb.enabledAddresses {
 		triggerCh := make(chan struct{}, 1)
 		eb.triggers[addr] = triggerCh
@@ -257,10 +263,14 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Ready() error {
 // Logs error and does nothing if address was not registered on startup
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) Trigger(addr ADDR) {
 	eb.initSync.Lock()
-	defer eb.initSync.Unlock()
-	if !eb.isStarted {
+	started := eb.isStarted
+	eb.initSync.Unlock()
+	if !started {
 		eb.lggr.Debugf("Unstarted; ignoring trigger for %s", addr)
 	}
+
+	eb.triggersMu.Lock()
+	defer eb.triggersMu.Unlock()
 	triggerCh, exists := eb.triggers[addr]
 	if !exists {
 		// ignoring trigger for address which is not registered with this Broadcaster
