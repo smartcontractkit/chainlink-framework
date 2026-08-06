@@ -24,8 +24,8 @@ type multiNodeMetrics interface {
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
-	CHAIN_ID ID,
-	RPC any,
+CHAIN_ID ID,
+RPC any,
 ] struct {
 	services.Service
 	eng *services.Engine
@@ -48,16 +48,16 @@ type MultiNode[
 }
 
 func NewMultiNode[
-	CHAIN_ID ID,
-	RPC any,
+CHAIN_ID ID,
+RPC any,
 ](
 	lggr logger.Logger,
 	metrics multiNodeMetrics,
-	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
+	selectionMode string,        // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
 	primaryNodes []Node[CHAIN_ID, RPC],
 	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC],
-	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
+	chainID CHAIN_ID,   // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
 	deathDeclarationDelay time.Duration,
 ) *MultiNode[CHAIN_ID, RPC] {
@@ -295,7 +295,6 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
 		if n.State() == nodeStateAlive && n != bestNode {
-			c.lggr.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAllExceptAliveLoop()
 		}
 	}
@@ -304,6 +303,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 	defer c.activeMu.Unlock()
 	if bestNode != c.activeNode {
 		if c.activeNode != nil {
+			c.lggr.Infof("Switching to best node from %q to %q", c.activeNode.String(), bestNode.String())
 			c.activeNode.UnsubscribeAllExceptAliveLoop()
 		}
 		c.activeNode = bestNode
