@@ -24,8 +24,8 @@ type multiNodeMetrics interface {
 // MultiNode is a generalized multi node client interface that includes methods to interact with different chains.
 // It also handles multiple node RPC connections simultaneously.
 type MultiNode[
-CHAIN_ID ID,
-RPC any,
+	CHAIN_ID ID,
+	RPC any,
 ] struct {
 	services.Service
 	eng *services.Engine
@@ -48,16 +48,16 @@ RPC any,
 }
 
 func NewMultiNode[
-CHAIN_ID ID,
-RPC any,
+	CHAIN_ID ID,
+	RPC any,
 ](
 	lggr logger.Logger,
 	metrics multiNodeMetrics,
-	selectionMode string,        // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
+	selectionMode string, // type of the "best" RPC selector (e.g HighestHead, RoundRobin, etc.)
 	leaseDuration time.Duration, // defines interval on which new "best" RPC should be selected
 	primaryNodes []Node[CHAIN_ID, RPC],
 	sendOnlyNodes []SendOnlyNode[CHAIN_ID, RPC],
-	chainID CHAIN_ID,   // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
+	chainID CHAIN_ID, // configured chain ID (used to verify that passed primaryNodes belong to the same chain)
 	chainFamily string, // name of the chain family - used in the metrics
 	deathDeclarationDelay time.Duration,
 ) *MultiNode[CHAIN_ID, RPC] {
