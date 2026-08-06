@@ -295,7 +295,6 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
 		if n.State() == nodeStateAlive && n != bestNode {
-			c.lggr.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAllExceptAliveLoop()
 		}
 	}
@@ -304,6 +303,7 @@ func (c *MultiNode[CHAIN_ID, RPC]) checkLease() {
 	defer c.activeMu.Unlock()
 	if bestNode != c.activeNode {
 		if c.activeNode != nil {
+			c.lggr.Infof("Switching to best node from %q to %q", c.activeNode.String(), bestNode.String())
 			c.activeNode.UnsubscribeAllExceptAliveLoop()
 		}
 		c.activeNode = bestNode
