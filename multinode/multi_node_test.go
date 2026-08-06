@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -58,6 +59,12 @@ func newHealthyNode(t *testing.T, chainID ID) *mockNode[ID, multiNodeRPCClient] 
 }
 
 func newNodeWithState(t *testing.T, chainID ID, state nodeState) *mockNode[ID, multiNodeRPCClient] {
+	node := newStatelessNode(t, chainID)
+	node.On("State").Return(state).Maybe()
+	return node
+}
+
+func newStatelessNode(t *testing.T, chainID ID) *mockNode[ID, multiNodeRPCClient] {
 	node := newMockNode[ID, multiNodeRPCClient](t)
 	node.On("ConfiguredChainID").Return(chainID).Once()
 	node.On("Start", mock.Anything).Return(nil).Once()
@@ -65,8 +72,24 @@ func newNodeWithState(t *testing.T, chainID ID, state nodeState) *mockNode[ID, m
 	// #nosec G404
 	node.On("String").Return(fmt.Sprintf("healthy_node_%d", rand.Int())).Maybe()
 	node.On("SetPoolChainInfoProvider", mock.Anything).Once()
-	node.On("State").Return(state).Maybe()
 	return node
+}
+
+// newNodeWithOrder returns a mock node with the given priority selector order whose health
+// can be toggled between alive and unreachable via the returned setAlive func.
+func newNodeWithOrder(t *testing.T, chainID ID, order int32) (*mockNode[ID, multiNodeRPCClient], func(alive bool)) {
+	node := newStatelessNode(t, chainID)
+	node.On("Order").Return(order).Maybe()
+	node.On("UnsubscribeAllExceptAliveLoop").Maybe()
+	var alive atomic.Bool
+	alive.Store(true)
+	node.On("State").Return(func() nodeState {
+		if alive.Load() {
+			return nodeStateAlive
+		}
+		return nodeStateUnreachable
+	}).Maybe()
+	return node, func(v bool) { alive.Store(v) }
 }
 
 func TestMultiNode_Dial(t *testing.T) {
@@ -272,27 +295,38 @@ func TestMultiNode_CheckLease(t *testing.T) {
 	t.Run("Lease check updates active node", func(t *testing.T) {
 		t.Parallel()
 		chainID := RandomID()
-		node := newHealthyNode(t, chainID)
-		node.On("UnsubscribeAllExceptAliveLoop")
-		bestNode := newHealthyNode(t, chainID)
-		nodeSelector := newMockNodeSelector[ID, multiNodeRPCClient](t)
-		nodeSelector.On("Select").Return(bestNode)
-		lggr, observedLogs := logger.TestObserved(t, zap.InfoLevel)
+		// order and priority have inverted relationship. Lower order -> higher priority
+		highPriorityNode, setHighPriorityNodeAlive := newNodeWithOrder(t, chainID, 1)
+		lowPriorityNode, _ := newNodeWithOrder(t, chainID, 2)
 		mn := newTestMultiNode(t, multiNodeOpts{
-			selectionMode: NodeSelectionModeHighestHead,
+			selectionMode: NodeSelectionModePriorityLevel,
 			chainID:       chainID,
-			logger:        lggr,
-			nodes:         []Node[ID, multiNodeRPCClient]{node, bestNode},
+			nodes:         []Node[ID, multiNodeRPCClient]{highPriorityNode, lowPriorityNode},
 			leaseDuration: tests.TestInterval,
 		})
-		mn.nodeSelector = nodeSelector
 		servicetest.Run(t, mn)
-		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Switching to best node from %q to %q", node.String(), bestNode.String()))
-		tests.AssertEventually(t, func() bool {
+
+		activeNode := func() Node[ID, multiNodeRPCClient] {
 			mn.activeMu.RLock()
-			active := mn.activeNode
-			mn.activeMu.RUnlock()
-			return bestNode == active
+			defer mn.activeMu.RUnlock()
+			return mn.activeNode
+		}
+
+		// lower order node has higher priority, so it should become active first
+		tests.AssertEventually(t, func() bool {
+			return activeNode() == highPriorityNode
+		})
+
+		// once the lower order node becomes unhealthy, the higher order node should take over
+		setHighPriorityNodeAlive(false)
+		tests.AssertEventually(t, func() bool {
+			return activeNode() == lowPriorityNode
+		})
+
+		// once the lower order node is healthy again, it should become active again
+		setHighPriorityNodeAlive(true)
+		tests.AssertEventually(t, func() bool {
+			return activeNode() == highPriorityNode
 		})
 	})
 	t.Run("NodeStates returns proper states", func(t *testing.T) {
