@@ -17,7 +17,7 @@ func TestRoundRobinNodeSelector(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
@@ -42,7 +42,7 @@ func TestRoundRobinNodeSelector_None(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync

@@ -242,7 +242,6 @@ func TestWriteTarget_Execute(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			lggr, observed := logger.TestObserved(t, zapcore.DebugLevel)
 			emitter := monmocks.NewProtoEmitter(t)

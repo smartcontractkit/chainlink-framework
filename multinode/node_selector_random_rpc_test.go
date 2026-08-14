@@ -17,7 +17,7 @@ func TestRandomRPCNodeSelector(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			node.On("State").Return(nodeStateOutOfSync)
@@ -31,7 +31,7 @@ func TestRandomRPCNodeSelector(t *testing.T) {
 	selector := newNodeSelector(NodeSelectionModeRandomRPC, nodes)
 
 	// All selections should be from alive nodes only
-	for i := 0; i < 20; i++ {
+	for range 20 {
 		selected := selector.Select()
 		assert.NotNil(t, selected)
 		assert.Contains(t, []Node[ID, nodeClient]{nodes[1], nodes[2]}, selected)
@@ -44,7 +44,7 @@ func TestRandomRPCNodeSelector_None(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			node.On("State").Return(nodeStateOutOfSync)
@@ -66,7 +66,7 @@ func TestRandomRPCNodeSelector_Distribution(t *testing.T) {
 	var nodes []Node[ID, nodeClient]
 
 	const nAlive = 3
-	for i := 0; i < nAlive; i++ {
+	for range nAlive {
 		node := newMockNode[ID, nodeClient](t)
 		node.On("State").Return(nodeStateAlive)
 		nodes = append(nodes, node)
@@ -76,7 +76,7 @@ func TestRandomRPCNodeSelector_Distribution(t *testing.T) {
 
 	const iterations = 1000
 	counts := make(map[Node[ID, nodeClient]]int, nAlive)
-	for i := 0; i < iterations; i++ {
+	for range iterations {
 		selected := selector.Select()
 		assert.NotNil(t, selected)
 		counts[selected]++
@@ -98,7 +98,7 @@ func TestRandomRPCNodeSelector_SingleNode(t *testing.T) {
 
 	selector := newNodeSelector(NodeSelectionModeRandomRPC, []Node[ID, nodeClient]{node})
 
-	for i := 0; i < 5; i++ {
+	for range 5 {
 		assert.Same(t, node, selector.Select())
 	}
 }

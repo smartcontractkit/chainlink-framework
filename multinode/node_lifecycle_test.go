@@ -587,11 +587,9 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		defer func() { assert.NoError(t, node.close()) }()
 		node.declareAlive()
 		var wg sync.WaitGroup
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			writeHeads(t, ch, head{BlockNumber: expectedBlock - 1}, head{BlockNumber: expectedBlock}, head{BlockNumber: expectedBlock - 1})
-		}()
+		})
 		tests.AssertEventually(t, func() bool {
 			metric, err := metrics.PromPoolRPCNodeHighestFinalizedBlock.GetMetricWithLabelValues("test-network", big.NewInt(1).String(), name)
 			require.NoError(t, err)
@@ -2288,7 +2286,7 @@ func TestUnit_NodeLifecycle_SyncingLoop(t *testing.T) {
 
 func TestNode_State(t *testing.T) {
 	t.Run("If not Alive, returns as is", func(t *testing.T) {
-		for state := nodeState(0); state < nodeStateLen; state++ {
+		for state := range nodeStateLen {
 			if state == nodeStateAlive {
 				continue
 			}

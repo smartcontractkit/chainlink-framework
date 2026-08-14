@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	bigmath "github.com/smartcontractkit/chainlink-common/pkg/utils/big_math"
 )
 
@@ -22,7 +22,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	if interval <= 0 || interval > QueryTimeout {
 		interval = QueryTimeout
 	}
-	return utils.WithJitter(interval)
+	return timeutil.JitterPct(0.1).Apply(interval)
 }
 
 const (

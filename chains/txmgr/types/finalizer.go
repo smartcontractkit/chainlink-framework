@@ -14,5 +14,5 @@ type Finalizer[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]] interfa
 	// interfaces for running the underlying estimator
 	services.Service
 	DeliverLatestHead(head HEAD) bool
-	SetResumeCallback(callback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error)
+	SetResumeCallback(callback func(ctx context.Context, id uuid.UUID, result any, err error) error)
 }

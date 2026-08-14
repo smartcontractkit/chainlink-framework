@@ -120,7 +120,7 @@ type TxMeta[ADDR chains.Hashable, TX_HASH chains.Hashable] struct {
 	JobID *int32 `json:"JobID,omitempty"`
 
 	// Pipeline fields
-	FailOnRevert null.Bool `json:"FailOnRevert,omitempty"`
+	FailOnRevert null.Bool `json:"FailOnRevert"`
 
 	// VRF-only fields
 	RequestID     *TX_HASH `json:"RequestID,omitempty"`

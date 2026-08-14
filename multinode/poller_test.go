@@ -85,7 +85,7 @@ func Test_Poller(t *testing.T) {
 
 		// Ensure that all errors were logged as expected
 		logsSeen := func() bool {
-			for pollCount := 0; pollCount < 50; pollCount++ {
+			for pollCount := range 50 {
 				numLogs := observedLogs.FilterMessage(fmt.Sprintf("polling error: polling error %d", pollCount+1)).Len()
 				if numLogs != 1 {
 					return false

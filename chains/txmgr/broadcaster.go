@@ -15,12 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/chains/label"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-	"github.com/smartcontractkit/chainlink-framework/multinode"
+	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-framework/multinode"
 )
 
 const (
@@ -312,7 +312,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) monitorTxs(addr 
 	bf := eb.newResendBackoff()
 
 	for {
-		pollDBTimer := time.NewTimer(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
+		pollDBTimer := time.NewTimer(timeutil.JitterPct(0.1).Apply(eb.listenerConfig.FallbackPollInterval()))
 
 		retryable, err := eb.processUnstartedTxsImpl(ctx, addr)
 		if err != nil {
@@ -321,7 +321,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) monitorTxs(addr 
 		// On retryable errors we implement exponential backoff retries. This
 		// handles intermittent connectivity, remote RPC races, timing issues etc
 		if retryable {
-			pollDBTimer.Reset(utils.WithJitter(eb.listenerConfig.FallbackPollInterval()))
+			pollDBTimer.Reset(timeutil.JitterPct(0.1).Apply(eb.listenerConfig.FallbackPollInterval()))
 			errorRetryCh = time.After(bf.Duration())
 		} else {
 			bf = eb.newResendBackoff()

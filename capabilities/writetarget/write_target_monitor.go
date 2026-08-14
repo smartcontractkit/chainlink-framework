@@ -20,7 +20,7 @@ const (
 
 func NewMonitorEmitter(lggr logger.Logger) beholder.ProtoEmitter {
 	// Initialize the Beholder client with a local logger a custom Emitter
-	client := beholder.GetClient().ForPackage("write_target")
+	client := beholder.GetClient().ForName("write_target")
 	return beholder.NewProtoEmitter(lggr, &client, schemaBasePath)
 }
 
@@ -39,7 +39,7 @@ type MonitorOpts struct {
 // TODO: Report decoding uses the same ABI for EVM and Aptos, however, future chains may need a different
 // decoding scheme. Generalize this in the future to support different chains and decoding schemes.
 func NewMonitor(opts MonitorOpts) (*beholder.BeholderClient, error) {
-	client := beholder.GetClient().ForPackage("write_target")
+	client := beholder.GetClient().ForName("write_target")
 
 	// Proxy ProtoEmitter with additional processing
 	protoEmitterProxy := protoEmitter{

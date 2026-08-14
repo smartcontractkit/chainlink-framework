@@ -440,10 +440,7 @@ func (t *tracker[HTH, S, ID, BHASH]) LatestSafeBlock(ctx context.Context) (safe 
 	if safeDepth <= 0 {
 		safeDepth = int64(t.config.FinalityDepth())
 	}
-	safeBlockNumber := latest.BlockNumber() - safeDepth
-	if safeBlockNumber <= 0 {
-		safeBlockNumber = 0
-	}
+	safeBlockNumber := max(latest.BlockNumber()-safeDepth, 0)
 	return t.getHeadAtHeight(ctx, latest.BlockHash(), safeBlockNumber)
 }
 
@@ -518,10 +515,7 @@ func (t *tracker[HTH, S, ID, BHASH]) calculateLatestFinalized(ctx context.Contex
 	if t.instantFinality() {
 		return currentHead, nil
 	}
-	finalizedBlockNumber := currentHead.BlockNumber() - int64(t.config.FinalityDepth()) - int64(t.config.FinalizedBlockOffset())
-	if finalizedBlockNumber <= 0 {
-		finalizedBlockNumber = 0
-	}
+	finalizedBlockNumber := max(currentHead.BlockNumber()-int64(t.config.FinalityDepth())-int64(t.config.FinalizedBlockOffset()), 0)
 	return t.getHeadAtHeight(ctx, currentHead.BlockHash(), finalizedBlockNumber)
 }
 
