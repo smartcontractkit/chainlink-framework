@@ -39,31 +39,27 @@ func (t *testHead) BlockDifficulty() *big.Int    { return nil }
 func (t *testHead) GetTotalDifficulty() *big.Int { return nil }
 func (t *testHead) IsValid() bool                { return t != nil && t.blockNumber > 0 }
 
-func ptr[T any](t T) *T {
-	return &t
-}
-
 func newTestRPC(t *testing.T) *testRPC {
 	requestTimeout := 5 * time.Second
 	lggr := logger.Test(t)
 	cfg := &config.MultiNodeConfig{
 		MultiNode: config.MultiNode{
-			Enabled:                      ptr(true),
-			PollFailureThreshold:         ptr(uint32(5)),
+			Enabled:                      new(true),
+			PollFailureThreshold:         new(uint32(5)),
 			PollInterval:                 common.MustNewDuration(15 * time.Second),
-			SelectionMode:                ptr(NodeSelectionModePriorityLevel),
-			SyncThreshold:                ptr(uint32(10)),
+			SelectionMode:                new(NodeSelectionModePriorityLevel),
+			SyncThreshold:                new(uint32(10)),
 			LeaseDuration:                common.MustNewDuration(time.Minute),
-			NodeIsSyncingEnabled:         ptr(false),
+			NodeIsSyncingEnabled:         new(false),
 			NewHeadsPollInterval:         common.MustNewDuration(5 * time.Second),
 			FinalizedBlockPollInterval:   common.MustNewDuration(5 * time.Second),
-			EnforceRepeatableRead:        ptr(true),
+			EnforceRepeatableRead:        new(true),
 			DeathDeclarationDelay:        common.MustNewDuration(20 * time.Second),
 			NodeNoNewHeadsThreshold:      common.MustNewDuration(20 * time.Second),
 			NoNewFinalizedHeadsThreshold: common.MustNewDuration(20 * time.Second),
-			FinalityTagEnabled:           ptr(true),
-			FinalityDepth:                ptr(uint32(0)),
-			FinalizedBlockOffset:         ptr(uint32(50)),
+			FinalityTagEnabled:           new(true),
+			FinalityDepth:                new(uint32(0)),
+			FinalizedBlockOffset:         new(uint32(50)),
 		},
 	}
 
@@ -130,22 +126,22 @@ func TestRPCClientBase_RecordsRPCMetrics(t *testing.T) {
 	lggr := logger.Test(t)
 	cfg := &config.MultiNodeConfig{
 		MultiNode: config.MultiNode{
-			Enabled:                      ptr(true),
-			PollFailureThreshold:         ptr(uint32(5)),
+			Enabled:                      new(true),
+			PollFailureThreshold:         new(uint32(5)),
 			PollInterval:                 common.MustNewDuration(15 * time.Second),
-			SelectionMode:                ptr(NodeSelectionModePriorityLevel),
-			SyncThreshold:                ptr(uint32(10)),
+			SelectionMode:                new(NodeSelectionModePriorityLevel),
+			SyncThreshold:                new(uint32(10)),
 			LeaseDuration:                common.MustNewDuration(time.Minute),
-			NodeIsSyncingEnabled:         ptr(false),
+			NodeIsSyncingEnabled:         new(false),
 			NewHeadsPollInterval:         common.MustNewDuration(5 * time.Second),
 			FinalizedBlockPollInterval:   common.MustNewDuration(5 * time.Second),
-			EnforceRepeatableRead:        ptr(true),
+			EnforceRepeatableRead:        new(true),
 			DeathDeclarationDelay:        common.MustNewDuration(20 * time.Second),
 			NodeNoNewHeadsThreshold:      common.MustNewDuration(20 * time.Second),
 			NoNewFinalizedHeadsThreshold: common.MustNewDuration(20 * time.Second),
-			FinalityTagEnabled:           ptr(true),
-			FinalityDepth:                ptr(uint32(0)),
-			FinalizedBlockOffset:         ptr(uint32(50)),
+			FinalityTagEnabled:           new(true),
+			FinalityDepth:                new(uint32(0)),
+			FinalizedBlockOffset:         new(uint32(50)),
 		},
 	}
 

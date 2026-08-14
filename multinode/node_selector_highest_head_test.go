@@ -18,7 +18,7 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		switch i {
 		case 0:
@@ -78,7 +78,7 @@ func TestHighestHeadNodeSelector_None(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
@@ -101,7 +101,7 @@ func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
 	var nodes []Node[ID, nodeClient]
 
 	t.Run("same head and order", func(t *testing.T) {
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			node := newMockNode[ID, nodeClient](t)
 			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: int64(1)})
 			node.On("Order").Return(int32(2))

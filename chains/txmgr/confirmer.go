@@ -306,7 +306,7 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) ProcessReorgTxs
 		// Rebroadcast the one with the highest gas price
 		attempt := etx.TxAttempts[0]
 
-		logValues := []interface{}{
+		logValues := []any{
 			"txhash", attempt.Hash.String(),
 			"currentBlockNum", head.BlockNumber(),
 			"currentBlockHash", head.BlockHash().String(),
@@ -623,9 +623,9 @@ func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) attemptForRebro
 		"This is a bug! Please report to https://github.com/smartcontractkit/chainlink/issues", etx.ID)
 }
 
-func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) logFieldsPreviousAttempt(attempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) []interface{} {
+func (ec *Confirmer[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) logFieldsPreviousAttempt(attempt types.TxAttempt[CID, ADDR, THASH, BHASH, SEQ, FEE]) []any {
 	etx := attempt.Tx
-	return []interface{}{
+	return []any{
 		"etxID", etx.ID,
 		"txHash", attempt.Hash,
 		"previousAttempt", attempt,

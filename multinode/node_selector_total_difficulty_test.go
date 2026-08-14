@@ -18,7 +18,7 @@ func TestTotalDifficultyNodeSelector(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		switch i {
 		case 0:
@@ -80,7 +80,7 @@ func TestTotalDifficultyNodeSelector_None(t *testing.T) {
 	type nodeClient RPCClient[ID, Head]
 	var nodes []Node[ID, nodeClient]
 
-	for i := 0; i < 3; i++ {
+	for i := range 3 {
 		node := newMockNode[ID, nodeClient](t)
 		if i == 0 {
 			// first node is out of sync
@@ -103,7 +103,7 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 	var nodes []Node[ID, nodeClient]
 
 	t.Run("same td and order", func(t *testing.T) {
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			node := newMockNode[ID, nodeClient](t)
 			node.On("StateAndLatest").Return(nodeStateAlive, ChainInfo{BlockNumber: 1, TotalDifficulty: big.NewInt(10)})
 			node.On("Order").Return(int32(2))

@@ -30,7 +30,7 @@ import (
 // https://www.notion.so/chainlink/Txm-Architecture-Overview-9dc62450cd7a443ba9e7dceffa1a8d6b
 
 // ResumeCallback is assumed to be idempotent
-type ResumeCallback func(ctx context.Context, id uuid.UUID, result interface{}, err error) error
+type ResumeCallback func(ctx context.Context, id uuid.UUID, result any, err error) error
 
 type NewErrorClassifier func(err error) txmgrtypes.ErrorClassifier
 
@@ -405,9 +405,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 		// 1. Broadcaster, Confirmer, and Tracker all started successfully
 		// 2. chStop was closed (txmgr exit)
 		if r, ok := b.broadcaster.(resetableService); ok {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				// Retry indefinitely on failure
 				backoff := newRedialBackoff()
 				for {
@@ -424,12 +422,10 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 						return
 					}
 				}
-			}()
+			})
 		}
 		if r, ok := b.tracker.(resetableService); ok {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				// Retry indefinitely on failure
 				backoff := newRedialBackoff()
 				for {
@@ -446,12 +442,10 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 						return
 					}
 				}
-			}()
+			})
 		}
 		if r, ok := b.confirmer.(resetableService); ok {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				// Retry indefinitely on failure
 				backoff := newRedialBackoff()
 				for {
@@ -468,7 +462,7 @@ func (b *Txm[CID, HEAD, ADDR, THASH, BHASH, R, SEQ, FEE]) runLoop() {
 						return
 					}
 				}
-			}()
+			})
 		}
 
 		wg.Wait()

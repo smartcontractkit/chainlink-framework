@@ -139,13 +139,11 @@ func (txSender *TransactionSender[TX, RESULT, CHAIN_ID, RPC]) SendTransaction(ct
 		})
 
 		// This needs to be done in parallel so the reporting knows when it's done (when the channel is closed)
-		txSender.wg.Add(1)
-		go func() {
-			defer txSender.wg.Done()
+		txSender.wg.Go(func() {
 			primaryNodeWg.Wait()
 			close(txResultsToReport)
 			close(txResults)
-		}()
+		})
 
 		if err == nil && healthyNodesNum == 0 {
 			err = ErrNodeError

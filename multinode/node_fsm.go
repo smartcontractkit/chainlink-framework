@@ -84,7 +84,7 @@ const (
 var allNodeStates []nodeState
 
 func init() {
-	for s := nodeState(0); s < nodeStateLen; s++ {
+	for s := range nodeStateLen {
 		allNodeStates = append(allNodeStates, s)
 	}
 }
