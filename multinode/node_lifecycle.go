@@ -650,6 +650,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 			state := n.verifyConn(ctx, lggr)
 			switch state {
 			case nodeStateUnreachable:
+				n.rpc.Close()
 				n.setState(nodeStateUnreachable)
 				continue
 			case nodeStateAlive:
