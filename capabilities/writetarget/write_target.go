@@ -215,7 +215,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	// Validate the config
 	receiver, err := c.configValidateFn(request)
 	if err != nil {
-		msg := builder.buildWriteError(info, 0, "failed to validate config", err.Error())
+		msg := builder.buildWriteError(info, 0, "failed to validate config: the capability request configuration is invalid. Verify the contract address and request parameters match the expected format", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
@@ -225,15 +225,15 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	// Source the signed report from the request
 	signedReport, ok := request.Inputs.Underlying[KeySignedReport]
 	if !ok {
-		cause := fmt.Sprintf("input missing required field: '%s'", KeySignedReport)
-		msg := builder.buildWriteError(info, 0, "failed to source the signed report", cause)
+		cause := fmt.Sprintf("input missing required field: '%s'. Ensure the upstream capability is providing a signed report in the expected format", KeySignedReport)
+		msg := builder.buildWriteError(info, 0, "failed to source the signed report: the capability request inputs do not contain the required signed report field", cause)
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
 	// Decode the signed report
 	inputs := types.SignedReport{}
 	if err = signedReport.UnwrapTo(&inputs); err != nil {
-		msg := builder.buildWriteError(info, 0, "failed to parse signed report", err.Error())
+		msg := builder.buildWriteError(info, 0, "failed to parse signed report: the signed report could not be deserialized. The report format may be incompatible or corrupted", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
@@ -272,10 +272,10 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 
 	// Validate encoded report is prefixed with workflowID and executionID that match the request meta
 	if reportDecoded.ExecutionID != request.Metadata.WorkflowExecutionID {
-		msg := builder.buildWriteError(info, 0, "decoded report execution ID does not match the request", "")
+		msg := builder.buildWriteError(info, 0, "decoded report execution ID does not match the request: the execution ID embedded in the report does not match the workflow execution ID. This may indicate a report routing error or stale report", "")
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	} else if reportDecoded.WorkflowID != request.Metadata.WorkflowID {
-		msg := builder.buildWriteError(info, 0, "decoded report workflow ID does not match the request", "")
+		msg := builder.buildWriteError(info, 0, "decoded report workflow ID does not match the request: the workflow ID embedded in the report does not match the expected workflow ID. This may indicate a report routing error or configuration mismatch", "")
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
@@ -283,7 +283,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	ctx = retry.CtxWithID(ctx, info.request.Metadata.WorkflowExecutionID)
 	head, err := retry.With(ctx, c.lggr, c.cs.LatestHead)
 	if err != nil {
-		msg := builder.buildWriteError(info, 0, "failed to fetch the latest head", err.Error())
+		msg := builder.buildWriteError(info, 0, "failed to fetch the latest head: unable to retrieve the latest block from the chain. The RPC endpoint may be unreachable or the chain may be experiencing issues", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
@@ -301,7 +301,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	state, err := c.targetStrategy.QueryTransmissionState(ctx, info.reportInfo.reportID, request)
 
 	if err != nil {
-		msg := builder.buildWriteError(info, 0, "failed to fetch [TransmissionState]", err.Error())
+		msg := builder.buildWriteError(info, 0, "failed to fetch transmission state: unable to query the on-chain transmission status via ChainReader. The contract may be unreachable or the report ID may be invalid", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 
@@ -311,7 +311,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	case TransmissionStateFailed:
 		c.lggr.Debugw("Tranmissions previously failed, retrying", "reportID", info.reportInfo.reportID)
 	case TransmissionStateFatal:
-		msg := builder.buildWriteError(info, 0, "Transmission attempt fatal", state.Err.Error())
+		msg := builder.buildWriteError(info, 0, "transmission attempt fatal: a previous transmission attempt encountered an unrecoverable error. This report will not be retried", state.Err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	case TransmissionStateSucceeded:
 		// Source the transmitter address from the on-chain state
@@ -335,7 +335,7 @@ func (c *writeTarget) Execute(ctx context.Context, request capabilities.Capabili
 	txID, err := c.targetStrategy.TransmitReport(ctx, inputs.Report, inputs.Context, inputs.Signatures, request)
 	c.lggr.Debugw("Transaction submitted", "request", request, "transaction-id", txID)
 	if err != nil {
-		msg := builder.buildWriteError(info, 0, "failed to transmit the report", err.Error())
+		msg := builder.buildWriteError(info, 0, "failed to transmit the report: the transaction could not be submitted to the chain via ChainWriter. Check the node's transaction manager logs for details", err.Error())
 		return capabilities.CapabilityResponse{}, c.asEmittedError(ctx, msg)
 	}
 	err = c.beholder.ProtoEmitter.EmitWithLog(ctx, builder.buildWriteSent(info, head, txID))
