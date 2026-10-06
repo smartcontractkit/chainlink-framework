@@ -113,11 +113,20 @@ type Broadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, T
 	// Each key has its own trigger
 	triggers map[ADDR]chan struct{}
 
+	unknownErrsMu sync.Mutex
+	unknownErrs   map[ADDR]unknownErrState
+
 	chStop services.StopChan
 	wg     sync.WaitGroup
 
 	initSync  sync.Mutex
 	isStarted bool
+}
+
+type unknownErrState struct {
+	txID      int64
+	count     uint32
+	firstSeen time.Time
 }
 
 func NewBroadcaster[CID chains.ID, HEAD chains.Head[BHASH], ADDR chains.Hashable, THASH chains.Hashable, BHASH chains.Hashable, SEQ chains.Sequence, FEE fees.Fee](
@@ -192,6 +201,11 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) startInternal(ct
 	eb.triggersMu.Lock()
 	eb.triggers = make(map[ADDR]chan struct{})
 	eb.triggersMu.Unlock()
+
+	eb.unknownErrsMu.Lock()
+	eb.unknownErrs = make(map[ADDR]unkownErrState)
+	eb.unknownErrsMu.Unlock()
+
 	eb.wg.Add(1)
 	go eb.loadAndMonitor()
 
@@ -495,6 +509,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 	}
 
 	if errType == multinode.Fatal || errType == multinode.TerminallyStuck {
+		eb.clearUnknownErrState(etx.FromAddress)
 		eb.SvcErrBuffer.Append(err)
 		etx.Error = null.StringFrom(err.Error())
 		return eb.saveFatallyErroredTransaction(lgr, &etx), true
@@ -550,6 +565,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		if err != nil {
 			return err, true
 		}
+		eb.clearUnknownErrState(etx.FromAddress)
 		eb.metrics.IncrementNumBroadcastedTxs(ctx)
 		// Increment sequence if successfully broadcasted
 		eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
@@ -620,6 +636,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 			eb.metrics.IncrementNumBroadcastedTxs(ctx)
 			// Increment sequence if successfully broadcasted
 			eb.sequenceTracker.GenerateNextSequence(etx.FromAddress, *etx.Sequence)
+			eb.clearUnknownErrState(etx.FromAddress)
 			return err, true
 		}
 		// Either the unknown error prevented the transaction from being mined, or
@@ -627,11 +644,49 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		// remote RPC.
 		//
 		// In all cases, the best thing we can do is go into a retry loop and keep
-		// trying to send the transaction over again.
+		// trying to send the transaction over again, unless the operator has opted
+		// into capping these retries.
+		if exceeded, count, elapsed := eb.recordUnknownErr(etx.FromAddress, etx.ID); exceeded {
+			eb.clearUnknownErrState(etx.FromAddress)
+			fatalError := fmt.Errorf("giving up on transaction after %d unkown errors over %s (MaxUnknownErrorRetries=%d, UnknownErrorRetryTimeout=%s): %w",
+				count, elapsed, eb.txConfig.MaxUnknownErrorRetries(), eb.txConfig.UnknownErrorRetryTimeout(), err)
+			lgr.Criticalw("Unknown error retry limit reached, marking transaction as fatally errored. The sequence will be reused by the next transaction",
+				"etxID", etx.ID, "attempt", attempt, "unknownErrCount", count, "elapsed", elapsed, "err", err)
+			eb.SvcErrBuffer.Append(fatalError)
+			etx.Error = null.StringFrom(fatalError.Error())
+			return eb.saveFatallyErroredTransaction(lgr, &etx), true
+		}
+
 		return fmt.Errorf("retryable error while sending transaction %s (tx ID %d): %w", attempt.Hash.String(), etx.ID, err), true
 	}
 }
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) recordUnknownErr(addr ADDR, txID int64) (exceeded bool, count uint32, elapsed time.Duration) {
+	maxRetries := eb.txConfig.MaxUnknownErrorRetries()
+	timeout := eb.txConfig.UnknownErrorRetryTimeout()
+	if maxRetries == 0 && timeout <= 0 {
+		return false, 0, 0
+	}
 
+	eb.unknownErrsMu.Lock()
+	defer eb.unknownErrsMu.Unlock()
+
+	state, ok := eb.unknownErrs[addr]
+	if !ok || state.txID != txID {
+		state = unknownErrState{txID: txID, firstSeen: time.Now()}
+	}
+	state.count++
+	eb.unknownErrs[addr] = state
+
+	elapsed = time.Since(state.firstSeen)
+	exceeded = (maxRetries > 0 && state.count > maxRetries) || (timeout > 0 && elapsed >= timeout)
+
+	return exceeded, state.count, elapsed
+}
+func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) clearUnknownErrState(addr ADDR) {
+	eb.unknownErrsMu.Lock()
+	defer eb.unknownErrsMu.Unlock()
+	delete(eb.unknownErrs, addr)
+}
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) validateOnChainSequence(ctx context.Context, lgr logger.SugaredLogger, errType multinode.SendTxReturnCode, err error, etx types.Tx[CID, ADDR, THASH, BHASH, SEQ, FEE], retryCount int) (multinode.SendTxReturnCode, error) {
 	// Only check if sequence was incremented if broadcast was successful, otherwise return the existing err type
 	if errType != multinode.Successful {
