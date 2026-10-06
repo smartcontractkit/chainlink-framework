@@ -648,7 +648,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		// into capping these retries.
 		if exceeded, count, elapsed := eb.recordUnknownErr(etx.FromAddress, etx.ID); exceeded {
 			eb.clearUnknownErrState(etx.FromAddress)
-			fatalError := fmt.Errorf("giving up on transaction after %d unkown errors over %s (MaxUnknownErrorRetries=%d, UnknownErrorRetryTimeout=%s): %w",
+			fatalError := fmt.Errorf("giving up on transaction after %d unknown errors over %s (MaxUnknownErrorRetries=%d, UnknownErrorRetryTimeout=%s): %w",
 				count, elapsed, eb.txConfig.MaxUnknownErrorRetries(), eb.txConfig.UnknownErrorRetryTimeout(), err)
 			lgr.Criticalw("Unknown error retry limit reached, marking transaction as fatally errored. The sequence will be reused by the next transaction",
 				"etxID", etx.ID, "attempt", attempt, "unknownErrCount", count, "elapsed", elapsed, "err", err)
