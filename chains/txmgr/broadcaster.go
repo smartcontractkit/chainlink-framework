@@ -203,7 +203,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) startInternal(ct
 	eb.triggersMu.Unlock()
 
 	eb.unknownErrsMu.Lock()
-	eb.unknownErrs = make(map[ADDR]unkownErrState)
+	eb.unknownErrs = make(map[ADDR]unknownErrState)
 	eb.unknownErrsMu.Unlock()
 
 	eb.wg.Add(1)
