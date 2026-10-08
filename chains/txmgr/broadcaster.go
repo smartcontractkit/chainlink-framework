@@ -645,11 +645,11 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 		//
 		// In all cases, the best thing we can do is go into a retry loop and keep
 		// trying to send the transaction over again, unless the operator has opted
-		// into capping these retries.
+		// into capping the total retry duration.
 		if exceeded, count, elapsed := eb.recordUnknownErr(etx.FromAddress, etx.ID); exceeded {
 			eb.clearUnknownErrState(etx.FromAddress)
-			fatalError := fmt.Errorf("giving up on transaction after %d unknown errors over %s (MaxUnknownErrorRetries=%d, UnknownErrorRetryTimeout=%s): %w",
-				count, elapsed, eb.txConfig.MaxUnknownErrorRetries(), eb.txConfig.UnknownErrorRetryTimeout(), err)
+			fatalError := fmt.Errorf("giving up on transaction after %d unknown errors over %s (UnknownErrorRetryTimeout=%s): %w",
+				count, elapsed, eb.txConfig.UnknownErrorRetryTimeout(), err)
 			lgr.Criticalw("Unknown error retry limit reached, marking transaction as fatally errored. The sequence will be reused by the next transaction",
 				"etxID", etx.ID, "attempt", attempt, "unknownErrCount", count, "elapsed", elapsed, "err", err)
 			eb.SvcErrBuffer.Append(fatalError)
@@ -661,9 +661,8 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) handleInProgress
 	}
 }
 func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) recordUnknownErr(addr ADDR, txID int64) (exceeded bool, count uint32, elapsed time.Duration) {
-	maxRetries := eb.txConfig.MaxUnknownErrorRetries()
 	timeout := eb.txConfig.UnknownErrorRetryTimeout()
-	if maxRetries == 0 && timeout <= 0 {
+	if timeout <= 0 {
 		return false, 0, 0
 	}
 
@@ -678,7 +677,7 @@ func (eb *Broadcaster[CID, HEAD, ADDR, THASH, BHASH, SEQ, FEE]) recordUnknownErr
 	eb.unknownErrs[addr] = state
 
 	elapsed = time.Since(state.firstSeen)
-	exceeded = (maxRetries > 0 && state.count > maxRetries) || (timeout > 0 && elapsed >= timeout)
+	exceeded = elapsed >= timeout
 
 	return exceeded, state.count, elapsed
 }
