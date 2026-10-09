@@ -32,6 +32,9 @@ type BroadcasterFeeConfig interface {
 
 type BroadcasterTransactionsConfig interface {
 	MaxInFlight() uint32
+	// UnknownErrorRetryTimeout is how long an in-progress tx may keep failing with Unknown send errors before it is
+	// marked as fatally errored. 0 means unlimited.
+	UnknownErrorRetryTimeout() time.Duration
 }
 
 type BroadcasterListenerConfig interface {
