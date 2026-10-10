@@ -9,6 +9,8 @@ import (
 	"github.com/jpillora/backoff"
 )
 
+const NullClientChainID = 1399100
+
 func RandomID() ID {
 	// #nosec G404
 	id := rand.Int63n(math.MaxInt32) + 10000
