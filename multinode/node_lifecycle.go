@@ -631,12 +631,20 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	lggr.Debugw("Trying to revive unreachable RPC node", "nodeState", n.getCachedState())
 
 	dialRetryBackoff := NewRedialBackoff()
+	dialRetryBackoff.Min = n.nodePoolCfg.RedialBackoffMin()
+	// The first redial waits RedialBackoffMin, so 0 redials immediately. Later attempts
+	// back off from there (backoff treats a zero Min as 100ms) up to the usual max.
+	var redialDelay time.Duration
+	if dialRetryBackoff.Min > 0 {
+		redialDelay = dialRetryBackoff.Duration()
+	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-time.After(dialRetryBackoff.Duration()):
+		case <-time.After(redialDelay):
+			redialDelay = dialRetryBackoff.Duration()
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.getCachedState())
 
 			err := n.rpc.Dial(ctx)

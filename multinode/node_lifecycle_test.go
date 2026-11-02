@@ -242,6 +242,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const pollFailureThreshold = 3
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
+				redialBackoffMin:     time.Second, // no Dial mock: keep the node unreachable while asserting
 				pollFailureThreshold: pollFailureThreshold,
 				pollInterval:         tests.TestInterval,
 			},
@@ -271,9 +272,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				pollInterval:  tests.TestInterval,
-				syncThreshold: syncThreshold,
-				selectionMode: NodeSelectionModeRoundRobin,
+				redialBackoffMin: time.Second, // no Dial mock: keep the node unreachable while asserting
+				pollInterval:     tests.TestInterval,
+				syncThreshold:    syncThreshold,
+				selectionMode:    NodeSelectionModeRoundRobin,
 			},
 			rpc:  rpc,
 			lggr: lggr,
@@ -333,9 +335,10 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		const syncThreshold = 10
 		node := newSubscribedNode(t, testNodeOpts{
 			config: testNodeConfig{
-				pollInterval:  tests.TestInterval,
-				syncThreshold: syncThreshold,
-				selectionMode: NodeSelectionModeRoundRobin,
+				redialBackoffMin: time.Second, // no Dial mock: keep the node unreachable while asserting
+				pollInterval:     tests.TestInterval,
+				syncThreshold:    syncThreshold,
+				selectionMode:    NodeSelectionModeRoundRobin,
 			},
 			rpc:               rpc,
 			lggr:              lggr,
@@ -525,6 +528,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		lggr := logger.Test(t)
 		node := newDialedNode(t, testNodeOpts{
 			config: testNodeConfig{
+				redialBackoffMin:           time.Second, // no Dial mock: keep the node unreachable while asserting
 				finalizedBlockPollInterval: tests.TestInterval,
 			},
 			chainConfig: clientMocks.ChainConfig{
@@ -1494,6 +1498,52 @@ func TestUnit_NodeLifecycle_unreachableLoop(t *testing.T) {
 		tests.AssertEventually(t, func() bool {
 			return node.State() == nodeStateAlive
 		})
+	})
+	t.Run("with RedialBackoffMin zero, redials immediately", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		node := newAliveNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		rpc.On("Dial", mock.Anything).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
+		setupRPCForAliveLoop(t, rpc)
+
+		start := time.Now()
+		node.declareUnreachable()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+		assert.Less(t, time.Since(start), 500*time.Millisecond)
+	})
+	t.Run("with RedialBackoffMin set, waits it before the first redial", func(t *testing.T) {
+		t.Parallel()
+		rpc := newMockRPCClient[ID, Head](t)
+		nodeChainID := RandomID()
+		node := newAliveNode(t, testNodeOpts{
+			rpc:     rpc,
+			chainID: nodeChainID,
+			config:  testNodeConfig{redialBackoffMin: time.Second},
+		})
+		defer func() { assert.NoError(t, node.close()) }()
+
+		var dialedAt atomic.Int64
+		rpc.On("Dial", mock.Anything).Run(func(_ mock.Arguments) {
+			dialedAt.CompareAndSwap(0, time.Now().UnixNano())
+		}).Return(nil)
+		rpc.On("ChainID", mock.Anything).Return(nodeChainID, nil)
+		setupRPCForAliveLoop(t, rpc)
+
+		start := time.Now()
+		node.declareUnreachable()
+		tests.AssertEventually(t, func() bool {
+			return node.State() == nodeStateAlive
+		})
+		assert.GreaterOrEqual(t, time.Duration(dialedAt.Load()-start.UnixNano()), time.Second)
 	})
 	t.Run("with PollSuccessThreshold set, without isSyncing, node becomes alive once all probe polls succeed", func(t *testing.T) {
 		t.Parallel()
