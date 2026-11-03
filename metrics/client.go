@@ -75,7 +75,7 @@ func NewRPCClientMetrics(cfg RPCClientMetricsConfig) (RPCClientMetrics, error) {
 }
 
 func (m *rpcClientMetrics) RecordRequest(ctx context.Context, rpcDomain string, isSendOnly bool, callName string, latency time.Duration, err error) {
-	successStr := strconv.FormatBool(err != nil)
+	successStr := strconv.FormatBool(err == nil)
 	sendStr := strconv.FormatBool(isSendOnly)
 	latencyNs := float64(latency)
 	safeRPCURL := SanitizeRPCURL(rpcDomain)
