@@ -78,6 +78,7 @@ func TestTransactionSender_SendTransaction(t *testing.T) {
 		node.On("String").Return("node name").Maybe()
 		node.On("RPC").Return(rpc).Maybe()
 		node.On("State").Return(state).Maybe()
+		node.On("StateForMetrics").Return(state).Maybe()
 		node.On("Start", mock.Anything).Return(nil).Maybe()
 		node.On("Close").Return(nil).Maybe()
 		node.On("SetPoolChainInfoProvider", mock.Anything).Return(nil).Maybe()

@@ -98,6 +98,48 @@ func (n *node[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	return n.recalculateState()
 }
 
+// Health checks are independent: recovery of one must not hide another failure.
+type healthCheckFailures uint8
+
+const (
+	healthCheckPoll healthCheckFailures = 1 << iota
+	healthCheckNoNewHead
+	healthCheckNoNewFinalizedHead
+	healthCheckPoolSync
+	healthCheckFinalizedState
+)
+
+func (n *node[CHAIN_ID, HEAD, RPC]) setHealthCheckFailure(check healthCheckFailures, failed bool) {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	if failed {
+		n.stateHealthFailures |= check
+	} else {
+		n.stateHealthFailures &^= check
+	}
+}
+
+// StateForMetrics preserves routing state while exposing failures suppressed by last-node fallback.
+func (n *node[CHAIN_ID, HEAD, RPC]) StateForMetrics() nodeState {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	state := n.recalculateState()
+	if state != nodeStateAlive {
+		return state
+	}
+	// An endpoint contributes to one state; prefer transport failure over synchronization failures.
+	switch {
+	case n.stateHealthFailures&healthCheckPoll != 0:
+		return nodeStateUnreachable
+	case n.stateHealthFailures&healthCheckFinalizedState != 0:
+		return nodeStateFinalizedStateNotAvailable
+	case n.stateHealthFailures != 0:
+		return nodeStateOutOfSync
+	default:
+		return state
+	}
+}
+
 func (n *node[CHAIN_ID, HEAD, RPC]) getCachedState() nodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
@@ -187,6 +229,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
+		n.stateHealthFailures = 0
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))

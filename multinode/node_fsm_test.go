@@ -134,3 +134,30 @@ func TestNodeState_String(t *testing.T) {
 		}
 	})
 }
+
+func TestUnit_Node_StateForMetrics(t *testing.T) {
+	t.Parallel()
+	n := newTestNode(t, testNodeOpts{})
+	n.setState(nodeStateAlive)
+	for _, tc := range []struct {
+		check healthCheckFailures
+		want  nodeState
+	}{
+		{healthCheckPoll, nodeStateUnreachable},
+		{healthCheckNoNewHead, nodeStateOutOfSync},
+		{healthCheckNoNewFinalizedHead, nodeStateOutOfSync},
+		{healthCheckPoolSync, nodeStateOutOfSync},
+		{healthCheckFinalizedState, nodeStateFinalizedStateNotAvailable},
+	} {
+		n.setHealthCheckFailure(tc.check, true)
+		assert.Equal(t, tc.want, n.StateForMetrics())
+		assert.Equal(t, nodeStateAlive, n.State())
+		n.setHealthCheckFailure(tc.check, false)
+		assert.Equal(t, nodeStateAlive, n.StateForMetrics())
+	}
+	n.setHealthCheckFailure(healthCheckPoll|healthCheckNoNewHead, true)
+	n.setHealthCheckFailure(healthCheckPoll, false)
+	assert.Equal(t, nodeStateOutOfSync, n.StateForMetrics())
+	n.setState(nodeStateClosed)
+	assert.Equal(t, nodeStateClosed, n.StateForMetrics())
+}

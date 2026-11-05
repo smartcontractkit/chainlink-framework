@@ -80,6 +80,8 @@ type Node[
 	// While some of the checks may be performed in the background and State may return cached value, critical, like
 	// `FinalizedBlockOutOfSync`, must be executed upon every call.
 	State() nodeState
+	// StateForMetrics reports health even when an unhealthy node remains selectable for retries.
+	StateForMetrics() nodeState
 	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
 	StateAndLatest() (nodeState, ChainInfo)
 	// HighestUserObservations - returns highest ChainInfo ever observed by underlying RPC excluding results of health check requests
@@ -124,8 +126,9 @@ type node[
 	finalizedStateChecker FinalizedStateChecker // set in NewNode when rpc implements FinalizedStateChecker
 	isLoadBalancedRPC     bool
 
-	stateMu sync.RWMutex // protects state* fields
-	state   nodeState
+	stateMu             sync.RWMutex // protects state* fields
+	state               nodeState
+	stateHealthFailures healthCheckFailures
 
 	poolInfoProvider PoolChainInfoProvider
 
