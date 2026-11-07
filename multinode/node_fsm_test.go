@@ -45,7 +45,9 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 		const destinationState = nodeStateAlive
 		allowedStates := []nodeState{nodeStateOutOfSync, nodeStateSyncing}
 		rpc := newMockRPCClient[ID, Head](t)
-		testTransition(t, rpc, testNode.transitionToInSync, destinationState, allowedStates...)
+		testTransition(t, rpc, func(node testNode, fn func()) {
+			node.transitionToInSync(syncStatusSynced, fn)
+		}, destinationState, allowedStates...)
 	})
 	t.Run("transitionToOutOfSync", func(t *testing.T) {
 		const destinationState = nodeStateOutOfSync
@@ -144,20 +146,57 @@ func TestUnit_Node_StateForMetrics(t *testing.T) {
 		want  nodeState
 	}{
 		{healthCheckPoll, nodeStateUnreachable},
-		{healthCheckNoNewHead, nodeStateOutOfSync},
-		{healthCheckNoNewFinalizedHead, nodeStateOutOfSync},
-		{healthCheckPoolSync, nodeStateOutOfSync},
 		{healthCheckFinalizedState, nodeStateFinalizedStateNotAvailable},
 	} {
-		n.setHealthCheckFailure(tc.check, true)
+		n.modifyHealthCheckFailure(tc.check, true)
 		assert.Equal(t, tc.want, n.StateForMetrics())
 		assert.Equal(t, nodeStateAlive, n.State())
-		n.setHealthCheckFailure(tc.check, false)
+		n.modifyHealthCheckFailure(tc.check, false)
 		assert.Equal(t, nodeStateAlive, n.StateForMetrics())
 	}
-	n.setHealthCheckFailure(healthCheckPoll|healthCheckNoNewHead, true)
-	n.setHealthCheckFailure(healthCheckPoll, false)
+	for _, issue := range []syncStatus{syncStatusNoNewHead, syncStatusNoNewFinalizedHead, syncStatusNotInSyncWithPool} {
+		n.modifySyncIssue(issue, true)
+		assert.Equal(t, nodeStateOutOfSync, n.StateForMetrics())
+		assert.Equal(t, nodeStateAlive, n.State())
+		n.modifySyncIssue(issue, false)
+		assert.Equal(t, nodeStateAlive, n.StateForMetrics())
+	}
+	n.modifySyncIssue(syncStatusNoNewHead|syncStatusNoNewFinalizedHead, true)
+	n.modifySyncIssue(syncStatusNoNewHead, false)
 	assert.Equal(t, nodeStateOutOfSync, n.StateForMetrics())
+	n.modifyHealthCheckFailure(healthCheckPoll, true)
+	n.modifyHealthCheckFailure(healthCheckPoll, false)
+	assert.Equal(t, nodeStateOutOfSync, n.StateForMetrics())
+	n.modifySyncIssue(syncStatusNoNewHead|syncStatusNoNewFinalizedHead|syncStatusNotInSyncWithPool, false)
+	assert.Equal(t, nodeStateAlive, n.StateForMetrics())
+	n.modifyHealthCheckFailure(healthCheckPoll, true)
+	n.modifySyncIssue(syncStatusNoNewHead, true)
+	n.modifySyncIssue(syncStatusNoNewHead|syncStatusNoNewFinalizedHead|syncStatusNotInSyncWithPool, false)
+	assert.Equal(t, nodeStateUnreachable, n.StateForMetrics())
 	n.setState(nodeStateClosed)
 	assert.Equal(t, nodeStateClosed, n.StateForMetrics())
+}
+
+func TestUnit_Node_TransitionToInSyncHealth(t *testing.T) {
+	t.Parallel()
+	for _, issues := range []syncStatus{syncStatusSynced, syncStatusNoNewHead | syncStatusNotInSyncWithPool} {
+		t.Run(issues.String(), func(t *testing.T) {
+			n := newTestNode(t, testNodeOpts{})
+			n.setState(nodeStateOutOfSync)
+			n.modifySyncIssue(syncStatusNoNewFinalizedHead, true)
+			n.modifyHealthCheckFailure(healthCheckPoll|healthCheckFinalizedState, true)
+			n.transitionToInSync(issues, func() {
+				// The transition callback runs under stateMu after routing and health are updated.
+				assert.Equal(t, nodeStateAlive, n.state)
+				assert.Equal(t, issues, n.stateSyncIssues)
+				assert.Zero(t, n.stateHealthFailures)
+			})
+			assert.Equal(t, nodeStateAlive, n.State())
+			want := nodeStateAlive
+			if issues != syncStatusSynced {
+				want = nodeStateOutOfSync
+			}
+			assert.Equal(t, want, n.StateForMetrics())
+		})
+	}
 }

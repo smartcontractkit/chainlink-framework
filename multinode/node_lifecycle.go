@@ -102,6 +102,18 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	// Get the latest chain info to use as local highest
 	localHighestChainInfo, _ := n.rpc.GetInterceptedChainInfo()
 	var pollFailures uint32
+	// recordPollFailure caps pollFailures at pollFailureThreshold. Reaching the threshold normally
+	// ends this loop, but the last remaining node is kept alive past it; without the cap, a long
+	// outage leaves a backlog that keeps the endpoint marked unhealthy, and gets it ejected once
+	// a peer returns, long after it has recovered.
+	recordPollFailure := func() {
+		n.metrics.IncrementPollsFailed(ctx, n.name)
+		switch {
+		case pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold:
+		case pollFailures < math.MaxUint32: // prevent overflow
+			pollFailures++
+		}
+	}
 
 	// Finalized-state availability is for EVM-style stacks, but multinode is a shared framework package: mandatory RPCClient/NodeConfig APIs would make every consumer (e.g. Solana)
 	// inherit stubs or real implementations trigger unrelated security review. Optional interfaces keep the feature opt-in—only callers that need it implement FinalizedStateCheckConfig and FinalizedStateChecker; everyone else stays untouched.
@@ -128,11 +140,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			version, pingErr := n.RPC().ClientVersion(pollCtx)
 			cancel()
 			if pingErr != nil {
-				// prevent overflow
-				if pollFailures < math.MaxUint32 {
-					n.metrics.IncrementPollsFailed(ctx, n.name)
-					pollFailures++
-				}
+				recordPollFailure()
 				lggr.Warnw(fmt.Sprintf("Poll failure, RPC endpoint %s failed to respond properly", n.String()), "err", pingErr, "pollFailures", pollFailures, "nodeState", n.getCachedState())
 			} else {
 				lggr.Debugw("Ping successful", "nodeState", n.State())
@@ -143,30 +151,43 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 					pollFailures--
 				}
 			}
-			n.setHealthCheckFailure(healthCheckPoll, pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold)
-			if pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold {
+			pollFailureThresholdReached := pollFailureThreshold > 0 && pollFailures >= pollFailureThreshold
+			// Hysteresis: report unhealthy at the threshold, healthy again only once the failure score
+			// drains to zero. The capped counter otherwise flaps around the threshold when failures
+			// outpace successes on a retained node.
+			if pollFailureThresholdReached {
+				n.modifyHealthCheckFailure(healthCheckPoll, true)
+			} else if pollFailures == 0 {
+				n.modifyHealthCheckFailure(healthCheckPoll, false)
+			}
+			if pollFailureThresholdReached {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
+				keepAlive := false
 				if n.poolInfoProvider != nil {
-					if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
-						lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
-						continue
-					}
+					liveNodes, _ := n.poolInfoProvider.LatestChainInfo(n.name)
+					keepAlive = liveNodes < 1 && !n.isLoadBalancedRPC
 				}
-				n.declareUnreachable()
-				return
+				if !keepAlive {
+					n.declareUnreachable()
+					return
+				}
+				// Keep evaluating independent health checks while retaining this node for retries.
+				lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
 			}
 			outOfSync, liveNodes := n.isOutOfSyncWithPool()
-			n.setHealthCheckFailure(healthCheckPoolSync, outOfSync)
+			n.modifySyncIssue(syncStatusNotInSyncWithPool, outOfSync)
 			if outOfSync {
 				// note: there must be another live node for us to be out of sync
 				if liveNodes < 1 && !n.isLoadBalancedRPC {
 					lggr.Criticalf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState)
-					continue
+				} else {
+					n.declareOutOfSync(syncStatusNotInSyncWithPool)
+					return
 				}
-				n.declareOutOfSync(syncStatusNotInSyncWithPool)
-				return
 			}
-			if finalizedStateCheckFailureThreshold > 0 {
+			// Skip when the ping failed: an unresponsive endpoint says nothing about finalized state,
+			// and checking would block the loop for another pollInterval and count a second failure.
+			if finalizedStateCheckFailureThreshold > 0 && pingErr == nil {
 				stateCheckCtx, stateCheckCancel := context.WithTimeout(ctx, pollInterval)
 				stateErr := n.finalizedStateChecker.CheckFinalizedStateAvailability(stateCheckCtx)
 				stateCheckCancel()
@@ -178,7 +199,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 						}
 						lggr.Warnw("Finalized state not available", "err", stateErr, "failures", finalizedStateFailures, "threshold", finalizedStateCheckFailureThreshold)
 						if finalizedStateFailures >= finalizedStateCheckFailureThreshold {
-							n.setHealthCheckFailure(healthCheckFinalizedState, true)
+							n.modifyHealthCheckFailure(healthCheckFinalizedState, true)
 							lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
 							if n.poolInfoProvider != nil {
 								if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 2 && !n.isLoadBalancedRPC {
@@ -190,15 +211,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 							return
 						}
 					} else {
-						if pollFailures < math.MaxUint32 {
-							n.metrics.IncrementPollsFailed(ctx, n.name)
-							pollFailures++
-						}
+						recordPollFailure()
 						lggr.Warnw("Finalized state check failed with RPC error", "err", stateErr, "pollFailures", pollFailures)
 					}
 				} else {
 					finalizedStateFailures = 0
-					n.setHealthCheckFailure(healthCheckFinalizedState, false)
+					n.modifyHealthCheckFailure(healthCheckFinalizedState, false)
 				}
 			}
 		case bh, open := <-headsSub.Heads:
@@ -209,7 +227,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			}
 			receivedNewHead := n.onNewHead(lggr, &localHighestChainInfo, bh)
 			if receivedNewHead {
-				n.setHealthCheckFailure(healthCheckNoNewHead, false)
+				n.modifySyncIssue(syncStatusNoNewHead, false)
 				n.refreshPoolSyncHealth()
 			}
 			if receivedNewHead && noNewHeadsTimeoutThreshold > 0 {
@@ -220,7 +238,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			n.declareUnreachable()
 			return
 		case <-headsSub.NoNewHeads:
-			n.setHealthCheckFailure(healthCheckNoNewHead, true)
+			n.modifySyncIssue(syncStatusNoNewHead, true)
 			// We haven't received a head on the channel for at least the
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC endpoint detected out of sync; no new heads received for %s (last head received was %v)", noNewHeadsTimeoutThreshold, localHighestChainInfo.BlockNumber), "nodeState", n.getCachedState(), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber, "noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold)
@@ -246,14 +264,13 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 
 			receivedNewHead := n.onNewFinalizedHead(lggr, &localHighestChainInfo, latestFinalized)
 			if receivedNewHead {
-				n.setHealthCheckFailure(healthCheckNoNewFinalizedHead, false)
-				n.refreshPoolSyncHealth()
+				n.modifySyncIssue(syncStatusNoNewFinalizedHead, false)
 			}
 			if receivedNewHead && noNewFinalizedBlocksTimeoutThreshold > 0 {
 				finalizedHeadsSub.ResetTimer(noNewFinalizedBlocksTimeoutThreshold)
 			}
 		case <-finalizedHeadsSub.NoNewHeads:
-			n.setHealthCheckFailure(healthCheckNoNewFinalizedHead, true)
+			n.modifySyncIssue(syncStatusNoNewFinalizedHead, true)
 			// We haven't received a finalized head on the channel for at least the
 			// threshold amount of time, mark it broken
 			lggr.Errorw(fmt.Sprintf("RPC's finalized state is out of sync; no new finalized heads received for %s (last finalized head received was %v)", noNewFinalizedBlocksTimeoutThreshold, localHighestChainInfo.FinalizedBlockNumber), "latestReceivedBlockNumber", localHighestChainInfo.BlockNumber)
@@ -278,14 +295,17 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	}
 }
 
-// A forcibly revived node can recover through its head subscription even when polling is disabled.
+// refreshPoolSyncHealth rechecks a pool-sync failure retained during forced revival.
+// A new head proves progress, but the node may still be behind the pool. Recheck
+// on head progress so the failure clears once it catches up, even when polling
+// is disabled and the poll handler cannot clear it.
 func (n *node[CHAIN_ID, HEAD, RPC]) refreshPoolSyncHealth() {
 	n.stateMu.RLock()
-	failed := n.stateHealthFailures&healthCheckPoolSync != 0
+	failed := n.stateSyncIssues&syncStatusNotInSyncWithPool != 0
 	n.stateMu.RUnlock()
 	if failed {
 		outOfSync, _ := n.isOutOfSyncWithPool()
-		n.setHealthCheckFailure(healthCheckPoolSync, outOfSync)
+		n.modifySyncIssue(syncStatusNotInSyncWithPool, outOfSync)
 	}
 }
 
@@ -505,10 +525,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 	_, localHighestChainInfo := n.rpc.GetInterceptedChainInfo()
 	for {
 		if syncIssues == syncStatusSynced {
-			n.setHealthCheckFailure(healthCheckNoNewHead|healthCheckNoNewFinalizedHead|healthCheckPoolSync, false)
 			// back in-sync! flip back into alive loop
 			lggr.Infow(fmt.Sprintf("%s: %s. Node was out-of-sync for %s", msgInSync, n.String(), time.Since(outOfSyncAt)))
-			n.declareInSync()
+			n.declareInSync(syncIssues)
 			return
 		}
 
@@ -549,11 +568,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(syncIssues syncStatus) {
 						n.declareOutOfSync(syncIssues)
 						return
 					}
-					n.setHealthCheckFailure(healthCheckNoNewHead, syncIssues&syncStatusNoNewHead != 0)
-					n.setHealthCheckFailure(healthCheckNoNewFinalizedHead, syncIssues&syncStatusNoNewFinalizedHead != 0)
-					n.setHealthCheckFailure(healthCheckPoolSync, syncIssues&syncStatusNotInSyncWithPool != 0)
 					lggr.Criticalw("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state", "syncIssues", syncIssues)
-					n.declareInSync()
+					n.declareInSync(syncIssues)
 					return
 				}
 			}
