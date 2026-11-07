@@ -474,6 +474,51 @@ func (_c *mockNode_StateAndLatest_Call[CHAIN_ID, RPC]) RunAndReturn(run func() (
 	return _c
 }
 
+// StateForMetrics provides a mock function with no fields
+func (_m *mockNode[CHAIN_ID, RPC]) StateForMetrics() nodeState {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for StateForMetrics")
+	}
+
+	var r0 nodeState
+	if rf, ok := ret.Get(0).(func() nodeState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(nodeState)
+	}
+
+	return r0
+}
+
+// mockNode_StateForMetrics_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'StateForMetrics'
+type mockNode_StateForMetrics_Call[CHAIN_ID ID, RPC interface{}] struct {
+	*mock.Call
+}
+
+// StateForMetrics is a helper method to define mock.On call
+func (_e *mockNode_Expecter[CHAIN_ID, RPC]) StateForMetrics() *mockNode_StateForMetrics_Call[CHAIN_ID, RPC] {
+	return &mockNode_StateForMetrics_Call[CHAIN_ID, RPC]{Call: _e.mock.On("StateForMetrics")}
+}
+
+func (_c *mockNode_StateForMetrics_Call[CHAIN_ID, RPC]) Run(run func()) *mockNode_StateForMetrics_Call[CHAIN_ID, RPC] {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *mockNode_StateForMetrics_Call[CHAIN_ID, RPC]) Return(_a0 nodeState) *mockNode_StateForMetrics_Call[CHAIN_ID, RPC] {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *mockNode_StateForMetrics_Call[CHAIN_ID, RPC]) RunAndReturn(run func() nodeState) *mockNode_StateForMetrics_Call[CHAIN_ID, RPC] {
+	_c.Call.Return(run)
+	return _c
+}
+
 // String provides a mock function with no fields
 func (_m *mockNode[CHAIN_ID, RPC]) String() string {
 	ret := _m.Called()

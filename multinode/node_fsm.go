@@ -98,6 +98,55 @@ func (n *node[CHAIN_ID, HEAD, RPC]) State() nodeState {
 	return n.recalculateState()
 }
 
+// Health checks are independent: recovery of one must not hide another failure.
+type healthCheckFailures uint8
+
+const (
+	healthCheckPoll healthCheckFailures = 1 << iota
+	healthCheckFinalizedState
+)
+
+func (n *node[CHAIN_ID, HEAD, RPC]) modifyHealthCheckFailure(check healthCheckFailures, failed bool) {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	if failed {
+		n.stateHealthFailures |= check
+	} else {
+		n.stateHealthFailures &^= check
+	}
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) modifySyncIssue(issue syncStatus, failed bool) {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
+	if failed {
+		n.stateSyncIssues |= issue
+	} else {
+		n.stateSyncIssues &^= issue
+	}
+}
+
+// StateForMetrics preserves routing state while exposing failures suppressed by last-node fallback.
+func (n *node[CHAIN_ID, HEAD, RPC]) StateForMetrics() nodeState {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
+	state := n.recalculateState()
+	if state != nodeStateAlive {
+		return state
+	}
+	// An endpoint contributes to one state; prefer transport failure over synchronization failures.
+	switch {
+	case n.stateHealthFailures&healthCheckPoll != 0:
+		return nodeStateUnreachable
+	case n.stateHealthFailures&healthCheckFinalizedState != 0:
+		return nodeStateFinalizedStateNotAvailable
+	case n.stateSyncIssues != syncStatusSynced:
+		return nodeStateOutOfSync
+	default:
+		return state
+	}
+}
+
 func (n *node[CHAIN_ID, HEAD, RPC]) getCachedState() nodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
@@ -187,6 +236,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	}
 	switch n.state {
 	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
+		n.stateHealthFailures = 0
+		n.stateSyncIssues = syncStatusSynced
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
@@ -194,17 +245,17 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	fn()
 }
 
-// declareInSync puts a node back into Alive state, allowing it to be used by
-// pool consumers again
-func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync() {
-	n.transitionToInSync(func() {
+// declareInSync returns a node to the live pool, retaining any remaining
+// synchronization issues for metric reporting during forced revival.
+func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync(syncIssues syncStatus) {
+	n.transitionToInSync(syncIssues, func() {
 		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(syncIssues syncStatus, fn func()) {
 	ctx, cancel := n.stopCh.NewCtx()
 	defer cancel()
 	n.metrics.IncrementNodeTransitionsToAlive(ctx, n.name)
@@ -216,6 +267,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 	}
 	switch n.state {
 	case nodeStateOutOfSync, nodeStateSyncing:
+		// The new aliveLoop starts fresh polling and finalized-state failure counters.
+		n.stateHealthFailures = 0
+		n.stateSyncIssues = syncIssues
 		n.state = nodeStateAlive
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))

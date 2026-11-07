@@ -76,10 +76,15 @@ type Node[
 	CHAIN_ID ID,
 	RPC any,
 ] interface {
-	// State returns most accurate state of the Node on the moment of call.
-	// While some of the checks may be performed in the background and State may return cached value, critical, like
-	// `FinalizedBlockOutOfSync`, must be executed upon every call.
+	// State returns the node's current routing state.
+	// If the last remaining Alive node fails soft health checks, it may be forcibly
+	// kept Alive for optimistic retries. State then returns Alive, while
+	// StateForMetrics reports its unhealthy state.
+	// Background checks may return cached results; critical checks such as
+	// FinalizedBlockOutOfSync are evaluated on every call.
 	State() nodeState
+	// StateForMetrics reports health even when an unhealthy node remains selectable for retries.
+	StateForMetrics() nodeState
 	// StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
 	StateAndLatest() (nodeState, ChainInfo)
 	// HighestUserObservations - returns highest ChainInfo ever observed by underlying RPC excluding results of health check requests
@@ -124,8 +129,10 @@ type node[
 	finalizedStateChecker FinalizedStateChecker // set in NewNode when rpc implements FinalizedStateChecker
 	isLoadBalancedRPC     bool
 
-	stateMu sync.RWMutex // protects state* fields
-	state   nodeState
+	stateMu             sync.RWMutex // protects state* fields
+	state               nodeState
+	stateHealthFailures healthCheckFailures
+	stateSyncIssues     syncStatus
 
 	poolInfoProvider PoolChainInfoProvider
 
