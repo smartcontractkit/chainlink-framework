@@ -157,10 +157,6 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 			// outpace successes on a retained node.
 			if pollFailureThresholdReached {
 				n.modifyHealthCheckFailure(healthCheckPoll, true)
-			} else if pollFailures == 0 {
-				n.modifyHealthCheckFailure(healthCheckPoll, false)
-			}
-			if pollFailureThresholdReached {
 				lggr.Errorw(fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailures), "pollFailures", pollFailures, "nodeState", n.getCachedState())
 				keepAlive := false
 				if n.poolInfoProvider != nil {
@@ -173,6 +169,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 				}
 				// Keep evaluating independent health checks while retaining this node for retries.
 				lggr.Criticalf("RPC endpoint failed to respond to polls; %s %s", msgCannotDisable, msgDegradedState)
+			} else if pollFailures == 0 {
+				n.modifyHealthCheckFailure(healthCheckPoll, false)
 			}
 			outOfSync, liveNodes := n.isOutOfSyncWithPool()
 			n.modifySyncIssue(syncStatusNotInSyncWithPool, outOfSync)
@@ -202,7 +200,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 							n.modifyHealthCheckFailure(healthCheckFinalizedState, true)
 							lggr.Errorw("RPC node cannot serve finalized state after consecutive failures", "failures", finalizedStateFailures)
 							if n.poolInfoProvider != nil {
-								if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 2 && !n.isLoadBalancedRPC {
+								if l, _ := n.poolInfoProvider.LatestChainInfo(n.name); l < 1 && !n.isLoadBalancedRPC {
 									lggr.Criticalf("RPC endpoint cannot serve finalized state; %s %s", msgCannotDisable, msgDegradedState)
 									continue
 								}

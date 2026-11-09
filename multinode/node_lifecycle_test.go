@@ -2472,7 +2472,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		})
 	})
 
-	t.Run("transitions from alive to finalizedStateNotAvailable and back", func(t *testing.T) {
+	t.Run("with one other alive node, transitions to finalizedStateNotAvailable and back", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
 		nodeChainID := RandomID()
@@ -2506,7 +2506,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		).Times(3)
 
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.EXPECT().LatestChainInfo(mock.Anything).Return(5, ChainInfo{}).Maybe()
+		poolInfo.EXPECT().LatestChainInfo(mock.Anything).Return(1, ChainInfo{}).Maybe()
 		poolInfo.EXPECT().HighestUserObservations().Return(ChainInfo{}).Maybe()
 		node.SetPoolChainInfoProvider(poolInfo)
 
