@@ -61,6 +61,7 @@ func newHealthyNode(t *testing.T, chainID ID) *mockNode[ID, multiNodeRPCClient] 
 func newNodeWithState(t *testing.T, chainID ID, state nodeState) *mockNode[ID, multiNodeRPCClient] {
 	node := newStatelessNode(t, chainID)
 	node.On("State").Return(state).Maybe()
+	node.On("StateForMetrics").Return(state).Maybe()
 	return node
 }
 
@@ -83,6 +84,7 @@ func newNodeWithOrder(t *testing.T, chainID ID, order int32) (*mockNode[ID, mult
 	node.On("UnsubscribeAllExceptAliveLoop").Maybe()
 	var alive atomic.Bool
 	alive.Store(true)
+	node.On("StateForMetrics").Return(func() nodeState { return node.State() }).Maybe()
 	node.On("State").Return(func() nodeState {
 		if alive.Load() {
 			return nodeStateAlive
@@ -651,5 +653,40 @@ func TestMultiNode_ChainInfo(t *testing.T) {
 			highestChainInfo := mn.HighestUserObservations()
 			assert.Equal(t, tc.ExpectedHighestUserObservations, highestChainInfo)
 		})
+	}
+}
+
+func TestMultiNode_ReportUsesHealthStateForMetrics(t *testing.T) {
+	t.Parallel()
+	node := newMockNode[ID, multiNodeRPCClient](t)
+	node.On("State").Return(nodeStateAlive)
+	var healthy bool
+	node.On("StateForMetrics").Return(func() nodeState {
+		if healthy {
+			return nodeStateAlive
+		}
+		return nodeStateOutOfSync
+	})
+	mn := newTestMultiNode(t, multiNodeOpts{
+		chainID: RandomID(), selectionMode: NodeSelectionModeRoundRobin,
+		nodes: []Node[ID, multiNodeRPCClient]{node},
+	})
+	info := make([]nodeWithState, 1)
+	for _, recovered := range []bool{false, true} {
+		healthy = recovered
+		metrics := newMockMultiNodeMetrics(t)
+		for _, state := range allNodeStates {
+			var count int64
+			if (!healthy && state == nodeStateOutOfSync) || (healthy && state == nodeStateAlive) {
+				count = 1
+			}
+			metrics.On("RecordNodeStates", mock.Anything, state.String(), count).Once()
+		}
+		mn.metrics = metrics
+		mn.report(info)
+		// The retained node is still available for optimistic routing.
+		assert.Equal(t, "Alive", info[0].State)
+		assert.Nil(t, info[0].DeadSince)
+		metrics.AssertExpectations(t)
 	}
 }

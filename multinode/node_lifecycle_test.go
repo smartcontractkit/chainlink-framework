@@ -234,6 +234,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint failed to respond to %d consecutive polls", pollFailureThreshold))
 		assert.Equal(t, nodeStateAlive, node.State())
+		tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateUnreachable })
 	})
 	t.Run("with threshold poll failures, we are the last node alive, but is a proxy, transitions to unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -325,6 +326,8 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.SetPoolChainInfoProvider(poolInfo)
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint has fallen behind; %s %s", msgCannotDisable, msgDegradedState))
+		assert.Equal(t, nodeStateAlive, node.State())
+		assert.Equal(t, nodeStateOutOfSync, node.StateForMetrics())
 	})
 	t.Run("when behind more than SyncThreshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -430,6 +433,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
+		tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateOutOfSync })
 	})
 	t.Run("when no new heads received for threshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -679,6 +683,7 @@ func TestUnit_NodeLifecycle_aliveLoop(t *testing.T) {
 		node.declareAlive()
 		tests.AssertLogEventually(t, observed, fmt.Sprintf("RPC's finalized state is out of sync; %s %s", msgCannotDisable, msgDegradedState))
 		assert.Equal(t, nodeStateAlive, node.State())
+		tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateOutOfSync })
 	})
 	t.Run("when no new finalized heads received for threshold, we are the last live node, but is a proxy, transitions to out of sync -> unreachable", func(t *testing.T) {
 		t.Parallel()
@@ -1087,13 +1092,21 @@ func TestUnit_NodeLifecycle_outOfSyncLoop(t *testing.T) {
 		outOfSyncSubscription.On("Err").Return((<-chan error)(nil))
 		outOfSyncSubscription.On("Unsubscribe").Once()
 		rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), outOfSyncSubscription, nil).Once()
-		setupRPCForAliveLoop(t, rpc)
+		heads := make(chan Head)
+		rpc.On("SubscribeToHeads", mock.Anything).Return((<-chan Head)(heads), newSub(t), nil).Once()
 
 		node.declareOutOfSync(syncStatusNoNewHead)
 		tests.AssertLogEventually(t, observedLogs, "RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")
 		tests.AssertEventually(t, func() bool {
-			return node.State() == nodeStateAlive
+			return node.State() == nodeStateAlive && node.StateForMetrics() == nodeStateOutOfSync
 		})
+		// Forced revival preserves the failure until a newer head arrives, even without polling.
+		select {
+		case heads <- (head{BlockNumber: 1}).ToMockHead(t):
+		case <-time.After(tests.WaitTimeout(t)):
+			t.Fatal("head was not consumed")
+		}
+		tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateAlive })
 	})
 	t.Run("becomes alive if there is no other nodes, unless proxy", func(t *testing.T) {
 		t.Parallel()
@@ -2459,7 +2472,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		})
 	})
 
-	t.Run("transitions from alive to finalizedStateNotAvailable and back", func(t *testing.T) {
+	t.Run("with one other alive node, transitions to finalizedStateNotAvailable and back", func(t *testing.T) {
 		t.Parallel()
 		rpc := newMockRPCClient[ID, Head](t)
 		nodeChainID := RandomID()
@@ -2493,7 +2506,7 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 		).Times(3)
 
 		poolInfo := newMockPoolChainInfoProvider(t)
-		poolInfo.EXPECT().LatestChainInfo(mock.Anything).Return(5, ChainInfo{}).Maybe()
+		poolInfo.EXPECT().LatestChainInfo(mock.Anything).Return(1, ChainInfo{}).Maybe()
 		poolInfo.EXPECT().HighestUserObservations().Return(ChainInfo{}).Maybe()
 		node.SetPoolChainInfoProvider(poolInfo)
 
@@ -2510,4 +2523,249 @@ func TestUnit_NodeLifecycle_finalizedStateNotAvailableLoop(t *testing.T) {
 			return node.State() == nodeStateAlive
 		})
 	})
+}
+
+// A responsive version endpoint does not prove that the ledger subscription recovered.
+func TestUnit_NodeLifecycle_MetricHealthRecovery(t *testing.T) {
+	t.Parallel()
+	rpc := newMockRPCClient[ID, Head](t)
+	heads := make(chan Head)
+	rpc.On("SubscribeToHeads", mock.Anything).Return((<-chan Head)(heads), newSub(t), nil).Once()
+	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
+	rpc.On("Close").Return(nil)
+	var pingHealthy atomic.Bool
+	rpc.On("ClientVersion", mock.Anything).Return(func(context.Context) (string, error) {
+		if pingHealthy.Load() {
+			return "version", nil
+		}
+		return "", errors.New("poll failed")
+	})
+	node := newTestNode(t, testNodeOpts{
+		rpc:         rpc,
+		config:      testNodeConfig{pollFailureThreshold: 1, pollInterval: tests.TestInterval},
+		chainConfig: clientMocks.ChainConfig{NoNewHeadsThresholdVal: 10 * tests.TestInterval},
+	})
+	defer func() { assert.NoError(t, node.close()) }()
+	poolInfo := newMockPoolChainInfoProvider(t)
+	poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{BlockNumber: 20})
+	node.SetPoolChainInfoProvider(poolInfo)
+	node.setState(nodeStateDialed)
+	node.declareAlive()
+	tests.AssertEventually(t, func() bool {
+		node.stateMu.RLock()
+		defer node.stateMu.RUnlock()
+		return node.stateHealthFailures&healthCheckPoll != 0 && node.stateSyncIssues&syncStatusNoNewHead != 0
+	})
+	assert.Equal(t, nodeStateAlive, node.State())
+	assert.Equal(t, nodeStateUnreachable, node.StateForMetrics())
+	pingHealthy.Store(true)
+	tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateOutOfSync })
+	// A duplicate ledger is not evidence of progress.
+	select {
+	case heads <- (head{BlockNumber: 20}).ToMockHead(t):
+	case <-time.After(tests.WaitTimeout(t)):
+		t.Fatal("head was not consumed")
+	}
+	assert.Equal(t, nodeStateOutOfSync, node.StateForMetrics())
+	select {
+	case heads <- (head{BlockNumber: 21}).ToMockHead(t):
+	case <-time.After(tests.WaitTimeout(t)):
+		t.Fatal("head was not consumed")
+	}
+	tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateAlive })
+	assert.Equal(t, nodeStateAlive, node.State())
+}
+
+func TestUnit_NodeLifecycle_FinalizedStateMetricRecovery(t *testing.T) {
+	t.Parallel()
+	rpc := newMockRPCClient[ID, Head](t)
+	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
+	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{}, ChainInfo{})
+	rpc.On("ClientVersion", mock.Anything).Return("version", nil)
+	rpc.On("Close").Return(nil)
+	var available atomic.Bool
+	rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(func(context.Context) error {
+		if available.Load() {
+			return nil
+		}
+		return ErrFinalizedStateUnavailable
+	})
+	node := newTestNode(t, testNodeOpts{
+		rpc:    rpc,
+		config: testNodeConfig{pollInterval: tests.TestInterval, finalizedStateCheckFailureThreshold: 1},
+	})
+	defer func() { assert.NoError(t, node.close()) }()
+	poolInfo := newMockPoolChainInfoProvider(t)
+	poolInfo.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{})
+	node.SetPoolChainInfoProvider(poolInfo)
+	node.setState(nodeStateDialed)
+	node.declareAlive()
+	tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateFinalizedStateNotAvailable })
+	assert.Equal(t, nodeStateAlive, node.State())
+	available.Store(true)
+	tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateAlive })
+}
+
+func TestUnit_NodeLifecycle_DegradedNodeUpdatesIndependentHealth(t *testing.T) {
+	t.Parallel()
+	// Each phase changes checks independently while the last node stays selectable.
+	var phase atomic.Uint32
+	rpc := newMockRPCClient[ID, Head](t)
+	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
+	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
+	rpc.On("Close").Return(nil)
+	rpc.On("ClientVersion", mock.Anything).Return(func(context.Context) (string, error) {
+		if phase.Load() == 1 {
+			return "", errors.New("poll failed")
+		}
+		return "version", nil
+	})
+	rpc.On("CheckFinalizedStateAvailability", mock.Anything).Return(func(context.Context) error {
+		switch phase.Load() {
+		case 0, 2:
+			return ErrFinalizedStateUnavailable
+		default:
+			return nil
+		}
+	})
+	pool := newMockPoolChainInfoProvider(t)
+	pool.On("LatestChainInfo", mock.Anything).Return(func(string) (int, ChainInfo) {
+		block := int64(20)
+		if p := phase.Load(); p >= 1 && p <= 3 {
+			block = 30
+		}
+		return 0, ChainInfo{BlockNumber: block}
+	})
+	node := newTestNode(t, testNodeOpts{
+		rpc: rpc,
+		config: testNodeConfig{
+			pollInterval: tests.TestInterval, pollFailureThreshold: 1,
+			finalizedStateCheckFailureThreshold: 1,
+			syncThreshold:                       1, selectionMode: NodeSelectionModeRoundRobin,
+		},
+	})
+	defer func() { assert.NoError(t, node.close()) }()
+	node.SetPoolChainInfoProvider(pool)
+	node.setState(nodeStateDialed)
+	node.declareAlive()
+	for index, expected := range []struct {
+		failures   healthCheckFailures
+		syncIssues syncStatus
+		state      nodeState
+	}{
+		{healthCheckFinalizedState, syncStatusSynced, nodeStateFinalizedStateNotAvailable},
+		// Finalized state is not checked while pings fail, so its last result is retained.
+		{healthCheckPoll | healthCheckFinalizedState, syncStatusNotInSyncWithPool, nodeStateUnreachable},
+		{healthCheckFinalizedState, syncStatusNotInSyncWithPool, nodeStateFinalizedStateNotAvailable},
+		{0, syncStatusNotInSyncWithPool, nodeStateOutOfSync},
+		{0, syncStatusSynced, nodeStateAlive},
+	} {
+		phase.Store(uint32(index))
+		tests.AssertEventually(t, func() bool {
+			node.stateMu.RLock()
+			defer node.stateMu.RUnlock()
+			return node.stateHealthFailures == expected.failures && node.stateSyncIssues == expected.syncIssues
+		})
+		assert.Equal(t, nodeStateAlive, node.State())
+		assert.Equal(t, expected.state, node.StateForMetrics())
+	}
+}
+
+func TestUnit_NodeLifecycle_RetainedNodePollFailuresAreCapped(t *testing.T) {
+	t.Parallel()
+	const pollFailureThreshold = 2
+	const outagePolls = 20
+	rpc := newMockRPCClient[ID, Head](t)
+	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
+	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
+	rpc.On("Close").Return(nil)
+	var healthy atomic.Bool
+	var failedPolls, successfulPolls atomic.Uint32
+	rpc.On("ClientVersion", mock.Anything).Return(func(context.Context) (string, error) {
+		if healthy.Load() {
+			successfulPolls.Add(1)
+			return "version", nil
+		}
+		failedPolls.Add(1)
+		return "", errors.New("poll failed")
+	})
+	var liveNodes atomic.Int32
+	pool := newMockPoolChainInfoProvider(t)
+	pool.On("LatestChainInfo", mock.Anything).Return(func(string) (int, ChainInfo) {
+		return int(liveNodes.Load()), ChainInfo{BlockNumber: 20}
+	})
+	node := newTestNode(t, testNodeOpts{
+		rpc:    rpc,
+		config: testNodeConfig{pollInterval: tests.TestInterval, pollFailureThreshold: pollFailureThreshold},
+	})
+	defer func() { assert.NoError(t, node.close()) }()
+	node.SetPoolChainInfoProvider(pool)
+	node.setState(nodeStateDialed)
+	node.declareAlive()
+
+	// Long outage on the last node: it is retained for retries but reported unreachable.
+	tests.AssertEventually(t, func() bool { return failedPolls.Load() >= outagePolls })
+	assert.Equal(t, nodeStateAlive, node.State())
+	assert.Equal(t, nodeStateUnreachable, node.StateForMetrics())
+
+	// Capped, the score drains in pollFailureThreshold successes; uncapped it would take ~outagePolls.
+	// The bound is loose so slow runners observing the transition late do not fail the test.
+	healthy.Store(true)
+	tests.AssertEventually(t, func() bool { return node.StateForMetrics() == nodeStateAlive })
+	assert.Less(t, successfulPolls.Load(), uint32(outagePolls/2))
+
+	// A peer returning must not eject the recovered node for its past outage.
+	liveNodes.Store(1)
+	polled := successfulPolls.Load()
+	tests.AssertEventually(t, func() bool { return successfulPolls.Load() >= polled+3 })
+	assert.Equal(t, nodeStateAlive, node.State())
+	assert.Equal(t, nodeStateAlive, node.StateForMetrics())
+}
+
+func TestUnit_NodeLifecycle_RetainedNodePollHealthDoesNotFlap(t *testing.T) {
+	t.Parallel()
+	const pollFailureThreshold = 2
+	const observedPolls = 15
+	var node testNode
+	var polls, observed, clearedAfterSet atomic.Uint32
+	var reported atomic.Bool
+	rpc := newMockRPCClient[ID, Head](t)
+	rpc.On("SubscribeToHeads", mock.Anything).Return(make(<-chan Head), newSub(t), nil).Once()
+	rpc.On("GetInterceptedChainInfo").Return(ChainInfo{BlockNumber: 20}, ChainInfo{BlockNumber: 20})
+	rpc.On("Close").Return(nil)
+	// Two failures per success: failures outpace successes, so the node stays unhealthy.
+	rpc.On("ClientVersion", mock.Anything).Return(func(context.Context) (string, error) {
+		// Runs on the alive loop between ticks, so it sees the flag left by the previous tick.
+		node.stateMu.RLock()
+		unhealthy := node.stateHealthFailures&healthCheckPoll != 0
+		node.stateMu.RUnlock()
+		if unhealthy {
+			reported.Store(true)
+		}
+		if reported.Load() {
+			observed.Add(1)
+			if !unhealthy {
+				clearedAfterSet.Add(1)
+			}
+		}
+		if polls.Add(1)%3 == 0 {
+			return "version", nil
+		}
+		return "", errors.New("poll failed")
+	})
+	pool := newMockPoolChainInfoProvider(t)
+	pool.On("LatestChainInfo", mock.Anything).Return(0, ChainInfo{BlockNumber: 20})
+	node = newTestNode(t, testNodeOpts{
+		rpc:    rpc,
+		config: testNodeConfig{pollInterval: tests.TestInterval, pollFailureThreshold: pollFailureThreshold},
+	})
+	defer func() { assert.NoError(t, node.close()) }()
+	node.SetPoolChainInfoProvider(pool)
+	node.setState(nodeStateDialed)
+	node.declareAlive()
+
+	tests.AssertEventually(t, func() bool { return observed.Load() >= observedPolls })
+	assert.Zero(t, clearedAfterSet.Load(), "poll health flag cleared while failures outpace successes")
+	assert.Equal(t, nodeStateAlive, node.State())
+	assert.Equal(t, nodeStateUnreachable, node.StateForMetrics())
 }

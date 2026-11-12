@@ -361,7 +361,8 @@ func (c *MultiNode[CHAIN_ID, RPC]) report(nodesStateInfo []nodeWithState) {
 	counts := make(map[nodeState]int)
 	for i, n := range c.primaryNodes {
 		state := n.State()
-		counts[state]++
+		// Routing can retain the last unhealthy node for optimistic retries.
+		counts[n.StateForMetrics()]++
 		nodesStateInfo[i].State = state.String()
 		if state == nodeStateAlive {
 			nodesStateInfo[i].DeadSince = nil
