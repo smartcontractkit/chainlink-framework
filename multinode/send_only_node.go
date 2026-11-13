@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+	"strconv"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -111,7 +112,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start() {
 	}
 	s.setState(nodeStateDialed)
 
-	if s.chainID.String() == "0" {
+	if s.chainID.String() == strconv.Itoa(NullClientChainID) {
 		// Skip verification if chainID is zero
 		s.log.Warn("sendonly rpc ChainID verification skipped")
 	} else {
