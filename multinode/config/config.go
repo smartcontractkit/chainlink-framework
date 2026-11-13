@@ -48,6 +48,10 @@ func (c *MultiNodeConfig) PollSuccessThreshold() uint32 {
 	return 0 // retaining source compat for -solana; -evm sets via NodePoolConfig
 }
 
+func (c *MultiNodeConfig) RedialBackoffMin() time.Duration {
+	return time.Second // retaining source compat for -solana; -evm sets via NodePoolConfig
+}
+
 func (c *MultiNodeConfig) PollInterval() time.Duration {
 	return c.MultiNode.PollInterval.Duration()
 }

@@ -17,6 +17,7 @@ import (
 type testNodeConfig struct {
 	pollFailureThreshold                uint32
 	pollSuccessThreshold                uint32
+	redialBackoffMin                    time.Duration
 	pollInterval                        time.Duration
 	selectionMode                       string
 	syncThreshold                       uint32
@@ -38,6 +39,10 @@ func (n testNodeConfig) PollFailureThreshold() uint32 {
 
 func (n testNodeConfig) PollSuccessThreshold() uint32 {
 	return n.pollSuccessThreshold
+}
+
+func (n testNodeConfig) RedialBackoffMin() time.Duration {
+	return n.redialBackoffMin
 }
 
 func (n testNodeConfig) PollInterval() time.Duration {
