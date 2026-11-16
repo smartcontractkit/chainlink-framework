@@ -2,16 +2,15 @@ package multinode
 
 import (
 	"math"
+	"math/rand/v2"
 	"sort"
-	"sync/atomic"
 )
 
 type priorityLevelNodeSelector[
 	CHAIN_ID ID,
 	RPC any,
 ] struct {
-	nodes           []Node[CHAIN_ID, RPC]
-	roundRobinCount []atomic.Uint32
+	nodes []Node[CHAIN_ID, RPC]
 }
 
 type nodeWithPriority[
@@ -27,25 +26,19 @@ func NewPriorityLevelNodeSelector[
 	RPC any,
 ](nodes []Node[CHAIN_ID, RPC]) NodeSelector[CHAIN_ID, RPC] {
 	return &priorityLevelNodeSelector[CHAIN_ID, RPC]{
-		nodes:           nodes,
-		roundRobinCount: make([]atomic.Uint32, nrOfPriorityTiers(nodes)),
+		nodes: nodes,
 	}
 }
 
+// Select picks a random alive node from the highest priority tier. Random rather than round-robin, so that pods sharing
+// the same RPC set spread their load instead of all starting from the same node.
 func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 	nodes := s.getHighestPriorityAliveTier()
-
 	if len(nodes) == 0 {
 		return nil
 	}
-	priorityLevel := nodes[len(nodes)-1].priority
-
-	// NOTE: Inc returns the number after addition, so we must -1 to get the "current" counter
-	count := s.roundRobinCount[priorityLevel].Add(1) - 1
-	// #nosec G115
-	idx := int(count % uint32(len(nodes)))
-
-	return nodes[idx].node
+	// #nosec G404
+	return nodes[rand.IntN(len(nodes))].node
 }
 
 func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) Name() string {
@@ -88,21 +81,6 @@ func removeLowerTiers[
 	}
 
 	return nodes2
-}
-
-// nrOfPriorityTiers calculates the total number of priority tiers
-func nrOfPriorityTiers[
-	CHAIN_ID ID,
-	RPC any,
-](nodes []Node[CHAIN_ID, RPC]) int32 {
-	highestPriority := int32(0)
-	for _, n := range nodes {
-		priority := n.Order()
-		if highestPriority < priority {
-			highestPriority = priority
-		}
-	}
-	return highestPriority + 1
 }
 
 // firstOrHighestPriority takes a list of nodes and returns the first one with the highest priority
