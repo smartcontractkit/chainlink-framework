@@ -3,7 +3,6 @@ package multinode
 import (
 	"math"
 	"math/rand/v2"
-	"sort"
 )
 
 type priorityLevelNodeSelector[
@@ -11,14 +10,6 @@ type priorityLevelNodeSelector[
 	RPC any,
 ] struct {
 	nodes []Node[CHAIN_ID, RPC]
-}
-
-type nodeWithPriority[
-	CHAIN_ID ID,
-	RPC any,
-] struct {
-	node     Node[CHAIN_ID, RPC]
-	priority int32
 }
 
 func NewPriorityLevelNodeSelector[
@@ -38,49 +29,30 @@ func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) Select() Node[CHAIN_ID, RPC] {
 		return nil
 	}
 	// #nosec G404
-	return nodes[rand.IntN(len(nodes))].node
+	return nodes[rand.IntN(len(nodes))]
 }
 
 func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) Name() string {
 	return NodeSelectionModePriorityLevel
 }
 
-// getHighestPriorityAliveTier filters nodes that are not in state nodeStateAlive and
-// returns only the highest tier of alive nodes
-func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) getHighestPriorityAliveTier() []nodeWithPriority[CHAIN_ID, RPC] {
-	var nodes []nodeWithPriority[CHAIN_ID, RPC]
+// getHighestPriorityAliveTier returns the alive nodes with the lowest Order (highest priority).
+func (s priorityLevelNodeSelector[CHAIN_ID, RPC]) getHighestPriorityAliveTier() []Node[CHAIN_ID, RPC] {
+	var tier []Node[CHAIN_ID, RPC]
+	bestOrder := int32(math.MaxInt32)
 	for _, n := range s.nodes {
-		if n.State() == nodeStateAlive {
-			nodes = append(nodes, nodeWithPriority[CHAIN_ID, RPC]{n, n.Order()})
+		if n.State() != nodeStateAlive {
+			continue
+		}
+		switch order := n.Order(); {
+		case order < bestOrder:
+			bestOrder = order
+			tier = append(tier[:0], n)
+		case order == bestOrder:
+			tier = append(tier, n)
 		}
 	}
-
-	if len(nodes) == 0 {
-		return nil
-	}
-
-	return removeLowerTiers(nodes)
-}
-
-// removeLowerTiers take a slice of nodeWithPriority[CHAIN_ID, BLOCK_HASH, HEAD, RPC] and keeps only the highest tier
-func removeLowerTiers[
-	CHAIN_ID ID,
-	RPC any,
-](nodes []nodeWithPriority[CHAIN_ID, RPC]) []nodeWithPriority[CHAIN_ID, RPC] {
-	sort.SliceStable(nodes, func(i, j int) bool {
-		return nodes[i].priority > nodes[j].priority
-	})
-
-	var nodes2 []nodeWithPriority[CHAIN_ID, RPC]
-	currentPriority := nodes[len(nodes)-1].priority
-
-	for _, n := range nodes {
-		if n.priority == currentPriority {
-			nodes2 = append(nodes2, n)
-		}
-	}
-
-	return nodes2
+	return tier
 }
 
 // firstOrHighestPriority takes a list of nodes and returns the first one with the highest priority

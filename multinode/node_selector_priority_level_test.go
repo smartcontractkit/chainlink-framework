@@ -60,6 +60,17 @@ func TestPriorityLevelNodeSelector(t *testing.T) {
 			allowed: []int{0}, // only the highest priority tier should be selected
 		},
 		{
+			name: "UnsortedOrder",
+			nodes: []testNode{
+				{order: 3, state: nodeStateAlive},
+				{order: 2, state: nodeStateAlive},
+				{order: 1, state: nodeStateAlive},
+				{order: 2, state: nodeStateAlive},
+				{order: 1, state: nodeStateAlive},
+			},
+			allowed: []int{2, 4}, // a better tier found later must replace the one collected so far
+		},
+		{
 			name: "HighestTierPartiallyAlive",
 			nodes: []testNode{
 				{order: 1, state: nodeStateUnreachable},
