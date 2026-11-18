@@ -114,6 +114,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) modifyHealthCheckFailure(check healthCheckFa
 	} else {
 		n.stateHealthFailures &^= check
 	}
+	n.refreshHealthSnapshotLocked()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) modifySyncIssue(issue syncStatus, failed bool) {
@@ -124,9 +125,36 @@ func (n *node[CHAIN_ID, HEAD, RPC]) modifySyncIssue(issue syncStatus, failed boo
 	} else {
 		n.stateSyncIssues &^= issue
 	}
+	n.refreshHealthSnapshotLocked()
 }
 
-// StateForMetrics preserves routing state while exposing failures suppressed by last-node fallback.
+// setStateLocked must be the only writer of n.state, so that healthSnapshot stays in sync.
+func (n *node[CHAIN_ID, HEAD, RPC]) setStateLocked(s nodeState) {
+	n.state = s
+	if s != nodeStateAlive {
+		// The delayed-view flag is only evaluated while Alive; reset it so the next Alive episode logs afresh.
+		n.servingDelayedFinalized.Store(false)
+	}
+	n.refreshHealthSnapshotLocked()
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) refreshHealthSnapshotLocked() {
+	n.healthSnapshot.Store(n.state == nodeStateAlive && n.stateHealthFailures == 0 && n.stateSyncIssues == syncStatusSynced)
+}
+
+// loadHealthSnapshot must not take stateMu or evaluate finalized lag: peers call it from within their State().
+func (n *node[CHAIN_ID, HEAD, RPC]) loadHealthSnapshot() (bool, ChainInfo) {
+	if !n.healthSnapshot.Load() {
+		return false, ChainInfo{}
+	}
+	latest, _ := n.rpc.GetInterceptedChainInfo()
+	return true, latest
+}
+
+// StateForMetrics preserves routing state while exposing failures suppressed by last-node fallback and by the
+// finalized block out-of-sync fallback. The two can intentionally disagree: a node serving a delayed finalized view is
+// Alive for routing (State) but reported as FinalizedBlockOutOfSync here, so metrics can show zero alive nodes while
+// the pool still serves traffic and emits no health error. That gap is the operator signal for degraded finality.
 func (n *node[CHAIN_ID, HEAD, RPC]) StateForMetrics() nodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
@@ -142,6 +170,9 @@ func (n *node[CHAIN_ID, HEAD, RPC]) StateForMetrics() nodeState {
 		return nodeStateFinalizedStateNotAvailable
 	case n.stateSyncIssues != syncStatusSynced:
 		return nodeStateOutOfSync
+	// Only the fallback can leave a node lagging on finalized block Alive; otherwise recalculateState already excluded it.
+	case n.healthyPeers != nil && n.nodePoolCfg.EnforceRepeatableRead() && n.isFinalizedBlockOutOfSyncStrict():
+		return nodeStateFinalizedBlockOutOfSync
 	default:
 		return state
 	}
@@ -166,6 +197,12 @@ func (n *node[CHAIN_ID, HEAD, RPC]) recalculateState() nodeState {
 	return nodeStateAlive
 }
 
+// isFinalizedBlockOutOfSync excludes any node lagging behind the highest finalized block observed by users. With the
+// opt-in fallback, a lagging node is excluded only while a healthy peer offers a more recent view:
+//
+//	reference = min(highest finalized observed by users, best finalized among healthy peers)
+//
+// Otherwise the node stays routable, trading delayed finality for liveness.
 func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 	if n.poolInfoProvider == nil {
 		return false
@@ -173,18 +210,69 @@ func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSync() bool {
 
 	highestObservedByCaller := n.poolInfoProvider.HighestUserObservations()
 	latest, rpcHighest := n.rpc.GetInterceptedChainInfo()
-	isOutOfSync := false
-	if n.chainCfg.FinalityTagEnabled() {
-		isOutOfSync = latest.FinalizedBlockNumber < highestObservedByCaller.FinalizedBlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
-	} else {
-		isOutOfSync = latest.BlockNumber < highestObservedByCaller.BlockNumber-int64(n.chainCfg.FinalizedBlockOffset())
+	if !n.isFinalizedBehind(latest, highestObservedByCaller) {
+		if n.healthyPeers != nil {
+			n.updateServingDelayedFinalized(false, latest, highestObservedByCaller, highestObservedByCaller)
+		}
+		return false
 	}
 
-	if isOutOfSync {
+	if n.healthyPeers == nil {
 		n.lfcLog.Debugw("finalized block is out of sync", "rpcLatestChainInfo", latest, "rpcHighest", rpcHighest, "highestObservedByCaller", highestObservedByCaller)
+		return true
 	}
 
-	return isOutOfSync
+	healthyPeers, peersBest := n.healthyPeers.HealthyPeersChainInfo(n.name)
+	if healthyPeers == 0 {
+		n.updateServingDelayedFinalized(true, latest, highestObservedByCaller, ChainInfo{})
+		return false
+	}
+
+	reference := ChainInfo{
+		BlockNumber:          min(highestObservedByCaller.BlockNumber, peersBest.BlockNumber),
+		FinalizedBlockNumber: min(highestObservedByCaller.FinalizedBlockNumber, peersBest.FinalizedBlockNumber),
+	}
+	if n.isFinalizedBehind(latest, reference) {
+		n.updateServingDelayedFinalized(false, latest, highestObservedByCaller, reference)
+		n.lfcLog.Debugw("finalized block is out of sync", "rpcLatestChainInfo", latest, "rpcHighest", rpcHighest,
+			"highestObservedByCaller", highestObservedByCaller, "reference", reference, "healthyPeers", healthyPeers)
+		return true
+	}
+
+	n.updateServingDelayedFinalized(true, latest, highestObservedByCaller, reference)
+	return false
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBlockOutOfSyncStrict() bool {
+	if n.poolInfoProvider == nil {
+		return false
+	}
+	latest, _ := n.rpc.GetInterceptedChainInfo()
+	return n.isFinalizedBehind(latest, n.poolInfoProvider.HighestUserObservations())
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) isFinalizedBehind(latest, target ChainInfo) bool {
+	offset := int64(n.chainCfg.FinalizedBlockOffset())
+	if n.chainCfg.FinalityTagEnabled() {
+		return latest.FinalizedBlockNumber < target.FinalizedBlockNumber-offset
+	}
+	return latest.BlockNumber < target.BlockNumber-offset
+}
+
+// updateServingDelayedFinalized logs only on change, as State() is on the RPC selection hot path. Logs are best-effort:
+// concurrent State() callers may emit them out of order around a flip; serialising them would lock the hot path.
+func (n *node[CHAIN_ID, HEAD, RPC]) updateServingDelayedFinalized(serving bool, latest, highestObservedByCaller, reference ChainInfo) {
+	if n.servingDelayedFinalized.Swap(serving) == serving {
+		return
+	}
+	if serving {
+		n.lfcLog.Warnw("RPC Node is behind the highest finalized block observed by users, but no healthy RPC is further ahead; "+
+			"keeping it routable and serving a delayed finalized view to preserve liveness",
+			"rpcLatestChainInfo", latest, "highestObservedByCaller", highestObservedByCaller, "reference", reference)
+		return
+	}
+	n.lfcLog.Infow("RPC Node is no longer serving a delayed finalized view",
+		"rpcLatestChainInfo", latest, "highestObservedByCaller", highestObservedByCaller, "reference", reference)
 }
 
 // StateAndLatest returns nodeState with the latest ChainInfo observed by Node during current lifecycle.
@@ -202,6 +290,25 @@ func (n *node[CHAIN_ID, HEAD, RPC]) HighestUserObservations() ChainInfo {
 }
 func (n *node[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(poolInfoProvider PoolChainInfoProvider) {
 	n.poolInfoProvider = poolInfoProvider
+	n.healthyPeers = nil
+	if !n.finalizedBlockOutOfSyncFallback || poolInfoProvider == nil {
+		return
+	}
+	// Fail closed: without a reliable view of peer health the fallback could route to a lagging node unnecessarily.
+	hp, ok := poolInfoProvider.(healthyPeersProvider)
+	if !ok {
+		n.lfcLog.Warnw("Finalized block out-of-sync fallback is enabled, but the pool cannot report healthy peers; " +
+			"keeping strict EnforceRepeatableRead behaviour")
+		return
+	}
+	if len(hp.nodesWithoutHealthSnapshot()) > 0 {
+		return // MultiNode logs this once per pool at construction.
+	}
+	n.healthyPeers = hp
+}
+
+func (n *node[CHAIN_ID, HEAD, RPC]) finalizedBlockOutOfSyncFallbackEnabled() bool {
+	return n.finalizedBlockOutOfSyncFallback
 }
 
 // setState is only used by internal state management methods.
@@ -211,7 +318,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) SetPoolChainInfoProvider(poolInfoProvider Po
 func (n *node[CHAIN_ID, HEAD, RPC]) setState(s nodeState) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	n.state = s
+	n.setStateLocked(s)
 }
 
 // declareXXX methods change the state and pass conrol off the new state
@@ -238,7 +345,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	case nodeStateDialed, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
 		n.stateHealthFailures = 0
 		n.stateSyncIssues = syncStatusSynced
-		n.state = nodeStateAlive
+		n.setStateLocked(nodeStateAlive)
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
 	}
@@ -270,7 +377,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(syncIssues syncStatus, fn
 		// The new aliveLoop starts fresh polling and finalized-state failure counters.
 		n.stateHealthFailures = 0
 		n.stateSyncIssues = syncIssues
-		n.state = nodeStateAlive
+		n.setStateLocked(nodeStateAlive)
 	default:
 		panic(transitionFail(n.state, nodeStateAlive))
 	}
@@ -299,7 +406,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	switch n.state {
 	case nodeStateAlive, nodeStateOutOfSync:
 		n.rpc.Close()
-		n.state = nodeStateOutOfSync
+		n.setStateLocked(nodeStateOutOfSync)
 	default:
 		panic(transitionFail(n.state, nodeStateOutOfSync))
 	}
@@ -326,7 +433,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	switch n.state {
 	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
 		n.rpc.Close()
-		n.state = nodeStateUnreachable
+		n.setStateLocked(nodeStateUnreachable)
 	default:
 		panic(transitionFail(n.state, nodeStateUnreachable))
 	}
@@ -373,7 +480,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateSyncing, nodeStateFinalizedStateNotAvailable:
 		n.rpc.Close()
-		n.state = nodeStateInvalidChainID
+		n.setStateLocked(nodeStateInvalidChainID)
 	default:
 		panic(transitionFail(n.state, nodeStateInvalidChainID))
 	}
@@ -400,7 +507,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToSyncing(fn func()) {
 	switch n.state {
 	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID, nodeStateFinalizedStateNotAvailable:
 		n.rpc.Close()
-		n.state = nodeStateSyncing
+		n.setStateLocked(nodeStateSyncing)
 	default:
 		panic(transitionFail(n.state, nodeStateSyncing))
 	}
@@ -431,7 +538,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToFinalizedStateNotAvailable(fn fu
 	switch n.state {
 	case nodeStateAlive:
 		n.rpc.Close()
-		n.state = nodeStateFinalizedStateNotAvailable
+		n.setStateLocked(nodeStateFinalizedStateNotAvailable)
 	default:
 		panic(transitionFail(n.state, nodeStateFinalizedStateNotAvailable))
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -44,6 +45,13 @@ type FinalizedStateCheckConfig interface {
 	FinalizedStateCheckFailureThreshold() uint32
 }
 
+// FinalizedBlockOutOfSyncFallbackConfig is an optional, opt-in interface. When enabled, a node lagging on finalized
+// block stays routable if no healthy peer offers a more recent finalized block, trading the EnforceRepeatableRead
+// guarantee for liveness during such windows. Ignored unless EnforceRepeatableRead is enabled.
+type FinalizedBlockOutOfSyncFallbackConfig interface {
+	FinalizedBlockOutOfSyncFallbackEnabled() bool
+}
+
 // FinalizedStateChecker is an optional interface for RPCClients that support finalized state checks.
 // It is optional (not part of RPCClient) so non-EVM multinode consumers avoid boilerplate and review churn; see aliveLoop in node_lifecycle.go.
 type FinalizedStateChecker interface {
@@ -70,6 +78,27 @@ type nodeMetrics interface {
 	IncrementPollsFailed(ctx context.Context, nodeName string)
 	IncrementPollsSuccess(ctx context.Context, nodeName string)
 	IncrementFinalizedStateFailed(ctx context.Context, nodeName string)
+}
+
+// healthSnapshotReporter is kept out of Node so external implementations are unaffected.
+type healthSnapshotReporter interface {
+	loadHealthSnapshot() (healthy bool, latest ChainInfo)
+}
+
+// finalizedBlockOutOfSyncFallbackReporter lets MultiNode tell whether any node requested the fallback.
+type finalizedBlockOutOfSyncFallbackReporter interface {
+	finalizedBlockOutOfSyncFallbackEnabled() bool
+}
+
+// healthyPeersProvider is an optional extension of PoolChainInfoProvider, kept out of that exported interface so
+// external implementations are unaffected. If the pool does not implement it, or cannot read the health of every
+// primary node, the finalized block out-of-sync fallback stays disabled and strict EnforceRepeatableRead applies.
+type healthyPeersProvider interface {
+	// HealthyPeersChainInfo returns the number of healthy nodes (excluding callerName), ignoring finalized-block lag,
+	// and the highest latest ChainInfo among them. Must not acquire node state locks: called from within Node.State().
+	HealthyPeersChainInfo(callerName string) (int, ChainInfo)
+	// nodesWithoutHealthSnapshot returns the names of primary nodes that do not implement healthSnapshotReporter.
+	nodesWithoutHealthSnapshot() []string
 }
 
 type Node[
@@ -129,10 +158,19 @@ type node[
 	finalizedStateChecker FinalizedStateChecker // set in NewNode when rpc implements FinalizedStateChecker
 	isLoadBalancedRPC     bool
 
+	finalizedBlockOutOfSyncFallback bool // set in NewNode from FinalizedBlockOutOfSyncFallbackConfig
+	// healthyPeers is set in SetPoolChainInfoProvider only when the fallback is enabled and the pool supports it;
+	// nil means strict EnforceRepeatableRead behaviour.
+	healthyPeers healthyPeersProvider
+
 	stateMu             sync.RWMutex // protects state* fields
 	state               nodeState
 	stateHealthFailures healthCheckFailures
 	stateSyncIssues     syncStatus
+
+	// healthSnapshot is read lock-free by peers from within their State(): taking a peer's stateMu there can deadlock.
+	healthSnapshot          atomic.Bool
+	servingDelayedFinalized atomic.Bool
 
 	poolInfoProvider PoolChainInfoProvider
 
@@ -190,6 +228,9 @@ func NewNode[
 	if fs, ok := any(rpc).(FinalizedStateChecker); ok {
 		n.finalizedStateChecker = fs
 	}
+	if cfg, ok := n.nodePoolCfg.(FinalizedBlockOutOfSyncFallbackConfig); ok {
+		n.finalizedBlockOutOfSyncFallback = cfg.FinalizedBlockOutOfSyncFallbackEnabled()
+	}
 	n.isLoadBalancedRPC = isLoadBalancedRPC
 	n.chainFamily = chainFamily
 	return n
@@ -244,7 +285,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) close() error {
 	defer n.stateMu.Unlock()
 
 	close(n.stopCh)
-	n.state = nodeStateClosed
+	n.setStateLocked(nodeStateClosed)
 	return nil
 }
 

@@ -86,8 +86,29 @@ func NewMultiNode[
 	c.lggr = c.eng.WithOptions(zap.AddStacktrace(zapcore.PanicLevel))
 
 	c.lggr.Debugf("The MultiNode is configured to use NodeSelectionMode: %s", selectionMode)
+	c.warnIfFinalizedBlockOutOfSyncFallbackUnsupported()
 
 	return c
+}
+
+// warnIfFinalizedBlockOutOfSyncFallbackUnsupported logs once per pool when nodes requested the fallback but some
+// primary nodes (e.g. wrappers around a Node) cannot report health. Those nodes keep strict behaviour; see
+// node.SetPoolChainInfoProvider.
+func (c *MultiNode[CHAIN_ID, RPC]) warnIfFinalizedBlockOutOfSyncFallbackUnsupported() {
+	requested := false
+	for _, n := range c.primaryNodes {
+		if f, ok := n.(finalizedBlockOutOfSyncFallbackReporter); ok && f.finalizedBlockOutOfSyncFallbackEnabled() {
+			requested = true
+			break
+		}
+	}
+	if !requested {
+		return
+	}
+	if missing := c.nodesWithoutHealthSnapshot(); len(missing) > 0 {
+		c.lggr.Warnw("Finalized block out-of-sync fallback is enabled, but some nodes in the pool do not report health; "+
+			"keeping strict EnforceRepeatableRead behaviour for the whole pool", "nodes", missing)
+	}
 }
 
 func (c *MultiNode[CHAIN_ID, RPC]) ChainID() CHAIN_ID {
@@ -275,6 +296,40 @@ func (c *MultiNode[CHAIN_ID, RPC]) LatestChainInfo(callerName string) (int, Chai
 	return nLiveNodes, ch
 }
 
+// nodesWithoutHealthSnapshot implements healthyPeersProvider.
+func (c *MultiNode[CHAIN_ID, RPC]) nodesWithoutHealthSnapshot() []string {
+	var names []string
+	for _, n := range c.primaryNodes {
+		if _, ok := n.(healthSnapshotReporter); !ok {
+			names = append(names, n.Name())
+		}
+	}
+	return names
+}
+
+// HealthyPeersChainInfo implements healthyPeersProvider.
+func (c *MultiNode[CHAIN_ID, RPC]) HealthyPeersChainInfo(callerName string) (int, ChainInfo) {
+	var nHealthy int
+	ch := ChainInfo{
+		TotalDifficulty: big.NewInt(0),
+	}
+	for _, n := range c.primaryNodes {
+		reporter, ok := n.(healthSnapshotReporter)
+		if !ok || n.Name() == callerName {
+			continue
+		}
+		healthy, latest := reporter.loadHealthSnapshot()
+		if !healthy {
+			continue
+		}
+		nHealthy++
+		ch.BlockNumber = max(ch.BlockNumber, latest.BlockNumber)
+		ch.FinalizedBlockNumber = max(ch.FinalizedBlockNumber, latest.FinalizedBlockNumber)
+		ch.TotalDifficulty = MaxTotalDifficulty(ch.TotalDifficulty, latest.TotalDifficulty)
+	}
+	return nHealthy, ch
+}
+
 // HighestUserObservations - returns highest ChainInfo ever observed by any user of the MultiNode
 func (c *MultiNode[CHAIN_ID, RPC]) HighestUserObservations() ChainInfo {
 	ch := ChainInfo{
@@ -360,8 +415,10 @@ func (c *MultiNode[CHAIN_ID, RPC]) report(nodesStateInfo []nodeWithState) {
 	var dead int
 	counts := make(map[nodeState]int)
 	for i, n := range c.primaryNodes {
+		// Liveness (DeadSince, health errors) follows routing via State(); metrics use StateForMetrics(), which also
+		// exposes failures hidden by fallbacks. Routing can retain the last unhealthy node for optimistic retries, and
+		// a node serving a delayed finalized view counts as alive here but as FinalizedBlockOutOfSync in metrics.
 		state := n.State()
-		// Routing can retain the last unhealthy node for optimistic retries.
 		counts[n.StateForMetrics()]++
 		nodesStateInfo[i].State = state.String()
 		if state == nodeStateAlive {

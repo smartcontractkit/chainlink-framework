@@ -26,6 +26,11 @@ type testNodeConfig struct {
 	deathDeclarationDelay               time.Duration
 	newHeadsPollInterval                time.Duration
 	finalizedStateCheckFailureThreshold uint32
+	finalizedBlockOutOfSyncFallback     bool
+}
+
+func (n testNodeConfig) FinalizedBlockOutOfSyncFallbackEnabled() bool {
+	return n.finalizedBlockOutOfSyncFallback
 }
 
 func (n testNodeConfig) NewHeadsPollInterval() time.Duration {
