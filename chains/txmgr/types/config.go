@@ -37,6 +37,18 @@ type BroadcasterTransactionsConfig interface {
 	UnknownErrorRetryTimeout() time.Duration
 }
 
+// HederaBroadcastConfig is an optional interface implemented by txConfig.
+// When HederaSequencePollTimeout is unset or zero, the broadcaster keeps legacy behavior:
+// a single immediate SequenceAt check after a successful send with no polling backoff.
+type HederaBroadcastConfig interface {
+	// HederaSequencePollTimeout is the total time to wait for the mined nonce to advance.
+	// Nil or zero disables polling (legacy behavior).
+	HederaSequencePollTimeout() *time.Duration
+	// HederaSequencePollInterval is the delay between SequenceAt checks while polling.
+	// Nil uses the framework default. Ignored when polling is disabled.
+	HederaSequencePollInterval() *time.Duration
+}
+
 type BroadcasterListenerConfig interface {
 	FallbackPollInterval() time.Duration
 }
