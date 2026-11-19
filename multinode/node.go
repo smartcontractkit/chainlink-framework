@@ -19,6 +19,7 @@ var errInvalidChainID = errors.New("invalid chain id")
 type NodeConfig interface {
 	PollFailureThreshold() uint32
 	PollSuccessThreshold() uint32
+	RedialBackoffMin() time.Duration
 	PollInterval() time.Duration
 	SelectionMode() string
 	SyncThreshold() uint32
